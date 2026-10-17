@@ -1,0 +1,2 @@
+ALTER TABLE "Song" ADD COLUMN IF NOT EXISTS "submissionAnonymous" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "SystemSettings" ADD COLUMN IF NOT EXISTS "allowAnonymousSubmission" boolean DEFAULT false NOT NULL;

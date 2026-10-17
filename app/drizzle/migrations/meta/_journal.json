@@ -411,19 +411,33 @@
     {
       "idx": 58,
       "version": "7",
+      "when": 1791966443301,
+      "tag": "20261014082723_global_submission_limit",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1792242270895,
+      "tag": "20261017130430_add_submission_anonymous",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
       "when": 1792300000000,
       "tag": "20261017220000_add_user_likes_visible",
       "breakpoints": true
     },
     {
-      "idx": 59,
+      "idx": 61,
       "version": "7",
       "when": 1792303600000,
       "tag": "20261017230000_add_vote_reveal_flag",
       "breakpoints": true
     },
     {
-      "idx": 60,
+      "idx": 62,
       "version": "7",
       "when": 1792305400000,
       "tag": "20261017233000_add_vote_reveal_mode",

@@ -62,7 +62,8 @@ export const usePermissions = () => {
           'music-source',
           'review-notes',
           'review-users',
-          'announcement'
+          'announcement',
+          'system-board'
         ]
       case 'ADMIN':
         return ['overview', 'schedule', 'print', 'songs', 'users', 'grade-class', 'playtimes', 'request-times', 'semesters', 'data-analysis', 'card-codes', 'music-source', 'review-notes', 'review-users', 'announcement']

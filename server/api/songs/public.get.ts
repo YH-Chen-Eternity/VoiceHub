@@ -6,6 +6,7 @@ import { SUBMISSION_NOTE_STATUS } from '~~/server/config/constants'
 import { maskPublicScheduleData,
   applySubmissionAnonymityToSchedules,
   stripAnonymousSongIdentifiersFromSchedules,
+  applySubmissionAnonymityToSchedules,
   type PublicScheduleItem
 } from '../../utils/studentMask'
 import { verifyUserAuth } from '../../utils/auth'
@@ -103,6 +104,7 @@ const loadBasicSchedules = async (client: any, semester: string, user: any, isAd
       hasSubmissionNote: false,
       submissionNote: null,
       submissionNotePublic: false,
+      submissionAnonymous: false,
       preferredPlayTimeId: null,
       requesterId: row.requesterId ? Number(row.requesterId) : null,
       submissionAnonymous: row.submissionAnonymous === true,
@@ -273,6 +275,7 @@ export default defineEventHandler(async (event) => {
         s."createdAt",
         s."submissionNote",
         s."submissionNotePublic",
+        s."submissionAnonymous",
         s."submissionNotePublicStatus" AS "songSubmissionNotePublicStatus",
         s."submissionAnonymous",
         CASE WHEN rm.id IS NOT NULL THEN rm.submission_note ELSE s."submissionNote" END AS "effectiveSubmissionNote",
@@ -408,6 +411,7 @@ export default defineEventHandler(async (event) => {
           ),
           requesterGrade: row.requesterGrade || null,
           requesterClass: row.requesterClass || null,
+          submissionAnonymous: row.submissionAnonymous === true,
           collaborators,
           voteCount: Number(row.voteCount || 0),
           played: row.songPlayed === true,
@@ -439,6 +443,8 @@ export default defineEventHandler(async (event) => {
     if (shouldHideStudentInfo && !isAdmin) {
       maskPublicScheduleData(formattedSchedules)
     }
+    // 逐条匿名：匿名投稿对所有非管理员统一显示「匿名投稿」
+    applySubmissionAnonymityToSchedules(formattedSchedules, { id: user?.id ?? null, isAdmin })
     if (!user) {
       stripAnonymousSongIdentifiersFromSchedules(formattedSchedules)
     }

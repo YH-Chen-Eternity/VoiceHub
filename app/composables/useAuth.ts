@@ -238,6 +238,7 @@ export const useAuth = () => {
     setInitialPassword,
     refreshUser,
     initAuth,
+    setAuthState,
     getToken,
     getAuthConfig
   }

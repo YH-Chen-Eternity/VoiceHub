@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 import { db } from '~/drizzle/db'
 import {
   notifications,
@@ -541,7 +542,7 @@ export async function createSongPlayedNotification(songId: number) {
 /**
  * 创建歌曲获得投票的通知
  */
-export async function createSongVotedNotification(songId: number, voterId: number) {
+export async function createSongVotedNotification(songId: number, voterId: number, revealToRequester = true) {
   try {
     // 获取歌曲信息
     const songResult = await db.select().from(songs).where(eq(songs.id, songId)).limit(1)
@@ -586,7 +587,9 @@ export async function createSongVotedNotification(songId: number, voterId: numbe
       return null
     }
 
-    const message = `您投稿的歌曲《${song.title}》获得了一个新的投票，当前共有 ${songVotes.length} 个投票。`
+    const voterDisplayName = String(voter.name || voter.username || '').trim()
+      const voterLabel = revealToRequester && voterDisplayName ? `${voterDisplayName} ` : '一位同学'
+      const message = `您投稿的歌曲《${song.title}》获得了 ${voterLabel}的投票，当前共有 ${songVotes.length} 个投票。`
 
     // 防重复通知：检查最近5分钟内是否有相同歌曲的投票通知
     const fiveMinutesAgo = new Date(getBeijingTime().getTime() - 5 * 60 * 1000)

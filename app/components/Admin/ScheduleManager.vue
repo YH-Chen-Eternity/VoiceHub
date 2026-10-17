@@ -1557,7 +1557,7 @@ Modified by YH-Chen on 2026-10-17
 
           <div>
             <label class="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-1.5">
-              热度权重 · {{ autoScheduleHeatWeight }}%
+              {{ t.scheduleHeat.label }} · {{ autoScheduleHeatWeight }}%
             </label>
             <input
               v-model.number="autoScheduleHeatWeight"
@@ -1568,8 +1568,7 @@ Modified by YH-Chen on 2026-10-17
               type="range"
             >
             <p class="mt-1.5 text-[10px] text-text-tertiary leading-relaxed">
-              热度加权随机：{{ autoScheduleHeatWeight }}% 看热度（票高的更容易排前面）、{{ 100 - autoScheduleHeatWeight }}% 随机，
-              所以不会变成死板的按票数排序。0% = 纯随机，100% ≈ 完全按热度。
+              {{ t.scheduleHeat.hint(autoScheduleHeatWeight) }}
             </p>
           </div>
 
@@ -1915,6 +1914,7 @@ import { useLocale } from '~/utils/locale'
 import { useServerErrors } from '~/composables/useLocaleText'
 import { formatDuration, addDaysToString, getDaysBetween } from '~/utils/timeUtils'
 import { autoSchedule, autoScheduleExhaustive, poolCandidateFromItem } from '~/utils/autoSchedule'
+import { useNewUi } from '~/composables/useNewUi'
 import { getMusicUrlResult, isKnownInvalidQqAudioUrl } from '~/utils/musicUrl'
 
 import SchedulePlaylistFilterModal from './SchedulePlaylistFilterModal.vue'
@@ -2031,6 +2031,7 @@ const songSortOption = ref('votes-desc')
 const hasChanges = ref(false)
 const searchQuery = ref('')
 const selectedGrade = ref('')
+const t = useNewUi()
 const activeTab = ref('normal')
 const mobileTab = ref('pending')
 const mobileFiltersOpen = ref(false)

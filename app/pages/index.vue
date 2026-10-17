@@ -1690,10 +1690,10 @@ const handleVote = async (song) => {
     // 检查是否是取消投票请求
     if (song.unvote) {
       // 传递完整对象以支持撤销投票功能
-      await songs.voteSong(song)
+      await songs.voteSong(song, { revealToRequester: song?.revealToRequester === true })
     } else {
       // 保持向后兼容，传递ID
-      await songs.voteSong(song.id)
+      await songs.voteSong(song.id, { revealToRequester: song?.revealToRequester === true })
     }
 
     // 静默刷新歌曲列表以获取最新状态，但不影响当前视图

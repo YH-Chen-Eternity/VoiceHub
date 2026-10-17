@@ -32,7 +32,7 @@
       <span class="footer-item">{{ common?.workerIn || 'Worker in' }} {{ responseTime }}ms</span>
       <span class="footer-item">
         <a class="voicehub-link" :href="repoUrl" rel="noopener noreferrer" target="_blank">
-          {{ systemName }} v{{ systemVersion }}
+          {{ systemName }} 修改版
         </a>
       </span>
       <span v-if="isNetlify" class="footer-item">

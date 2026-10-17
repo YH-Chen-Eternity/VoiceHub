@@ -157,7 +157,8 @@ export const useSongs = () => {
             requester: schedule.song.requester,
             requesterGrade: schedule.song.requesterGrade || null,
             requesterClass: schedule.song.requesterClass || null,
-            requesterId: 0, // 默认值，公共API不提供这个信息
+            // 公共 API 会返回 requesterId（匿名投稿服务端已清空），用于点名字查看对方点赞
+            requesterId: Number(schedule.song.requesterId) || 0,
             voteCount: schedule.song.voteCount,
             played: schedule.song.played || false,
             playedAt: schedule.song.playedAt || null,
@@ -315,7 +316,10 @@ export const useSongs = () => {
   }
 
   // 投票
-  const voteSong = async (songId: number | { id: number; unvote?: boolean }) => {
+  const voteSong = async (
+    songId: number | { id: number; unvote?: boolean },
+    options: { revealToRequester?: boolean } = {}
+  ) => {
     if (!isAuthenticated.value) {
       showNotification(actionLocale.value.loginVote, 'error')
       return null
@@ -346,7 +350,9 @@ export const useSongs = () => {
           method: 'POST',
           body: {
             songId: actualSongId,
-            unvote: isUnvote // 添加取消投票参数
+            unvote: isUnvote, // 添加取消投票参数
+            // 点赞人勾选"署名"时，投稿人的通知里会显示昵称
+            revealToRequester: options.revealToRequester === true
           },
           ...authConfig
         })

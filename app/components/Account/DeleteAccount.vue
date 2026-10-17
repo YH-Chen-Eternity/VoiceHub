@@ -24,17 +24,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         <UserX :size="20" class="text-error" />
       </div>
       <div>
-        <h2 class="text-base font-black text-text-primary">注销账号</h2>
-        <p class="text-xs text-text-tertiary mt-0.5">
-          注销后数据保留 30 天；<b>30 天内登录一次即可自动恢复</b>，逾期未登录才会真正清理。
-        </p>
+        <h2 class="text-base font-black text-text-primary">{{ t.deleteAccount.title }}</h2>
+        <p class="text-xs text-text-tertiary mt-0.5">{{ t.deleteAccount.desc }}</p>
       </div>
     </div>
 
     <!-- 已处于宽限期 -->
     <div v-if="state.pending" class="space-y-3">
       <div class="rounded-xl border border-warning-40 bg-warning-10 px-4 py-3 text-xs text-warning-200">
-        账号处于注销宽限期，计划清理时间：<b>{{ formattedScheduledAt }}</b>。现在登录站点即可自动撤销注销。
+        {{ t.deleteAccount.grace(formattedScheduledAt) }}
       </div>
       <button
         class="inline-flex items-center gap-2 rounded-xl border border-border-secondary bg-bg-primary-40 px-4 py-2.5 text-xs font-bold text-text-secondary transition-all hover:bg-bg-tertiary disabled:opacity-50"
@@ -42,17 +40,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         type="button"
         @click="cancelDeletion"
       >
-        <Undo2 :size="14" /> 撤销注销申请
+        <Undo2 :size="14" /> {{ t.deleteAccount.cancelButton }}
       </button>
     </div>
 
     <!-- 正常状态：两步验证 -->
     <div v-else class="max-w-md space-y-3">
       <p class="text-xs text-text-secondary">
-        为防止误操作，注销前需要验证你绑定的邮箱。验证通过后账号进入 30 天宽限期。
+        {{ t.deleteAccount.intro }}
       </p>
       <p v-if="!state.hasEmail" class="rounded-xl border border-warning-40 bg-warning-10 px-4 py-3 text-xs text-warning-200">
-        你的账号没有绑定邮箱，无法自助注销，请联系广播站管理员处理。
+        {{ t.deleteAccount.noEmail }}
       </p>
 
       <template v-else>
@@ -64,9 +62,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             @click="sendCode"
           >
             <Mail :size="14" />
-            {{ countdown > 0 ? `${countdown}s 后可重发` : sending ? '发送中…' : '发送邮箱验证码' }}
+            {{ countdown > 0 ? t.deleteAccount.resendIn(countdown) : sending ? t.deleteAccount.sending : t.deleteAccount.sendCode }}
           </button>
-          <span v-if="maskedEmail" class="text-[11px] text-text-tertiary">验证码将发送至 {{ maskedEmail }}</span>
+          <span v-if="maskedEmail" class="text-[11px] text-text-tertiary">{{ t.deleteAccount.codeSentTo(maskedEmail) }}</span>
         </div>
 
         <input
@@ -74,7 +72,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
           class="w-full rounded-xl border border-border-secondary bg-bg-primary-40 px-4 py-2.5 text-sm tracking-[0.3em] text-text-primary focus:border-primary-50 focus:outline-none"
           inputmode="numeric"
           maxlength="6"
-          placeholder="请输入 6 位验证码"
+          :placeholder="t.deleteAccount.codePlaceholder"
           type="text"
         />
 
@@ -85,7 +83,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
           @click="confirmDeletion"
         >
           <RefreshCw v-if="submitting" :size="14" class="animate-spin" />
-          {{ submitting ? '处理中…' : '确认注销账号' }}
+          {{ submitting ? t.deleteAccount.processing : t.deleteAccount.confirmButton }}
         </button>
       </template>
     </div>
@@ -95,7 +93,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 <script setup>
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { Mail, RefreshCw, Undo2, UserX } from '@lucide/vue'
+import { useNewUi } from '~/composables/useNewUi'
 
+const t = useNewUi()
 const { showToast } = useToast()
 const state = ref({ pending: false, hasEmail: false, scheduledAt: null })
 const code = ref('')
@@ -141,10 +141,10 @@ const sendCode = async () => {
   try {
     const res = await $fetch('/api/user/delete-account/code', { method: 'POST' })
     maskedEmail.value = res?.email || ''
-    showToast?.('验证码已发送，请查收邮箱', 'success')
+    showToast?.(t.value.deleteAccount.codeSent, 'success')
     startCountdown()
   } catch (error) {
-    showToast?.(error?.data?.message || '发送失败，请稍后重试', 'error')
+    showToast?.(error?.data?.message || t.value.deleteAccount.sendFailed, 'error')
   } finally {
     sending.value = false
   }
@@ -154,11 +154,11 @@ const confirmDeletion = async () => {
   submitting.value = true
   try {
     await $fetch('/api/user/delete-account/confirm', { method: 'POST', body: { code: code.value.trim() } })
-    showToast?.('已进入 30 天注销宽限期，期间登录即可恢复', 'success')
+    showToast?.(t.value.deleteAccount.confirmed, 'success')
     code.value = ''
     await load()
   } catch (error) {
-    showToast?.(error?.data?.message || '注销失败，请稍后重试', 'error')
+    showToast?.(error?.data?.message || t.value.deleteAccount.failed, 'error')
   } finally {
     submitting.value = false
   }
@@ -168,10 +168,10 @@ const cancelDeletion = async () => {
   submitting.value = true
   try {
     await $fetch('/api/user/delete-account/cancel', { method: 'POST' })
-    showToast?.('注销申请已撤销，账号已恢复', 'success')
+    showToast?.(t.value.deleteAccount.cancelSuccess, 'success')
     await load()
   } catch (error) {
-    showToast?.(error?.data?.message || '撤销失败，请稍后重试', 'error')
+    showToast?.(error?.data?.message || t.value.deleteAccount.cancelFailed, 'error')
   } finally {
     submitting.value = false
   }

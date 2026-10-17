@@ -1,3 +1,4 @@
+<!-- Modified by YH-Chen on 2026-10-17 -->
 <template>
   <div class="song-list">
     <div class="song-list-header">
@@ -495,6 +496,60 @@
       </div>
     </Transition>
   </div>
+  <!-- 点赞署名选择：匿名 or 署名 + 是否记住该选择 -->
+  <Teleport to="body">
+    <Transition name="fade">
+      <div
+        v-if="pendingVoteSong"
+        class="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        @click.self="cancelReveal"
+      >
+        <div class="w-full max-w-sm rounded-2xl border border-border-secondary bg-bg-primary p-5 shadow-2xl">
+          <h3 class="text-sm font-black text-text-primary">{{ t.voteReveal.title }}</h3>
+          <p class="mt-1 text-[11px] text-text-tertiary">{{ t.voteReveal.desc }}</p>
+          <div class="mt-4 space-y-2">
+            <button
+              class="w-full rounded-xl border px-3 py-2.5 text-left transition-all"
+              :class="revealChoice === 'ANONYMOUS' ? 'border-primary bg-primary-10' : 'border-border-secondary hover:bg-bg-tertiary'"
+              type="button"
+              @click="revealChoice = 'ANONYMOUS'"
+            >
+              <p class="text-xs font-bold text-text-primary">{{ t.voteReveal.anonymous }}</p>
+              <p class="mt-0.5 text-[10px] text-text-tertiary">{{ t.voteReveal.anonymousHint }}</p>
+            </button>
+            <button
+              class="w-full rounded-xl border px-3 py-2.5 text-left transition-all"
+              :class="revealChoice === 'REVEAL' ? 'border-primary bg-primary-10' : 'border-border-secondary hover:bg-bg-tertiary'"
+              type="button"
+              @click="revealChoice = 'REVEAL'"
+            >
+              <p class="text-xs font-bold text-text-primary">{{ t.voteReveal.reveal }}</p>
+              <p class="mt-0.5 text-[10px] text-text-tertiary">{{ t.voteReveal.revealHint }}</p>
+            </button>
+          </div>
+          <label class="mt-3 flex items-start gap-2 rounded-xl bg-bg-secondary-60 px-3 py-2 text-[11px] text-text-secondary">
+            <input v-model="rememberChoice" class="mt-0.5 h-3.5 w-3.5 accent-[var(--primary)]" type="checkbox" />
+            <span class="min-w-0">
+              <span class="block font-bold">{{ t.voteReveal.remember }}</span>
+              <span class="mt-0.5 block text-text-tertiary">{{ t.voteReveal.rememberHint }}</span>
+            </span>
+          </label>
+          <div class="mt-4 flex gap-2">
+            <button
+              class="flex-1 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white transition-all hover:bg-primary-hover"
+              type="button"
+              @click="confirmReveal"
+            >{{ t.voteReveal.confirm }}</button>
+            <button
+              class="rounded-xl border border-border-secondary px-4 py-2.5 text-xs font-bold text-text-secondary transition-all hover:bg-bg-tertiary"
+              type="button"
+              @click="cancelReveal"
+            >{{ t.voteReveal.cancel }}</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
@@ -511,6 +566,7 @@ import { convertToHttps } from '~/utils/url'
 import { isBilibiliSong } from '~/utils/bilibiliSource'
 import { getMusicUrl as resolveMusicUrl } from '~/utils/musicUrl'
 import { useLocale } from '~/utils/locale'
+import { useNewUi } from '~/composables/useNewUi'
 import { useThemeImage } from '~/composables/useThemeImage'
 
 import dayjs from 'dayjs'
@@ -542,6 +598,7 @@ const voteInProgress = ref(false)
 const actionInProgress = ref(false)
 const { currentLocale, songs: songsLocale } = useLocale()
 const locale = computed(() => {
+const t = useNewUi()
   const base = songsLocale.value?.songList || {}
   const emptyText = () => ''
   return useSafeLocale({
@@ -637,6 +694,7 @@ const handleSemesterFilterChange = (event) => {
 
 // 组件挂载和卸载时添加/移除窗口大小变化监听
 onMounted(async () => {
+  loadRevealMode()
   checkMobile()
   window.addEventListener('resize', checkMobile)
 
@@ -914,6 +972,54 @@ const getVoteButtonTitle = (song) => {
   return song.voted ? locale.value.unlike : locale.value.like
 }
 
+// 点赞时是否让投稿人知道是我点的（默认不公开，勾选后才署名）
+// 点赞署名偏好：ASK=每次询问（默认）/ ANONYMOUS=总是匿名 / REVEAL=总是署名
+const revealMode = ref('ASK')
+const pendingVoteSong = ref(null)
+const revealChoice = ref('ANONYMOUS')
+const rememberChoice = ref(false)
+
+const loadRevealMode = async () => {
+  if (!isAuthenticated.value) return
+  try {
+    const res = await $fetch('/api/user/vote-reveal')
+    const mode = res?.data?.voteRevealMode
+    if (mode === 'ANONYMOUS' || mode === 'REVEAL' || mode === 'ASK') revealMode.value = mode
+  } catch {
+    // 读取失败不阻塞点赞
+  }
+}
+
+const doVote = (song, reveal) => {
+  voteInProgress.value = true
+  try {
+    emit('vote', { ...song, unvote: !!song.voted, revealToRequester: reveal === true })
+  } finally {
+    voteInProgress.value = false
+  }
+}
+
+const cancelReveal = () => {
+  pendingVoteSong.value = null
+}
+
+const confirmReveal = async () => {
+  const song = pendingVoteSong.value
+  if (!song) return
+  const reveal = revealChoice.value === 'REVEAL'
+  pendingVoteSong.value = null
+  if (rememberChoice.value) {
+    try {
+      const nextMode = reveal ? 'REVEAL' : 'ANONYMOUS'
+      await $fetch('/api/user/vote-reveal', { method: 'PUT', body: { voteRevealMode: nextMode } })
+      revealMode.value = nextMode
+    } catch {
+      if (window.$showNotification) window.$showNotification(t.value.voteReveal.saveFailed, 'error')
+    }
+  }
+  doVote(song, reveal)
+}
+
 const handleVote = async (song) => {
   // 检查用户是否登录
   if (!isAuthenticated.value) {
@@ -944,21 +1050,34 @@ const handleVote = async (song) => {
     return
   }
 
-  voteInProgress.value = true
-  try {
-    if (song.voted) {
-      // 如果已投票，则调用撤销投票
-      emit('vote', { ...song, unvote: true })
-    } else {
-      // 正常投票
-      emit('vote', song)
-    }
-  } catch (err) {
-    // 投票处理失败
-  } finally {
-    voteInProgress.value = false
+  // 撤销点赞不询问
+
+  if (song.voted) {
+
+    doVote(song, false)
+
+    return
+
   }
-}
+
+  // 已记住偏好：直接用
+
+  if (revealMode.value === 'ANONYMOUS' || revealMode.value === 'REVEAL') {
+
+    doVote(song, revealMode.value === 'REVEAL')
+
+    return
+
+  }
+
+  // 默认：弹窗让同学选匿名/署名
+
+  revealChoice.value = 'ANONYMOUS'
+
+  rememberChoice.value = false
+
+  pendingVoteSong.value = song
+  }
 
 // 处理撤回
 const handleWithdraw = (song) => {
@@ -2210,6 +2329,17 @@ const vRipple = {
   align-items: center;
   margin-bottom: 0.5rem;
   width: 100%;
+}
+
+.requester-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.requester-link:hover {
+  color: var(--primary, #3b82f6);
+  border-bottom-color: var(--primary, #3b82f6);
 }
 
 .requester {

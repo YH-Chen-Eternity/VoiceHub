@@ -40,6 +40,9 @@ export default defineEventHandler(async (event) => {
   if (body?.imageUrl !== undefined) patch.imageUrl = String(body.imageUrl || '').trim() || null
   if (body?.linkUrl !== undefined) patch.linkUrl = String(body.linkUrl || '').trim() || null
   if (body?.displayMode !== undefined) patch.displayMode = body.displayMode === 'WRAP' ? 'WRAP' : 'SCROLL'
+  if (body?.fontSize !== undefined) {
+    patch.fontSize = body.fontSize === 'SMALL' ? 'SMALL' : body.fontSize === 'LARGE' ? 'LARGE' : 'MEDIUM'
+  }
   if (body?.enabled !== undefined) patch.enabled = body.enabled === true
   if (body?.sortOrder !== undefined) {
     const n = Number(body.sortOrder)

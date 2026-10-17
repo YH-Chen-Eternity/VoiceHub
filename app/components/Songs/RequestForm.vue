@@ -474,7 +474,7 @@ Modified by YH-Chen on 2026-10-17
                           v-model="submissionNotePublic"
                           type="checkbox"
                           class="custom-checkbox-input"
-                          :disabled="submissionNoteRequiresApproval || !siteConfigLoaded"
+                          :disabled="!siteConfigLoaded"
                         />
                         <span class="custom-checkbox-box">
                           <svg
@@ -508,6 +508,34 @@ Modified by YH-Chen on 2026-10-17
                       <span class="truncate">{{ locale.submissionNoteApprovalHint }}</span>
                     </p>
                     <span class="shrink-0">{{ submissionNote.length }}/300</span>
+                  </div>
+
+                  <!-- 已选歌曲 + 确认投稿（与留言同一个框） -->
+                  <div class="mt-2.5 rounded-xl border border-border-secondary bg-bg-primary-40 p-2.5">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">
+                      {{ t.requestConfirm.selectedSong }}
+                    </p>
+                    <p v-if="selectedSong" class="mt-0.5 truncate text-xs font-bold text-text-primary">
+                      {{ selectedSong.title }}
+                      <span class="font-normal text-text-tertiary"> — {{ selectedSong.artist }}</span>
+                    </p>
+                    <p v-else class="mt-0.5 text-[11px] text-text-tertiary">
+                      {{ t.requestConfirm.pickSongHint }}
+                    </p>
+                    <div class="mt-2 flex items-center justify-end gap-2">
+                      <button
+                        v-if="selectedSong"
+                        class="rounded-lg border border-border-secondary px-2.5 py-1.5 text-[11px] font-bold text-text-secondary transition-all hover:bg-bg-tertiary"
+                        type="button"
+                        @click="selectedSong = null"
+                      >{{ locale.cancel }}</button>
+                      <button
+                        :disabled="!selectedSong || submitting"
+                        class="rounded-lg bg-primary px-3 py-1.5 text-[11px] font-black text-white transition-all hover:bg-primary-hover disabled:opacity-40"
+                        type="button"
+                        @click="submitSelectedSong"
+                      >{{ submitting ? locale.submitting : locale.confirmSubmit }}</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -773,7 +801,7 @@ Modified by YH-Chen on 2026-10-17
                             !canSubmitFromSearch || isSongBlockedByRestriction(result) || submitting
                           "
                           class="select-btn"
-                          @click.stop.prevent="submitSong(result)"
+                          @click.stop.prevent="selectSongForSubmit(result)"
                         >
                           {{ locale.chooseSubmit }}
                         </button>
@@ -859,7 +887,7 @@ Modified by YH-Chen on 2026-10-17
                             : ''
                         "
                         class="select-btn"
-                        @click.stop.prevent="submitSong(result)"
+                        @click.stop.prevent="selectSongForSubmit(result)"
                       >
                         {{
                           submitting
@@ -928,6 +956,7 @@ Modified by YH-Chen on 2026-10-17
                 </div>
               </div>
             </Transition>
+
           </div>
         </div>
       </form>
@@ -1514,6 +1543,7 @@ import { useMusicSources } from '~/composables/useMusicSources'
 import { useAudioQuality } from '~/composables/useAudioQuality'
 import { usePlatformConfig } from '~/composables/usePlatformConfig'
 import { useLocale } from '~/utils/locale'
+import { useNewUi } from '~/composables/useNewUi'
 import CustomSelect from '~/components/UI/Common/CustomSelect.vue'
 import AppSpinner from '~/components/UI/Common/AppSpinner.vue'
 import Icon from '../UI/Icon.vue'
@@ -1545,6 +1575,7 @@ const props = defineProps({
 
 const emit = defineEmits(['request', 'vote'])
 const { songs: songsLocale } = useLocale()
+const t = useNewUi()
 const locale = computed(() => useSafeLocale(songsLocale.value?.requestForm || {}))
 const { t: callLocale } = useLocaleText(locale)
 const { localize: localizeServerError } = useServerErrors()
@@ -3504,6 +3535,21 @@ const resolveSubmissionDuration = async (result, actualMusicPlatform, fallbackUr
 }
 
 // 提交选中的歌曲
+// 选歌 + 确认投稿：写留言与选歌不分先后，选好后点底部「确认投稿」提交
+const selectedSong = ref(null)
+const selectSongForSubmit = (result) => {
+  selectedSong.value = result
+  if (typeof window !== 'undefined' && window.$showNotification) {
+    window.$showNotification(`已选择《${result?.title || ''}》，填写好留言后点底部「确认投稿」`, 'success')
+  }
+}
+const submitSelectedSong = async () => {
+  const target = selectedSong.value
+  if (!target || submitting.value) return
+  selectedSong.value = null
+  await submitSong(target)
+}
+
 const submitSong = async (result, options = {}) => {
   // 防止重复点击和重复提交
   if (submitting.value) return

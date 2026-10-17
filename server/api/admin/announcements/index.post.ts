@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
   const imageUrl = typeof body?.imageUrl === 'string' ? body.imageUrl.trim() : ''
   const linkUrl = typeof body?.linkUrl === 'string' ? body.linkUrl.trim() : ''
   const displayMode = body?.displayMode === 'WRAP' ? 'WRAP' : 'SCROLL'
+  const fontSize = body?.fontSize === 'SMALL' ? 'SMALL' : body?.fontSize === 'LARGE' ? 'LARGE' : 'MEDIUM'
 
   if (type === 'TEXT' && !text) {
     throw createApiError(400, 'ANNOUNCEMENT_TEXT_REQUIRED', '请填写公告文字')
@@ -52,6 +53,7 @@ export default defineEventHandler(async (event) => {
       imageUrl: imageUrl || null,
       linkUrl: linkUrl || null,
       displayMode,
+      fontSize,
       sortOrder: Number(maxRow?.max || 0) + 1,
       enabled: body?.enabled !== false,
       createdBy: user.id

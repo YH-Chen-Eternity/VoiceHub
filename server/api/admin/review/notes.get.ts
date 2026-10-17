@@ -19,6 +19,7 @@ import { desc, eq, inArray } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import { songReplayRequests, songs, users } from '~/drizzle/schema'
 import { createApiError } from '~~/server/utils/apiError'
+import { SUBMISSION_NOTE_STATUS } from '~~/server/config/constants'
 
 // 公开备注审核：待审= submissionNotePublicStatus = 'PENDING'
 export default defineEventHandler(async (event) => {
@@ -37,7 +38,7 @@ export default defineEventHandler(async (event) => {
       createdAt: songs.createdAt
     })
     .from(songs)
-    .where(eq(songs.submissionNotePublicStatus, 'PENDING'))
+    .where(eq(songs.submissionNotePublicStatus, SUBMISSION_NOTE_STATUS.PENDING))
     .orderBy(desc(songs.createdAt))
     .limit(200)
 
@@ -50,7 +51,7 @@ export default defineEventHandler(async (event) => {
       createdAt: songReplayRequests.createdAt
     })
     .from(songReplayRequests)
-    .where(eq(songReplayRequests.submissionNotePublicStatus, 'PENDING'))
+    .where(eq(songReplayRequests.submissionNotePublicStatus, SUBMISSION_NOTE_STATUS.PENDING))
     .orderBy(desc(songReplayRequests.createdAt))
     .limit(200)
 

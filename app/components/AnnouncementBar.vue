@@ -23,7 +23,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
     设计取向：**克制**——单行高度；文字过长时横向滚动（跑马灯）而不是被省略号截断；
     窄屏自动降字号/降图片高度，不抢首屏内容。
   -->
-  <div v-if="items.length" class="announcement-bar" :class="{ 'is-paused': paused }">
+  <div v-if="items.length" class="announcement-bar" :class="['size-' + (current.fontSize || 'MEDIUM').toLowerCase(), { 'is-paused': paused }]">
     <div class="announcement-inner">
       <button
         v-if="items.length > 1"
@@ -107,7 +107,7 @@ const textRef = ref(null)
 let rotateTimer = null
 
 const current = computed(
-  () => items.value[activeIndex.value] || { type: 'TEXT', text: '', imageUrl: '', linkUrl: '', displayMode: 'SCROLL' }
+  () => items.value[activeIndex.value] || { type: 'TEXT', text: '', imageUrl: '', linkUrl: '', displayMode: 'SCROLL', fontSize: 'MEDIUM' }
 )
 
 /** 该条公告是否为「分行完整显示」模式（后台每条可单独设置） */
@@ -224,9 +224,15 @@ onBeforeUnmount(() => {
   gap: 6px;
   text-decoration: none;
   color: var(--text-secondary, #e2e8f0);
+  /* 字号默认"标准"，可由每条公告的 fontSize 覆盖 */
   font-size: 12.5px;
   line-height: 1.35;
 }
+
+/* 字号档位（后台每条公告可选：小 / 标准 / 大） */
+.announcement-bar.size-small .announcement-item { font-size: 11px; }
+.announcement-bar.size-medium .announcement-item { font-size: 12.5px; }
+.announcement-bar.size-large .announcement-item { font-size: 15px; }
 
 .announcement-icon { flex-shrink: 0; opacity: 0.75; }
 
@@ -347,7 +353,9 @@ onBeforeUnmount(() => {
 
 @media (max-width: 640px) {
   .announcement-inner { min-height: 30px; padding: 5px 8px; gap: 6px; }
-  .announcement-item { font-size: 11.5px; }
+  .announcement-bar.size-small .announcement-item { font-size: 10.5px; }
+  .announcement-bar.size-medium .announcement-item { font-size: 11.5px; }
+  .announcement-bar.size-large .announcement-item { font-size: 13.5px; }
   .announcement-image { max-height: 38px; }
   .announcement-dots { display: none; }
 }

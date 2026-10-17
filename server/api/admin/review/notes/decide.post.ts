@@ -19,6 +19,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import { songReplayRequests, songs } from '~/drizzle/schema'
 import { createApiError } from '~~/server/utils/apiError'
+import { SUBMISSION_NOTE_STATUS } from '~~/server/config/constants'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user
@@ -32,7 +33,7 @@ export default defineEventHandler(async (event) => {
   const approve = body?.approve === true
   if (!Number.isInteger(id) || id <= 0) throw createApiError(400, 'COMMON_INVALID_PARAMS', '参数错误')
 
-  const status = approve ? 'approved' : 'rejected'
+  const status = approve ? SUBMISSION_NOTE_STATUS.APPROVED : SUBMISSION_NOTE_STATUS.REJECTED
 
   if (kind === 'song') {
     await db

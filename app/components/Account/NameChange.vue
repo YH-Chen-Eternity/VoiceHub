@@ -1,22 +1,4 @@
-<!--
-Copyright (C) 2026 YH-Chen
-
-This file is part of VoiceHub-Plus (an unofficial community edition),
-based on VoiceHub <https://github.com/laoshuikaixue/VoiceHub>.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
--->
+<!-- Modified by YH-Chen on 2026-10-17 -->
 <template>
   <section class="rounded-2xl border border-border-secondary-50 bg-bg-secondary-30 p-5 md:p-6">
     <div class="flex items-center gap-3 border-b border-border-secondary-50 pb-5 mb-6">
@@ -24,21 +6,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         <Pencil :size="20" class="text-warning" />
       </div>
       <div>
-        <h2 class="text-base font-black text-text-primary">修改真实姓名</h2>
-        <p class="text-xs text-text-tertiary mt-0.5">
-          当前姓名：{{ currentName || '未填写' }}。提交后需管理员审核，通过后才生效。
-        </p>
+        <h2 class="text-base font-black text-text-primary">{{ t.nameChange.title }}</h2>
+        <p class="text-xs text-text-tertiary mt-0.5">{{ t.nameChange.current(currentName) }}</p>
       </div>
     </div>
 
-    <div v-if="pending" class="mb-4 rounded-xl border border-warning-40 bg-warning-10 px-4 py-3 text-xs text-warning-200">
-      已提交改名申请（{{ pending.oldName || '未填写' }} → <b>{{ pending.newName }}</b>），等待管理员审核。
+    <div
+      v-if="pending"
+      class="mb-4 rounded-xl border border-warning-40 bg-warning-10 px-4 py-3 text-xs text-warning-200"
+    >
+      {{ t.nameChange.pending(pending.oldName, pending.newName) }}
     </div>
     <div
       v-else-if="latest && latest.status === 'REJECTED'"
       class="mb-4 rounded-xl border border-error-30 bg-error-10 px-4 py-3 text-xs text-error-200"
     >
-      上次改名申请被驳回{{ latest.reason ? `：${latest.reason}` : '' }}，可修改后重新提交。
+      {{ t.nameChange.rejected(latest.reason) }}
     </div>
 
     <div class="max-w-md space-y-3">
@@ -46,10 +29,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         v-model="newName"
         class="w-full rounded-xl border border-border-secondary bg-bg-primary-40 px-4 py-2.5 text-sm text-text-primary focus:border-primary-50 focus:outline-none"
         maxlength="20"
-        placeholder="请输入新的真实姓名（只能中文）"
+        :placeholder="t.nameChange.placeholder"
         type="text"
       />
-      <p class="text-[11px] text-text-tertiary">2~20 个汉字，少数民族姓名可用「·」分隔（如 阿依古丽·买买提）。</p>
+      <p class="text-[11px] text-text-tertiary">{{ t.nameChange.hint }}</p>
       <button
         class="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white transition-all hover:bg-primary-hover disabled:opacity-50"
         :disabled="submitting || !newName.trim()"
@@ -57,7 +40,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         @click="submit"
       >
         <RefreshCw v-if="submitting" :size="14" class="animate-spin" />
-        {{ submitting ? '提交中…' : '提交改名申请' }}
+        {{ submitting ? t.nameChange.submitting : t.nameChange.submit }}
       </button>
     </div>
   </section>
@@ -67,7 +50,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 import { computed, onMounted, ref } from 'vue'
 import { RefreshCw, Pencil } from '@lucide/vue'
 import { useAuth } from '~/composables/useAuth'
+import { useNewUi } from '~/composables/useNewUi'
 
+const t = useNewUi()
 const { showToast } = useToast()
 const auth = useAuth()
 const latest = ref(null)
@@ -82,7 +67,7 @@ const load = async () => {
     const res = await $fetch('/api/user/name-change')
     latest.value = res?.data || null
   } catch (error) {
-    console.error('获取改名申请失败:', error)
+    console.error('load name change failed:', error)
   }
 }
 
@@ -92,11 +77,11 @@ const submit = async () => {
   submitting.value = true
   try {
     await $fetch('/api/user/name-change', { method: 'POST', body: { name } })
-    showToast?.('改名申请已提交，等待管理员审核', 'success')
+    showToast?.(t.value.nameChange.success, 'success')
     newName.value = ''
     await load()
   } catch (error) {
-    showToast?.(error?.data?.message || '提交失败，请稍后重试', 'error')
+    showToast?.(error?.data?.message || t.value.nameChange.failed, 'error')
   } finally {
     submitting.value = false
   }

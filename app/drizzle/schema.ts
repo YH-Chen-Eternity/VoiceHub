@@ -46,6 +46,10 @@ export const users = pgTable('User', {
   legalConsentVersion: text('legal_consent_version'),
   legalConsentAt: timestamp('legal_consent_at'),
   // 自助注销：申请时间 + 计划删除时间（默认 30 天后；期间登录会自动撤销）
+  // 我的点赞列表是否对其他同学可见（账号页可切换）
+  likesVisible: boolean('likesVisible').default(true).notNull(),
+  // 点赞时是否让投稿人知道是我：ASK=每次询问（默认）/ ANONYMOUS=总是匿名 / REVEAL=总是署名
+  voteRevealMode: text('voteRevealMode').default('ASK').notNull(),
   deletionRequestedAt: timestamp('deletionRequestedAt'),
   deletionScheduledAt: timestamp('deletionScheduledAt'),
 }, (table) => [
@@ -175,6 +179,8 @@ export const votes = pgTable('Vote', {
   createdAt: timestamp('createdAt').defaultNow().notNull(),
   songId: integer('songId').notNull(),
   userId: integer('userId').notNull(),
+  // 点赞时是否让投稿人知道是谁点的（默认公开；关掉则只显示"有一位同学"）
+  revealToRequester: boolean('revealToRequester').default(true).notNull(),
 }, (table) => [
   unique('vote_song_user_unique').on(table.songId, table.userId),
   index('vote_user_song_idx').on(table.userId, table.songId)
@@ -922,8 +928,10 @@ export const announcements = pgTable('Announcement', {
   imageId: integer('imageId'),
   imageUrl: text('imageUrl'),
   linkUrl: text('linkUrl'),
-  // 文字公告的显示方式：SCROLL=超宽时跑马灯滚动；WRAP=分两行完整显示
+  // 文字公告的显示方式：SCROLL=超宽时跑马灯滚动；WRAP=按需分行完整显示
   displayMode: text('displayMode').default('SCROLL').notNull(),
+  // 文字公告字号：SMALL / MEDIUM（默认）/ LARGE
+  fontSize: text('fontSize').default('MEDIUM').notNull(),
   sortOrder: integer('sortOrder').default(0).notNull(),
   enabled: boolean('enabled').default(true).notNull(),
   createdAt: timestamp('createdAt').defaultNow().notNull(),

@@ -20,6 +20,9 @@ import { db } from '~/drizzle/db'
 import { announcements } from '~/drizzle/schema'
 
 // 首页公告栏数据（公开）：只返回启用项，按 sortOrder 排序
+function normalizeFontSize(value: unknown): 'SMALL' | 'MEDIUM' | 'LARGE' {
+  return value === 'SMALL' ? 'SMALL' : value === 'LARGE' ? 'LARGE' : 'MEDIUM'
+}
 export default defineEventHandler(async () => {
   const rows = await db
     .select()
@@ -36,7 +39,8 @@ export default defineEventHandler(async () => {
       imageUrl: row.imageId ? `/api/media/${row.imageId}` : row.imageUrl || '',
       linkUrl: row.linkUrl || '',
       // SCROLL=超宽滚动（默认）；WRAP=分两行完整显示
-      displayMode: row.displayMode === 'WRAP' ? 'WRAP' : 'SCROLL'
+      displayMode: row.displayMode === 'WRAP' ? 'WRAP' : 'SCROLL',
+      fontSize: normalizeFontSize(row.fontSize)
     }))
   }
 })

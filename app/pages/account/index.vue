@@ -301,6 +301,9 @@ Modified by YH-Chen on 2026-10-17
             </div>
           </section>
 
+          <!-- 我的点赞（可设置对其他同学是否可见） -->
+          <AccountMyLikes />
+
           <!-- 修改真实姓名（需管理员审核） -->
           <AccountNameChange />
 

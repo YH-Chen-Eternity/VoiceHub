@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 import { useAudioQuality } from '~/composables/useAudioQuality'
 import { useMusicSources } from '~/composables/useMusicSources'
 import { useChkszSource } from '~/composables/useChkszSource'
@@ -506,6 +507,25 @@ export async function getMusicUrlResult(
     ...options,
     bilibiliCid,
     excludeSources: options?.excludeSources
+  }
+
+  // ① 服务端直链缓存 + 多源兜底（免账号）：命中直接返回，全站共享
+  // 未登录 / 非 VIP 时才走这条，已登录用户仍优先官方链路
+  if ((isNeteasePlatform || platform === 'tencent') && !neteaseOfficialFirst) {
+    try {
+      const serverRes: any = await $fetch('/api/music/resolve', {
+        method: 'POST',
+        body: { platform: isNeteasePlatform ? 'netease' : 'tencent', musicId: String(finalMusicId), quality: Number(quality) || 4 },
+        timeout: 12000
+      }).catch(() => null)
+      const serverUrl = serverRes?.data?.url
+      if (serverUrl) {
+        const accepted = acceptResult(serverUrl, serverRes?.data?.source || 'server-cache')
+        if (accepted) return accepted
+      }
+    } catch {
+      // 服务端解析失败则继续走原有链路
+    }
   }
 
   // 非 VIP 登录态/未登录：ChKSz 音源最优先

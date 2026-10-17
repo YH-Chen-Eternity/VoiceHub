@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 import { defineEventHandler, getHeader, getQuery, setResponseHeader } from 'h3'
 import { and, asc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
@@ -6,7 +7,7 @@ import { createApiError } from '~~/server/utils/apiError'
 import { SERVER_ERROR_CODES } from '~~/server/config/constants'
 import { ASTRBOT_TOKEN_HEADER, equalAstrbotToken } from '~~/server/utils/astrbot-notification'
 import { normalizeAstrbotWeeklyConfig } from '~~/server/utils/astrbot-weekly-config'
-import { maskScheduleItemsInfo } from '~~/server/utils/studentMask'
+import { applySubmissionAnonymity, ANONYMOUS_REQUESTER_DISPLAY, maskScheduleItemsInfo } from '~~/server/utils/studentMask'
 import { getServerDate } from '~~/server/utils/serverTime'
 import { formatDateTime, getBeijingStartOfWeek, getBeijingEndOfWeek, getBeijingWeekdayLabel } from '~/utils/timeUtils'
 
@@ -93,6 +94,7 @@ export default defineEventHandler(async (event) => {
       cover: songs.cover,
       requesterId: users.id,
       requesterName: users.name,
+      submissionAnonymous: songs.submissionAnonymous,
       playTimeName: playTimes.name,
     })
     .from(schedules)
@@ -151,11 +153,16 @@ export default defineEventHandler(async (event) => {
   const scheduleItems = rows.map((row) => {
     const dateLabel = `${formatDateTime(row.playDate, 'YYYY/MM/DD')} ${getBeijingWeekdayLabel(row.playDate)}`
 
-    // 投稿人名称，附联合投稿人后缀
-    const collabNames = collaboratorsMap.get(row.songId) ?? []
-    const requesterDisplay = collabNames.length > 0
-      ? `${row.requesterName ?? ''} & ${collabNames.join('、')}`
-      : (row.requesterName ?? '')
+    // 匿名投稿：机器人输出会进入群聊/图片，任何人（含管理员）都不应看到真实姓名
+    const anonymous = row.submissionAnonymous === true
+
+    // 投稿人名称，附联合投稿人后缀（匿名投稿不展示联合投稿人，避免反推）
+    const collabNames = anonymous ? [] : (collaboratorsMap.get(row.songId) ?? [])
+    const requesterDisplay = anonymous
+      ? ANONYMOUS_REQUESTER_DISPLAY
+      : collabNames.length > 0
+        ? `${row.requesterName ?? ''} & ${collabNames.join('、')}`
+        : (row.requesterName ?? '')
 
     return {
       date: dateLabel,
@@ -165,6 +172,7 @@ export default defineEventHandler(async (event) => {
       artist: row.artist,
       cover: row.cover ?? '',
       requester: requesterDisplay,
+      submissionAnonymous: anonymous,
       voteCount: voteCountMap.get(row.songId) ?? 0,
       played: row.played,
     }
@@ -173,6 +181,8 @@ export default defineEventHandler(async (event) => {
   // 与公开排期端点同策略：机器人响应会离开服务端边界，投稿人姓名在
   // hideStudentInfo（默认开启）时同样脱敏，年级/班级一律不返回。
   if (settings.hideStudentInfo !== false) maskScheduleItemsInfo(scheduleItems)
+  // 匿名投稿要在姓名脱敏之后兜底，保证展示为「匿名」而不是通用的 ***
+  applySubmissionAnonymity(scheduleItems, { isAdmin: false })
 
   const displayConfig = normalizeAstrbotWeeklyConfig(settings.weeklyConfig)
   const siteTitle = settings.siteTitle ?? 'VoiceHub'

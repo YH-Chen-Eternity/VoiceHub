@@ -1,3 +1,6 @@
+<!--
+Modified by YH-Chen on 2026-10-17
+-->
 <template>
   <div class="home">
     <Transition name="home-boot-loader">
@@ -153,6 +156,11 @@
           <span class="sub-title">{{ locale.subtitle }}</span>
         </div>
       </div>
+
+      <!-- 顶部公告栏：大标题/副标题之下、歌单（标签页）之上 -->
+      <ClientOnly>
+        <AnnouncementBar />
+      </ClientOnly>
 
       <!-- 中间主体内容区域 -->
       <div class="content-area">

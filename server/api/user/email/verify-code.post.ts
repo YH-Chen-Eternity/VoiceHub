@@ -1,4 +1,6 @@
+// Modified by YH-Chen on 2026-10-17
 import { db } from '~/drizzle/db'
+import { sendAccountEmail, formatMailTime, notifyLoginSuccess, notifyLoginFailure } from '~~/server/utils/accountNotifications'
 import { users } from '~/drizzle/schema'
 import { and, eq } from 'drizzle-orm'
 import { getServerTimestamp } from '~~/server/utils/serverTime'
@@ -81,6 +83,11 @@ export default defineEventHandler(async (event) => {
   if (updatedUsers.length === 0) {
     throw createApiError(409, 'USER_EMAIL_CHANGED_RESEND', '邮箱已发生变化，请重新发送验证码')
   }
+
+  void sendAccountEmail(user.id, 'account.email.bound', {
+    email,
+    time: formatMailTime()
+  })
 
   return { success: true, message: '邮箱验证成功' }
 })

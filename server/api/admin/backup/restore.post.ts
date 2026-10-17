@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 import { createError, defineEventHandler, readBody, readMultipartFormData } from 'h3'
 import { db } from '~/drizzle/db'
 import { pluginClearOrder, restorePluginRecord } from '~~/server/utils/music-source-plugins/backup'
@@ -356,7 +357,7 @@ export default defineEventHandler(async (event) => {
 
             while (retryCount <= maxRetries) {
               try {
-                await db.$transaction(
+                await db.transaction(
                   async (tx) => {
                     const stats = {
                       created: 0,

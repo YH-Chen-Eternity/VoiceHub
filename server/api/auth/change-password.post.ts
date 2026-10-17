@@ -1,4 +1,6 @@
+// Modified by YH-Chen on 2026-10-17
 import bcrypt from 'bcryptjs'
+import { sendAccountEmail, formatMailTime, notifyLoginSuccess, notifyLoginFailure } from '~~/server/utils/accountNotifications'
 import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
 import { eq } from 'drizzle-orm'
@@ -120,6 +122,11 @@ export default defineEventHandler(async (event) => {
 
     // 记录成功的密码修改
     await recordLoginSuccess(userDetails.username, clientIp)
+
+    void sendAccountEmail(user.id, 'account.password.changed', {
+      time: formatMailTime(),
+      ip: clientIp || ''
+    })
 
     return {
       success: true,

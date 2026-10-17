@@ -1,4 +1,6 @@
+// Modified by YH-Chen on 2026-10-17
 import otplib from 'otplib'
+import { sendAccountEmail, formatMailTime, notifyLoginSuccess, notifyLoginFailure } from '~~/server/utils/accountNotifications'
 const { authenticator } = otplib
 import { db, userIdentities, eq, and } from '~/drizzle/db'
 import { createApiError } from '~~/server/utils/apiError'
@@ -15,6 +17,8 @@ export default defineEventHandler(async (event) => {
     throw createApiError(400, 'USER_MISSING_CODE_OR_SECRET', '缺少验证码或密钥')
   }
 
+  // 与登录校验一致：接受 ±1 个 TOTP 窗口（约 ±30 秒），避免启用时因跨窗口边界失败
+  authenticator.options = Object.assign({}, authenticator.options, { window: 1 })
   const isValid = authenticator.check(token, secret)
   if (!isValid) {
     throw createApiError(400, 'USER_CODE_INVALID', '验证码错误')
@@ -39,6 +43,8 @@ export default defineEventHandler(async (event) => {
       createdAt: new Date()
     })
   }
+
+  void sendAccountEmail(user.id, 'account.2fa.enabled', { time: formatMailTime() })
 
   return { success: true }
 })

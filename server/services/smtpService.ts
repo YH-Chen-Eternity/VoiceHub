@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 import nodemailer from 'nodemailer'
 import { db } from '~/drizzle/db'
 import { emailTemplates, users } from '~/drizzle/schema'
@@ -124,6 +125,79 @@ export class SmtpService {
     `,
     collaborationInvite: `
       <p>用户 <strong>{{inviterName}}</strong> 邀请您共同投稿歌曲《{{songTitle}}》。</p>
+    `,
+    accountDeletionScheduled: `
+      <p>您好 <strong>{{username}}</strong>，您的账号注销申请已受理。</p>
+      <p>账号数据将<b>保留 {{graceDays}} 天</b>，计划清理时间：<strong>{{scheduledAt}}</strong>。</p>
+      <p style="color: #c0392b;">在清理之前，只要<b>登录一次本站</b>即可自动撤销注销、恢复账号；逾期未登录，账号信息将被清理。</p>
+      <p>如果这不是您本人的操作，请立即登录并修改密码。</p>
+    `,
+    accountDeletionCompleted: `
+      <p>您好 <strong>{{username}}</strong>，您的账号已于 <strong>{{deletedAt}}</strong> 完成注销。</p>
+      <p>账号信息（昵称、姓名、邮箱、密码、登录方式）已清理；您此前的投稿记录已转为「已注销用户」保留在歌曲列表中。</p>
+      <p>如果这是误操作，请联系广播站管理员协助处理。</p>
+    `,
+    accountDeletionCancelled: `
+      <p>您好 <strong>{{username}}</strong>，您的账号注销申请已撤销（{{cancelledAt}}），账号已恢复正常使用。</p>
+      <p>本次撤销原因：{{reason}}。</p>
+    `,
+    nameChangeApproved: `
+      <p>您好 <strong>{{username}}</strong>，您提交的真实姓名修改申请<b>已通过审核</b>。</p>
+      <p>姓名已由 <strong>{{oldName}}</strong> 更新为 <strong>{{newName}}</strong>。</p>
+      <p>如需再次修改，可在「账号」页面重新提交申请。</p>
+    `,
+    nameChangeRejected: `
+      <p>您好 <strong>{{username}}</strong>，您提交的真实姓名修改申请<b>未通过审核</b>。</p>
+      <p>申请修改为：<strong>{{newName}}</strong></p>
+      {{#if reason}}
+      <p>驳回原因：<strong>{{reason}}</strong></p>
+      {{/if}}
+      <p>你可以核对后重新提交，或联系广播站管理员处理。</p>
+    `,
+    accountLoginAlert: `
+      <p>您好 <strong>{{username}}</strong>，您的账号刚刚在新位置登录。</p>
+      <p>登录时间：<strong>{{time}}</strong><br>登录 IP：<strong>{{ip}}</strong>{{#if device}}<br>设备：{{device}}{{/if}}</p>
+      <p style="color: #c0392b;"><b>如果不是本人操作</b>，请立即登录并修改密码；<b>如果是本人操作</b>，忽略本邮件即可。</p>
+    `,
+    accountLoginFailed: `
+      <p>您好 <strong>{{username}}</strong>，您的账号在短时间内出现了多次密码错误的登录尝试。</p>
+      <p>最近时间：<strong>{{time}}</strong><br>来源 IP：<strong>{{ip}}</strong><br>连续失败次数：<strong>{{failCount}}</strong></p>
+      <p style="color: #c0392b;">如果<b>不是本人</b>在尝试登录，说明密码可能已泄露，请尽快通过「忘记密码」重置密码；如果是本人输错了，忽略本邮件即可。</p>
+    `,
+    passwordChanged: `
+      <p>您好 <strong>{{username}}</strong>，您的账号密码已修改成功。</p>
+      <p>修改时间：<strong>{{time}}</strong>{{#if ip}}<br>来源 IP：<strong>{{ip}}</strong>{{/if}}</p>
+      <p style="color: #c0392b;">如果<b>不是本人操作</b>，请立即使用「忘记密码」重置密码并联系管理员。</p>
+    `,
+    passwordReset: `
+      <p>您好 <strong>{{username}}</strong>，您的账号密码已通过邮箱重置成功。</p>
+      <p>重置时间：<strong>{{time}}</strong>{{#if ip}}<br>来源 IP：<strong>{{ip}}</strong>{{/if}}</p>
+      <p>如果<b>不是本人操作</b>，请尽快联系广播站管理员。</p>
+    `,
+    emailBound: `
+      <p>您好 <strong>{{username}}</strong>，您的账号已成功绑定邮箱 <strong>{{email}}</strong>。</p>
+      <p>绑定时间：<strong>{{time}}</strong></p>
+      <p>此后你可以使用该邮箱找回密码、接收审核与注销通知。不是本人操作请立即联系管理员。</p>
+    `,
+    emailUnbound: `
+      <p>您好 <strong>{{username}}</strong>，您的账号已解绑邮箱 <strong>{{oldEmail}}</strong>。</p>
+      <p>操作时间：<strong>{{time}}</strong></p>
+      <p>解绑后将无法通过邮箱找回密码，如需重新绑定请在「账号」页面操作。</p>
+    `,
+    twoFactorEnabled: `
+      <p>您好 <strong>{{username}}</strong>，您的账号已<b>开启</b>两步验证（2FA）。</p>
+      <p>操作时间：<strong>{{time}}</strong></p>
+      <p>此后登录需要额外输入动态验证码。不是本人操作请立即联系管理员。</p>
+    `,
+    twoFactorDisabled: `
+      <p>您好 <strong>{{username}}</strong>，您的账号已<b>关闭</b>两步验证（2FA）。</p>
+      <p>操作时间：<strong>{{time}}</strong></p>
+      <p style="color: #c0392b;">关闭后账号安全性会下降。不是本人操作请立即重新开启并修改密码。</p>
+    `,
+    passwordAdminReset: `
+      <p>您好 <strong>{{username}}</strong>，管理员已为你的账号<b>重置密码</b>。</p>
+      <p>操作时间：<strong>{{time}}</strong></p>
+      <p>请使用管理员提供的新密码登录，并在登录后立即在「账号」页面修改为你自己的密码。</p>
     `
   }
 
@@ -136,13 +210,23 @@ export class SmtpService {
       contentType: string
       headerSubtitle: string
       actionText?: string
+      /** 模板可用变量（后台模板界面统一展示用） */
+      variables?: string[]
     }
   > = {
     'verification.code': {
       name: '邮箱验证码',
       subject: '邮箱验证码 | {{siteTitle}}',
       contentType: 'verification',
-      headerSubtitle: '邮箱验证'
+      headerSubtitle: '邮箱验证',
+      variables: ['name', 'email', 'code', 'expiresInMinutes']
+    },
+    'verification.code.deletion': {
+      name: '注销账号验证码',
+      subject: '注销账号验证码 | {{siteTitle}}',
+      contentType: 'verification',
+      headerSubtitle: '注销账号验证',
+      variables: ['name', 'email', 'code', 'expiresInMinutes']
     },
     'register': {
       name: '注册通知',
@@ -204,6 +288,104 @@ export class SmtpService {
       subject: '收到联合投稿邀请 | {{siteTitle}}通知推送',
       contentType: 'collaborationInvite',
       headerSubtitle: '通知推送'
+    },
+    'account.deletion.scheduled': {
+      name: '注销申请已受理',
+      subject: '账号注销申请已受理 | {{siteTitle}}',
+      contentType: 'accountDeletionScheduled',
+      headerSubtitle: '账号注销',
+      variables: ['username', 'graceDays', 'scheduledAt']
+    },
+    'account.deletion.completed': {
+      name: '账号已注销',
+      subject: '账号已完成注销 | {{siteTitle}}',
+      contentType: 'accountDeletionCompleted',
+      headerSubtitle: '账号注销',
+      variables: ['username', 'deletedAt']
+    },
+    'account.deletion.cancelled': {
+      name: '注销申请已撤销',
+      subject: '账号注销已撤销 | {{siteTitle}}',
+      contentType: 'accountDeletionCancelled',
+      headerSubtitle: '账号注销',
+      variables: ['username', 'reason', 'cancelledAt']
+    },
+    'account.nameChange.approved': {
+      name: '真实姓名修改通过',
+      subject: '真实姓名修改已通过 | {{siteTitle}}',
+      contentType: 'nameChangeApproved',
+      headerSubtitle: '姓名修改审核',
+      variables: ['username', 'oldName', 'newName']
+    },
+    'account.nameChange.rejected': {
+      name: '真实姓名修改被驳回',
+      subject: '真实姓名修改未通过 | {{siteTitle}}',
+      contentType: 'nameChangeRejected',
+      headerSubtitle: '姓名修改审核',
+      variables: ['username', 'newName', 'reason']
+    },
+    'account.login.alert': {
+      name: '登录提醒（新登录）',
+      subject: '账号登录提醒 | {{siteTitle}}',
+      contentType: 'accountLoginAlert',
+      headerSubtitle: '安全提醒',
+      variables: ['username', 'time', 'ip', 'device']
+    },
+    'account.login.failed': {
+      name: '登录失败提醒（密码错误）',
+      subject: '账号登录失败提醒 | {{siteTitle}}',
+      contentType: 'accountLoginFailed',
+      headerSubtitle: '安全提醒',
+      variables: ['username', 'time', 'ip', 'failCount']
+    },
+    'account.password.changed': {
+      name: '密码修改成功',
+      subject: '密码修改成功 | {{siteTitle}}',
+      contentType: 'passwordChanged',
+      headerSubtitle: '安全提醒',
+      variables: ['username', 'time', 'ip']
+    },
+    'account.password.reset': {
+      name: '密码重置成功',
+      subject: '密码重置成功 | {{siteTitle}}',
+      contentType: 'passwordReset',
+      headerSubtitle: '安全提醒',
+      variables: ['username', 'time', 'ip']
+    },
+    'account.email.bound': {
+      name: '邮箱绑定成功',
+      subject: '邮箱绑定成功 | {{siteTitle}}',
+      contentType: 'emailBound',
+      headerSubtitle: '安全提醒',
+      variables: ['username', 'email', 'time']
+    },
+    'account.email.unbound': {
+      name: '邮箱解绑通知',
+      subject: '邮箱已解绑 | {{siteTitle}}',
+      contentType: 'emailUnbound',
+      headerSubtitle: '安全提醒',
+      variables: ['username', 'oldEmail', 'time']
+    },
+    'account.2fa.enabled': {
+      name: '两步验证已开启',
+      subject: '两步验证已开启 | {{siteTitle}}',
+      contentType: 'twoFactorEnabled',
+      headerSubtitle: '安全提醒',
+      variables: ['username', 'time']
+    },
+    'account.2fa.disabled': {
+      name: '两步验证已关闭',
+      subject: '两步验证已关闭 | {{siteTitle}}',
+      contentType: 'twoFactorDisabled',
+      headerSubtitle: '安全提醒',
+      variables: ['username', 'time']
+    },
+    'account.password.adminReset': {
+      name: '密码被管理员重置',
+      subject: '账号密码已被重置 | {{siteTitle}}',
+      contentType: 'passwordAdminReset',
+      headerSubtitle: '安全提醒',
+      variables: ['username', 'time']
     }
   }
 
@@ -366,11 +548,18 @@ export class SmtpService {
       text: textContent || finalHtml.replace(/<[^>]*>/g, '') // 简单的HTML转文本
     }
 
+    this.lastSendFailure = null
     try {
       const result = await this.transporter!.sendMail(mailOptions)
       console.log(`邮件发送成功: ${result.messageId}`)
       return true
     } catch (error: any) {
+      // 记下原始错误，供调用方判断"收件人不存在"这类永久失败（会直接提示学生邮箱写错了）
+      this.lastSendFailure = {
+        responseCode: Number(error?.responseCode || 0) || undefined,
+        code: error?.code,
+        message: error?.response || error?.message
+      }
       // 自动重试机制：如果是因为发件人地址不匹配导致的553/501错误，尝试使用认证用户作为发件人
       if (
         (error.responseCode === 553 || error.responseCode === 501) &&
@@ -400,6 +589,13 @@ export class SmtpService {
       console.error('发送邮件失败:', error)
       throw error
     }
+  }
+
+  /** 最近一次发信失败的原始信息（成功后被清空） */
+  private lastSendFailure: { responseCode?: number; code?: string; message?: string } | null = null
+
+  getLastSendFailure() {
+    return this.lastSendFailure
   }
 
   /**

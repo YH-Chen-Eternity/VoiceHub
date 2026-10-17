@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 import { db } from '~/drizzle/db'
 import { emailTemplates } from '~/drizzle/schema'
 import { SmtpService } from '~~/server/services/smtpService'
@@ -19,6 +20,7 @@ export default defineEventHandler(async (event) => {
     name: t.name,
     subject: t.subject,
     html: t.html,
+    variables: t.variables || null,
     isBuiltin: true
   }))
 

@@ -1,3 +1,6 @@
+<!--
+Modified by YH-Chen on 2026-10-17
+-->
 <template>
   <div class="bg-bg-secondary-30 border border-border-secondary rounded-[2rem] overflow-hidden">
     <!-- 头部 -->
@@ -135,12 +138,7 @@
                   {{ locale.availableVariables }}
                 </h4>
                 <p class="text-[11px] text-text-tertiary leading-relaxed font-mono">
-                  <template v-if="selected.key === 'verification.code'">
-                    <span v-pre>{{ name }}, {{ email }}, {{ code }}, {{ expiresInMinutes }}</span>
-                  </template>
-                  <template v-else>
-                    <span v-pre>{{ title }}, {{ message }}, {{ actionUrl }}, {{ fromName }}</span>
-                  </template>
+                  <span>{{ variableHintText }}</span>
                 </p>
               </div>
             </div>
@@ -237,6 +235,7 @@ type TemplateItem = {
   name: string
   subject: string
   html: string
+  variables?: string[] | null
   isBuiltin: boolean
   isOverridden?: boolean
 }
@@ -268,6 +267,29 @@ const previewSubject = ref<string>('')
 
 const selected = computed(() => templates.value.find((t) => t.key === selectedKey.value))
 
+// 可用变量展示：优先用服务端给出的 variables，其次按模板类型兜底（保证所有模板界面一致）
+const CODE_VARIABLES = ['name', 'email', 'code', 'expiresInMinutes']
+const GENERIC_VARIABLES = ['title', 'message', 'actionUrl', 'fromName']
+const variableHintText = computed(() => {
+  const key = selected.value?.key || ''
+  const vars =
+    selected.value?.variables?.length
+      ? selected.value.variables
+      : key.startsWith('verification.code')
+        ? CODE_VARIABLES
+        : GENERIC_VARIABLES
+  return vars.map((v) => `{{ ${v} }}`).join(', ')
+})
+
+// 预览示例数据：让每个模板点「预览」都能看到接近真实的邮件
+const PREVIEW_SAMPLES: Record<string, Record<string, any>> = {
+  'account.deletion.scheduled': { username: '示例用户', graceDays: 30, scheduledAt: '2026-11-10 15:00:00' },
+  'account.deletion.completed': { username: '示例用户', deletedAt: '2026-11-10 15:00:00' },
+  'account.deletion.cancelled': { username: '示例用户', reason: '宽限期内登录了本站', cancelledAt: '2026-10-12 09:00:00' },
+  'account.nameChange.approved': { username: '示例用户', oldName: '张三', newName: '张三丰' },
+  'account.nameChange.rejected': { username: '示例用户', newName: '张三丰', reason: '姓名与学籍信息不符，请核对后重新提交' }
+}
+
 async function loadList() {
   const res: any = await $fetch('/api/admin/email-templates')
   const list = Array.isArray(res?.templates) ? res.templates : []
@@ -276,6 +298,7 @@ async function loadList() {
     name: String(t.name),
     subject: String(t.subject),
     html: String(t.html),
+    variables: Array.isArray(t.variables) && t.variables.length ? t.variables.map((v: any) => String(v)) : null,
     isBuiltin: !!t.isBuiltin,
     isOverridden: !!t.isOverridden
   }))
@@ -320,7 +343,8 @@ async function restore() {
 async function doPreview() {
   try {
     const defaultData =
-      form.value.key === 'verification.code'
+      PREVIEW_SAMPLES[form.value.key] ||
+      (form.value.key.startsWith('verification.code')
         ? {
             name: locale.value?.previewData?.name || 'Example User',
             email: 'example@school.edu',
@@ -331,7 +355,7 @@ async function doPreview() {
             title: locale.value?.previewData?.title || 'System Notification',
             message: locale.value?.previewData?.message || 'This is preview content.\nLine breaks and links are supported.',
             actionUrl: 'https://example.com'
-          }
+          })
     const res = await $fetch('/api/admin/email-templates/preview', {
       method: 'POST',
       body: { key: form.value.key, data: defaultData }

@@ -1,7 +1,9 @@
+// Modified by YH-Chen on 2026-10-17
 import { getPasswordPolicyViolation } from './password-policy'
 
-// OAuth 注册用户名规则
-export const OAUTH_REGISTER_USERNAME_PATTERN = /^[a-zA-Z0-9_-]+$/
+// 用户名规则：中文、英文、数字、下划线、连字符都可以（2026-10-11 站长要求放开中文）
+// 注意与「真实姓名」区分：姓名只能中文，用户名中英文皆可。
+export const OAUTH_REGISTER_USERNAME_PATTERN = /^[a-zA-Z0-9_\-\u3400-\u4dbf\u4e00-\u9fff]+$/
 export const OAUTH_REGISTER_USERNAME_MIN_LENGTH = 3
 export const OAUTH_REGISTER_USERNAME_MAX_LENGTH = 30
 
@@ -20,7 +22,7 @@ export const validateOAuthRegisterCredentials = (
   }
 
   if (!OAUTH_REGISTER_USERNAME_PATTERN.test(username)) {
-    return { code: 'AUTH_USERNAME_PATTERN_INVALID', message: '用户名仅可包含英文、数字、下划线和连字符' }
+    return { code: 'AUTH_USERNAME_PATTERN_INVALID', message: '用户名仅可包含中文、英文、数字、下划线和连字符' }
   }
 
   const passwordViolation = getPasswordPolicyViolation(password)

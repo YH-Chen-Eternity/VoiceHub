@@ -1,6 +1,7 @@
+// Modified by YH-Chen on 2026-10-17
 import { readonly, ref } from 'vue'
 import { useLocale } from '~/utils/locale'
-import type { Semester } from '~/types'
+import type { Semester } from '~~/types'
 
 // 全局事件总线用于学期更新通知
 const semesterUpdateEvent = ref(0)

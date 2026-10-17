@@ -1,5 +1,7 @@
+// Modified by YH-Chen on 2026-10-17
 import bcrypt from 'bcryptjs'
 import { getRequestHeader } from 'h3'
+import { sendAccountEmail, formatMailTime, notifyLoginSuccess, notifyLoginFailure } from '~~/server/utils/accountNotifications'
 import { db, eq, users, userIdentities, and } from '~/drizzle/db'
 import { JWTEnhanced } from '~~/server/utils/jwt-enhanced'
 import {
@@ -157,6 +159,7 @@ export default defineEventHandler(async (event) => {
     if (!user) {
       // 记录登录失败（用户不存在）
       await recordLoginFailure(body.username, clientIp)
+      void notifyLoginFailure(body.username, clientIp)
       throw createApiError(401, 'AUTH_INVALID_CREDENTIALS', '用户名或密码错误')
     }
 
@@ -165,12 +168,20 @@ export default defineEventHandler(async (event) => {
     if (!isPasswordValid) {
       // 记录登录失败（密码错误）
       await recordLoginFailure(body.username, clientIp)
+      void notifyLoginFailure(body.username, clientIp)
       throw createApiError(401, 'AUTH_INVALID_CREDENTIALS', '用户名或密码错误')
     }
 
     // 检查用户状态 (移到2FA之前，防止已退学用户进行2FA验证)
     if (user.status === 'withdrawn') {
       throw createApiError(403, 'AUTH_ACCOUNT_WITHDRAWN', '该账号已退学，限制访问')
+    } else if (user.status === 'merged') {
+      // 重复注册清理：该账号已被合并进同名的原账号，引导用原账号登录
+      throw createApiError(
+        403,
+        'AUTH_ACCOUNT_MERGED',
+        '该账号已合并到你的原账号，请用原账号登录（忘记密码可用邮箱重置）'
+      )
     } else if (user.status === 'graduate') {
       throw createApiError(403, 'AUTH_ACCOUNT_GRADUATED', '该账号已毕业，限制访问')
     } else if (user.status === 'banned') {
@@ -180,6 +191,8 @@ export default defineEventHandler(async (event) => {
     } else if (user.status === 'rejected') {
       throw createApiError(403, 'AUTH_ACCOUNT_CURRENTLY_UNAVAILABLE', '该账号当前不可用')
     }
+    // pending_deletion（自助注销宽限期）：允许登录 —— 登录即视为"回来了"，稍后自动撤销注销
+    const deletionPending = user.status === 'pending_deletion'
 
     // 普通登录不延续绑定流程，避免残留绑定令牌被后续 2FA 校验意外消费
     deleteCookie(event, 'binding-token')
@@ -220,7 +233,16 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // 宽限期内登录 → 自动撤销注销申请（30 天没登录才会被真正清理）
+    if (deletionPending) {
+      const { cancelAccountDeletion } = await import('~~/server/api/user/delete-account/cancel.post')
+      await cancelAccountDeletion(user.id, '宽限期内登录了本站').catch((err) => console.error('撤销注销失败:', err))
+    }
+
     await recordLoginSuccess(body.username, clientIp)
+
+    // 登录提醒邮件（30 分钟内不重复发；可在后台「推送配置 → 邮件模板管理」改文案）
+    void notifyLoginSuccess(user, clientIp, getRequestHeader(event, 'user-agent') || '')
 
     const ipSwitchExceeded = await recordAccountIpLogin(body.username, clientIp)
     if (ipSwitchExceeded) {
@@ -265,6 +287,8 @@ export default defineEventHandler(async (event) => {
 
     return {
       success: true,
+      // 本次登录顺带撤销了注销申请时告诉前端，便于提示用户
+      deletionCancelled: deletionPending,
       user: {
         id: user.id,
         username: user.username,

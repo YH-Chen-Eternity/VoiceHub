@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 import { createApiError } from '~~/server/utils/apiError'
 import { SERVER_ERROR_CODES } from '~~/server/config/constants'
 import { getClientIP } from '~~/server/utils/ip-utils'
@@ -6,6 +7,7 @@ import { getServerTimestamp } from '~~/server/utils/serverTime'
 import { SmtpService } from '~~/server/services/smtpService'
 import { db } from '~/drizzle/db'
 import { systemSettings } from '~/drizzle/schema'
+import { checkEmailDeliverability, isPermanentRecipientFailure } from '~~/server/utils/email-deliverability'
 import {
   generateEmailCode,
   storeEmailCode,
@@ -25,7 +27,18 @@ export default defineEventHandler(async (event) => {
   const clientIp = getClientIP(event)
 
   if (!email || !EMAIL_REGEX.test(email)) {
-    throw createApiError(400, SERVER_ERROR_CODES.COMMON_INVALID_PARAMS, '请输入有效的邮箱地址')
+    throw createApiError(400, 'AUTH_EMAIL_UNREACHABLE', '邮箱格式不正确，请检查后再试')
+  }
+
+  // 域名收信能力预检：把「域名写错/根本收不到邮件」提前变成明确提示，
+  // 否则学生只会看到"已发送"却永远等不到验证码（2026-10-11）
+  const deliverability = await checkEmailDeliverability(email)
+  if (!deliverability.ok) {
+    throw createApiError(
+      400,
+      'AUTH_EMAIL_UNREACHABLE',
+      '该邮箱无法接收邮件，请检查邮箱地址是否写错（域名不存在或没有邮件服务）'
+    )
   }
 
   // 注册/三方注册任一开放时允许发码（否则拒绝，避免成为邮件群发通道）
@@ -69,6 +82,14 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!sent) {
+    // 收件人被服务端永久拒绝（收件人不存在/地址非法）→ 明确告诉学生邮箱有问题，而不是让他一直重试
+    if (isPermanentRecipientFailure(smtpService.getLastSendFailure())) {
+      throw createApiError(
+        400,
+        'AUTH_EMAIL_UNREACHABLE',
+        '该邮箱无法接收邮件，请检查邮箱地址是否写错（该地址在邮件服务商处不存在）'
+      )
+    }
     throw createApiError(503, SERVER_ERROR_CODES.AUTH_EMAIL_SERVICE_UNAVAILABLE, '验证码邮件发送失败，请稍后重试')
   }
 

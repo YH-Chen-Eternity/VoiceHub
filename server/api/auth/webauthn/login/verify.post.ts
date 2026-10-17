@@ -1,9 +1,13 @@
+// Modified by YH-Chen on 2026-10-17
 import { verifyAuthenticationResponse } from '@simplewebauthn/server'
+import { defineEventHandler, getRequestHeader, setCookie } from 'h3'
+import { notifyLoginSuccess } from '~~/server/utils/accountNotifications'
 import { getWebAuthnChallenge, clearWebAuthnChallenge } from '~~/server/utils/webauthn-token'
 import { getWebAuthnConfig } from '~~/server/utils/webauthn-config'
-import { db, eq, and, userIdentities } from '~/drizzle/db'
-import { defineEventHandler, setCookie } from 'h3'
+import { db, eq, and, userIdentities, users } from '~/drizzle/db'
 import { createAuthSession } from '~~/server/utils/auth-session'
+import { getBeijingTime } from '~/utils/timeUtils'
+import { getClientIP } from '~~/server/utils/ip-utils'
 import { createApiError } from '~~/server/utils/apiError'
 
 export default defineEventHandler(async (event) => {
@@ -95,6 +99,17 @@ export default defineEventHandler(async (event) => {
         .update(userIdentities)
         .set({ providerUsername: JSON.stringify(credentialData) })
         .where(eq(userIdentities.id, identity.id))
+
+      // 与密码登录保持一致：通行密钥登录同样要刷新「最后登录 / 登录 IP」
+      // （2026-10-11 修正：此前这条路径完全不更新，用指纹/密钥登录的人在后台看不到登录 IP）
+      await db
+        .update(users)
+        .set({ lastLogin: getBeijingTime(), lastLoginIp: getClientIP(event) })
+        .where(eq(users.id, user.id))
+        .catch((err) => console.error('Error updating user login info (webauthn):', err))
+
+      // 通行密钥登录同样发登录提醒（异步，不拖慢响应）
+      void notifyLoginSuccess(user, getClientIP(event) || '', getRequestHeader(event, 'user-agent') || '')
 
       // 签发登录 Token
       const { token } = await createAuthSession(event, identity.user, 'webauthn')

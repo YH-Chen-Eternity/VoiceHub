@@ -1,4 +1,7 @@
+// Modified by YH-Chen on 2026-10-17
 import { db, userIdentities, eq, and, users, systemSettings } from '~/drizzle/db'
+import { getRequestHeader } from 'h3'
+import { notifyLoginSuccess } from '~~/server/utils/accountNotifications'
 import { JWTEnhanced } from '~~/server/utils/jwt-enhanced'
 import { createAuthSession } from '~~/server/utils/auth-session'
 import { getClientIP } from '~~/server/utils/ip-utils'
@@ -103,6 +106,10 @@ export default defineEventHandler(async (event) => {
       )
     }
 
+    // otplib 12 默认 window: 0（只认「当前」那一个 30 秒窗口），提交时刚好跨过边界
+    // 或手机时钟有几秒偏差就会失败，表现为「验证码时好时坏」。放宽到 ±1 个窗口（约 ±30 秒）。
+    // 注意：check() 的第三个参数**不会**覆盖实例选项，必须改实例的 options（已实测）。
+    authenticator.options = Object.assign({}, authenticator.options, { window: 1 })
     const totpValid = authenticator.check(code, identity.providerUserId)
 
     if (!totpValid) {
@@ -249,6 +256,9 @@ export default defineEventHandler(async (event) => {
     })
     .where(eq(users.id, user.id))
     .catch((err) => console.error('Error updating user login info:', err))
+
+  // 完成 2FA 即视为一次真实登录 → 发登录提醒（异步，不拖慢响应）
+  void notifyLoginSuccess(user, clientIp, getRequestHeader(event, 'user-agent') || '')
 
   // 生成Token
   const { token: authToken } = await createAuthSession(event, user, '2fa')

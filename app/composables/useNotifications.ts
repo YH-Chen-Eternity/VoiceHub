@@ -1,7 +1,8 @@
+// Modified by YH-Chen on 2026-10-17
 import { computed, ref } from 'vue'
 import { useAuth } from './useAuth'
 import { useLocale } from '~/utils/locale'
-import type { Notification, NotificationSettings } from '~/types'
+import type { Notification, NotificationSettings } from '~~/types'
 
 export const useNotifications = () => {
   const { getAuthConfig, isAuthenticated } = useAuth()

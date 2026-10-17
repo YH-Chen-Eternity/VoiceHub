@@ -1,4 +1,6 @@
+// Modified by YH-Chen on 2026-10-17
 import { db, userIdentities, eq, and, users } from '~/drizzle/db'
+import { sendAccountEmail, formatMailTime, notifyLoginSuccess, notifyLoginFailure } from '~~/server/utils/accountNotifications'
 import bcrypt from 'bcryptjs'
 import { createApiError } from '~~/server/utils/apiError'
 
@@ -32,6 +34,8 @@ export default defineEventHandler(async (event) => {
   // 删除TOTP记录
   await db.delete(userIdentities)
     .where(and(eq(userIdentities.userId, user.id), eq(userIdentities.provider, 'totp')))
+
+  void sendAccountEmail(user.id, 'account.2fa.disabled', { time: formatMailTime() })
 
   return { success: true }
 })

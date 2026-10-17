@@ -1,9 +1,12 @@
+// Modified by YH-Chen on 2026-10-17
 import {bigint, boolean, index, integer, jsonb, pgEnum, pgTable, primaryKey, serial, text, timestamp, uniqueIndex, uuid, varchar, unique} from 'drizzle-orm/pg-core';
 import {relations, sql} from 'drizzle-orm';
 
 // 枚举定义
 export const blacklistTypeEnum = pgEnum('BlacklistType', ['SONG', 'KEYWORD', 'LANGUAGE', 'GENRE']);
-export const userStatusEnum = pgEnum('user_status', ['active', 'pending', 'withdrawn', 'graduate', 'rejected']);
+// 'merged' = 该账号已被合并进同名的原账号（重复注册清理），登录时提示改用原账号
+// 'pending_deletion' = 用户自助注销中（30 天宽限期；期间登录即自动撤销，逾期未登录则清理）
+export const userStatusEnum = pgEnum('user_status', ['active', 'pending', 'withdrawn', 'graduate', 'rejected', 'merged', 'pending_deletion']);
 export const collaboratorStatusEnum = pgEnum('collaborator_status', ['PENDING', 'ACCEPTED', 'REJECTED']);
 export const replayRequestStatusEnum = pgEnum('replay_request_status', ['PENDING', 'FULFILLED', 'REJECTED']);
 export const cardCodeStatusEnum = pgEnum('card_code_status', [
@@ -42,7 +45,17 @@ export const users = pgTable('User', {
   remark: text('remark'),
   legalConsentVersion: text('legal_consent_version'),
   legalConsentAt: timestamp('legal_consent_at'),
-}, (table) => [uniqueIndex('User_username_unique').on(table.username)]);
+  // 自助注销：申请时间 + 计划删除时间（默认 30 天后；期间登录会自动撤销）
+  deletionRequestedAt: timestamp('deletionRequestedAt'),
+  deletionScheduledAt: timestamp('deletionScheduledAt'),
+}, (table) => [
+  uniqueIndex('User_username_unique').on(table.username),
+  // 邮箱唯一（不区分大小写、忽略空值）：一个邮箱只能绑定一个账号，
+  // 否则「忘记密码」的验证码会把两个账号的找回权限绑到同一个信箱上。
+  uniqueIndex('User_email_lower_unique')
+    .on(sql`lower(${table.email})`)
+    .where(sql`${table.email} is not null and btrim(${table.email}) <> ''`)
+]);
 
 // 登录会话表，id 与 JWT 的 jti 一致
 export const authSessions = pgTable('auth_sessions', {
@@ -114,6 +127,9 @@ export const songs = pgTable('Song', {
   submissionNotePublic: boolean('submissionNotePublic').default(false).notNull(),
   // 公开留言审核状态：'pending' | 'approved' | 'rejected' | null（null 表示未启用审核或不涉及）
   submissionNotePublicStatus: text('submissionNotePublicStatus'),
+  // 匿名投稿：投稿时选择不公开姓名。非管理员（且非投稿人本人）视角下显示为「匿名」，
+  // 管理员后台始终可见真实投稿人，便于管理与追溯。
+  submissionAnonymous: boolean('submissionAnonymous').default(false).notNull(),
   hitRequestId: integer(),
   cardCodeId: integer('cardCodeId').references(() => cardCodes.id, { onDelete: 'set null' }),
 }, (table) => [
@@ -878,3 +894,59 @@ export const backupHistory = pgTable('BackupHistory', {
 
 export type BackupHistory = typeof backupHistory.$inferSelect;
 export type NewBackupHistory = typeof backupHistory.$inferInsert;
+
+// ───────────────────────── 公告栏 / 媒体资源 / 改名申请（2026-10-11） ─────────────────────────
+
+// 媒体资源：运行时上传的图片不能放 public（Nitro 资源清单构建期烘焙，运行时新增文件一律 404），
+// 因此统一存库 + 通过 /api/media/[id] 转发，公告栏图片就走这条路。
+export const mediaAssets = pgTable('MediaAsset', {
+  id: serial('id').primaryKey(),
+  filename: text('filename').notNull(),
+  mimeType: text('mimeType').notNull(),
+  byteSize: integer('byteSize').notNull(),
+  // base64 存放（图片限制 2MB 内），随数据库一起备份，不依赖文件系统
+  data: text('data').notNull(),
+  uploadedBy: integer('uploadedBy'),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+});
+
+export type MediaAsset = typeof mediaAssets.$inferSelect;
+export type NewMediaAsset = typeof mediaAssets.$inferInsert;
+
+// 公告栏：首页顶部展示，type=TEXT 显示文字、type=IMAGE 显示图片（引用 MediaAsset.id 或外部链接），
+// 多条时前端自动轮播；只有 ADMIN / SUPER_ADMIN 能编辑。
+export const announcements = pgTable('Announcement', {
+  id: serial('id').primaryKey(),
+  type: text('type').default('TEXT').notNull(),
+  text: text('text'),
+  imageId: integer('imageId'),
+  imageUrl: text('imageUrl'),
+  linkUrl: text('linkUrl'),
+  // 文字公告的显示方式：SCROLL=超宽时跑马灯滚动；WRAP=分两行完整显示
+  displayMode: text('displayMode').default('SCROLL').notNull(),
+  sortOrder: integer('sortOrder').default(0).notNull(),
+  enabled: boolean('enabled').default(true).notNull(),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+  createdBy: integer('createdBy'),
+});
+
+export type Announcement = typeof announcements.$inferSelect;
+export type NewAnnouncement = typeof announcements.$inferInsert;
+
+// 真实姓名修改申请（必须管理员审核通过才生效）
+export const nameChangeRequests = pgTable('NameChangeRequest', {
+  id: serial('id').primaryKey(),
+  userId: integer('userId').notNull(),
+  oldName: text('oldName'),
+  newName: text('newName').notNull(),
+  // PENDING | APPROVED | REJECTED
+  status: text('status').default('PENDING').notNull(),
+  reason: text('reason'),
+  reviewedBy: integer('reviewedBy'),
+  reviewedAt: timestamp('reviewedAt'),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+});
+
+export type NameChangeRequest = typeof nameChangeRequests.$inferSelect;
+export type NewNameChangeRequest = typeof nameChangeRequests.$inferInsert;

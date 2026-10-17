@@ -1,3 +1,6 @@
+<!--
+Modified by YH-Chen on 2026-10-17
+-->
 <template>
   <div>
     <ClientOnly>
@@ -61,6 +64,30 @@
               class="animate-in fade-in slide-in-from-bottom-4 duration-500"
             >
               <LazyAdminOverviewDashboard @navigate="handleNavigate" />
+            </div>
+
+            <!-- 审核：公开备注 -->
+            <div
+              v-if="activeTab === 'review-notes' && permissions.canAccessPage('review-notes')"
+              class="animate-in fade-in slide-in-from-bottom-4 duration-500"
+            >
+              <LazyAdminReviewManager mode="notes" />
+            </div>
+
+            <!-- 审核：用户（注册 / 改名 / 注销） -->
+            <div
+              v-if="activeTab === 'review-users' && permissions.canAccessPage('review-users')"
+              class="animate-in fade-in slide-in-from-bottom-4 duration-500"
+            >
+              <LazyAdminReviewManager mode="users" />
+            </div>
+
+            <!-- 内容管理：公告栏编辑 -->
+            <div
+              v-if="activeTab === 'announcement' && permissions.canAccessPage('announcement')"
+              class="animate-in fade-in slide-in-from-bottom-4 duration-500"
+            >
+              <LazyAdminAnnouncementManager />
             </div>
 
             <!-- 歌曲管理 -->

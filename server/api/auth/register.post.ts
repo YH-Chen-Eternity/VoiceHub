@@ -1,6 +1,7 @@
+// Modified by YH-Chen on 2026-10-17
 import bcrypt from 'bcryptjs'
 import { getRequestHeader } from 'h3'
-import { eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { db, users } from '~/drizzle/db'
 import { JWTEnhanced } from '~~/server/utils/jwt-enhanced'
 import { validateOAuthRegisterCredentials } from '~/utils/oauth-register'
@@ -12,13 +13,14 @@ import { getClientIP } from '~~/server/utils/ip-utils'
 import { checkDistributedRateLimit } from '~~/server/utils/rateLimiter'
 import { getServerDate, getServerTimestamp } from '~~/server/utils/serverTime'
 import { verifyAndConsumeCaptcha } from '~~/server/utils/captcha'
-import { resolveGradeClassError, REMARK_MAX_LENGTH } from '~~/server/utils/register-validation'
+import { resolveGradeClassError, REMARK_MAX_LENGTH, validateRealName, maskUsernameForDuplicateHint } from '~~/server/utils/register-validation'
 import { isGradeClassValid } from '~~/server/utils/grade-class-options'
 import { verifyEmailCode } from '~~/server/utils/email-verification'
 import { notifyRegistration } from '~~/server/utils/registration-notify'
 import { resolveRegisteredLegalConsentVersion } from '~~/server/utils/legal-consent'
 
-const REGISTER_RATE_LIMIT = 5
+// 本站按校园网 NAT 实际情况放开注册 IP 限流（原值 5 次/小时：多个学生共享同一出口 IP 会被秒光）
+const REGISTER_RATE_LIMIT = 1000000
 const REGISTER_RATE_WINDOW_MS = 60 * 60 * 1000
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -153,6 +155,12 @@ export default defineEventHandler(async (event) => {
     throw createApiError(400, gradeClassError.code, gradeClassError.message)
   }
 
+  // 真实姓名必须中文（本站要求与学籍一致的姓名，避免昵称/英文名混入）
+  const realNameError = validateRealName(name)
+  if (realNameError) {
+    throw createApiError(400, realNameError.code, realNameError.message)
+  }
+
   if (selectedGrade && selectedClass) {
     const valid = await isGradeClassValid(selectedGrade, selectedClass)
 
@@ -173,6 +181,43 @@ export default defineEventHandler(async (event) => {
   // 邮箱验证码在最后校验（此时用户名等前置校验均已通过，失败即消费不会误烧码）
   if (email && !(await verifyEmailCode(email, emailCode))) {
     throw createApiError(400, SERVER_ERROR_CODES.AUTH_EMAIL_CODE_INVALID, '邮箱验证码无效或已过期，请重新获取')
+  }
+
+  // 邮箱唯一：一个邮箱只能绑定一个账号（不区分大小写），否则找回密码会互相串号
+  if (email) {
+    const emailOwner = await db
+      .select({ id: users.id, username: users.username })
+      .from(users)
+      .where(sql`lower(${users.email}) = ${email} and btrim(coalesce(${users.email}, '')) <> ''`)
+      .limit(1)
+    if (emailOwner.length > 0) {
+      throw createApiError(409, 'AUTH_EMAIL_TAKEN', '该邮箱已被其他账号绑定，请换一个邮箱或直接登录原账号')
+    }
+  }
+
+  // 同班同名：同年级同班级已经有同名同学时，先询问「是不是忘记密码了」，
+  // 由学生显式确认「不是我」后（confirmNotMe）才继续建号，避免同一人重复注册。
+  if (name && selectedGrade && selectedClass && body.confirmNotMe !== true) {
+    const sameNameClass = await db
+      .select({ username: users.username, email: users.email })
+      .from(users)
+      .where(
+        and(
+          eq(users.name, name),
+          eq(users.grade, selectedGrade),
+          eq(users.class, selectedClass),
+          inArray(users.status, ['active', 'pending'])
+        )
+      )
+      .limit(1)
+
+    if (sameNameClass.length > 0) {
+      throw createApiError(409, 'AUTH_NAME_CLASS_DUPLICATE', '同班已有同名同学，请确认是否本人', {
+        params: [maskUsernameForDuplicateHint(sameNameClass[0].username)],
+        // 前端据此决定「去重置密码」按钮是否可用（没绑邮箱就无法自助重置）
+        hasEmail: Boolean(sameNameClass[0].email)
+      })
+    }
   }
 
   const requiresApproval = Boolean(config?.registerRequiresApproval)
@@ -199,7 +244,10 @@ export default defineEventHandler(async (event) => {
         createdAt: now,
         updatedAt: now,
         passwordChangedAt: now,
-        lastLogin: now,
+        // 注册 ≠ 登录：需审核的账号不签发登录态，绝不能把注册时间写成「最后登录」
+        // （2026-10-11 修正：此前会让后台把「注册未登录」误判为已登录，且永远没有 IP）
+        lastLogin: requiresApproval ? null : now,
+        lastLoginIp: requiresApproval ? null : clientIp,
         forcePasswordChange: false,
         legalConsentVersion: legalConsentVersion || null,
         legalConsentAt: legalConsentVersion ? now : null

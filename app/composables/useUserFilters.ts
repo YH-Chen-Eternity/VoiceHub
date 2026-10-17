@@ -1,5 +1,6 @@
+// Modified by YH-Chen on 2026-10-17
 import { computed, watch } from 'vue'
-import type { User } from '~/types'
+import type { User } from '~~/types'
 import { useAuth } from '~/composables/useAuth'
 import { smartSort } from '~/utils/gradeClassWeights'
 

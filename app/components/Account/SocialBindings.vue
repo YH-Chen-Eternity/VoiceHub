@@ -1,3 +1,6 @@
+<!--
+Modified by YH-Chen on 2026-10-17
+-->
 <template>
   <div :class="cardClass">
     <div class="flex items-center gap-3 pb-5 mb-6">
@@ -389,7 +392,7 @@ const confirmAstrbotUnbind = (platform) => {
         if (!response.success) throw new Error(locale.value.astrbot.unbindFailed)
         astrbotCodes.value[platform] = null
         showConfirmDialog.value = false
-        showToast(locale.value.astrbot.unbound, 'success')
+        showToast(locale.value.astrbot.unlinked, 'success')
         await refreshAstrbotStatus()
       } catch (err) {
         showToast(localizeServerError(err, locale.value.astrbot.unbindFailed), 'error')

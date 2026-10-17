@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 import { JWTEnhanced } from '../utils/jwt-enhanced'
 import type { H3Event } from 'h3'
 import { db } from '~/drizzle/db'
@@ -160,7 +161,8 @@ export default defineEventHandler(async (event) => {
     const user = userResult[0] || null
 
     // 用户不存在或状态异常时token无效
-    if (!user || user.status !== 'active') {
+    // pending_deletion = 自助注销宽限期内，仍然允许访问（登录即撤销注销）
+    if (!user || (user.status !== 'active' && user.status !== 'pending_deletion')) {
       if (degradeToAnonymous(true)) return
       clearAuthCookie(event)
 
@@ -172,7 +174,9 @@ export default defineEventHandler(async (event) => {
             ? '该账号已毕业，限制访问'
             : user.status === 'pending'
               ? '账号待管理员审核，请耐心等待'
-              : '该账号已被禁用'
+              : user.status === 'merged'
+                ? '该账号已合并到你的原账号，请用原账号登录（忘记密码可用邮箱重置）'
+                : '该账号已被禁用'
 
       return sendError(
         event,
@@ -187,7 +191,9 @@ export default defineEventHandler(async (event) => {
                   ? SERVER_ERROR_CODES.AUTH_ACCOUNT_WITHDRAWN
                   : user?.status === 'graduate'
                     ? SERVER_ERROR_CODES.AUTH_ACCOUNT_GRADUATED
-                    : SERVER_ERROR_CODES.AUTH_ACCOUNT_DISABLED_OR_RESTRICTED
+                    : user?.status === 'merged'
+                      ? SERVER_ERROR_CODES.AUTH_ACCOUNT_MERGED
+                      : SERVER_ERROR_CODES.AUTH_ACCOUNT_DISABLED_OR_RESTRICTED
           }
         })
       )

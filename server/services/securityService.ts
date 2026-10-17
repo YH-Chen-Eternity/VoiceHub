@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 import {
   RedisStateUnavailableError,
   setStore,
@@ -625,7 +626,7 @@ export function recordUserVoteActivity(userId: number, songTitle?: string): { an
   // 如果只有一个投票记录，无法计算速率（时间跨度为0），且单个投票不构成"速率"，直接视为0
   let currentRate = 0
   if (stats.windowTimestamps.length > 1) {
-    const windowDurationMin = Math.max(1e-6, (now - Math.min(...stats.windowTimestamps)) / 60000)
+    const windowDurationMin = Math.max(1, (now - Math.min(...stats.windowTimestamps)) / 60000)
     currentRate = stats.windowTimestamps.length / windowDurationMin
   }
 
@@ -636,12 +637,12 @@ export function recordUserVoteActivity(userId: number, songTitle?: string): { an
 
   // 动态调整阈值：基础阈值 + EMA的动态倍数
   // 当EMA较低时，使用较高倍数；当EMA较高时，使用较低倍数，避免误报
-  const baseThreshold = 5 // 基础阈值：每分钟5票
+  const baseThreshold = 10 // 基础阈值：每分钟10票（本站按校园实际投票节奏放宽）
   const dynamicMultiplier = Math.max(2, 5 - Math.min(3, stats.emaPerMin / 100)) // 动态倍数：2-5倍
   const threshold = Math.max(baseThreshold, stats.emaPerMin * dynamicMultiplier)
 
   // 只有当当前速率显著超过阈值（1.5倍）时，才触发异常
-  const anomaly = currentRate > threshold * 1.5
+  const anomaly = currentRate > threshold * 2.5
   if (anomaly) triggerVoteAnomalyAlert(userId, stats.emaPerMin, currentRate, songTitle)
   return { anomaly }
 }

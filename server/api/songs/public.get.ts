@@ -1,8 +1,10 @@
+// Modified by YH-Chen on 2026-10-17
 import { createError, defineEventHandler, getQuery } from 'h3'
 import { client } from '~/drizzle/db'
 import { formatDateTime, getBeijingTimeISOString } from '~/utils/timeUtils'
 import { SUBMISSION_NOTE_STATUS } from '~~/server/config/constants'
 import { maskPublicScheduleData,
+  applySubmissionAnonymityToSchedules,
   stripAnonymousSongIdentifiersFromSchedules,
   type PublicScheduleItem
 } from '../../utils/studentMask'
@@ -47,6 +49,7 @@ const loadBasicSchedules = async (client: any, semester: string, user: any, isAd
       s.semester,
       s."requesterId",
       s."createdAt",
+      s."submissionAnonymous",
       u.name AS "requesterName",
       u.grade AS "requesterGrade",
       u.class AS "requesterClass",
@@ -102,6 +105,7 @@ const loadBasicSchedules = async (client: any, semester: string, user: any, isAd
       submissionNotePublic: false,
       preferredPlayTimeId: null,
       requesterId: row.requesterId ? Number(row.requesterId) : null,
+      submissionAnonymous: row.submissionAnonymous === true,
       replayRequestCount: 0,
       replayRequesters: [],
       isReplay: false
@@ -109,6 +113,7 @@ const loadBasicSchedules = async (client: any, semester: string, user: any, isAd
   })) as PublicScheduleItem[]
   if (hideStudentInfo && !isAdmin) maskPublicScheduleData(schedules)
   if (!user) stripAnonymousSongIdentifiersFromSchedules(schedules)
+  applySubmissionAnonymityToSchedules(schedules, { id: user?.id ?? null, isAdmin })
   return schedules
 }
 
@@ -269,6 +274,7 @@ export default defineEventHandler(async (event) => {
         s."submissionNote",
         s."submissionNotePublic",
         s."submissionNotePublicStatus" AS "songSubmissionNotePublicStatus",
+        s."submissionAnonymous",
         CASE WHEN rm.id IS NOT NULL THEN rm.submission_note ELSE s."submissionNote" END AS "effectiveSubmissionNote",
         CASE WHEN rm.id IS NOT NULL THEN COALESCE(rm.submission_note_public, false) ELSE s."submissionNotePublic" END AS "effectiveSubmissionNotePublic",
         CASE WHEN rm.id IS NOT NULL THEN rm.submission_note_public_status ELSE s."submissionNotePublicStatus" END AS "effectiveSubmissionNotePublicStatus",
@@ -422,6 +428,7 @@ export default defineEventHandler(async (event) => {
           originalSubmissionNotePublic: isAdmin ? songNotePublic : false,
           preferredPlayTimeId: effectivePlayTimeId,
           requesterId: row.requesterId ? Number(row.requesterId) : null,
+          submissionAnonymous: row.submissionAnonymous === true,
           replayRequestCount,
           replayRequesters,
           isReplay: linkedReplayRequestId !== null
@@ -435,6 +442,10 @@ export default defineEventHandler(async (event) => {
     if (!user) {
       stripAnonymousSongIdentifiersFromSchedules(formattedSchedules)
     }
+    applySubmissionAnonymityToSchedules(formattedSchedules, {
+      id: authenticatedUser?.id ?? null,
+      isAdmin: authenticatedIsAdmin
+    })
 
     return formattedSchedules
   } catch (error: any) {

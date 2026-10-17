@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 import { getServerTimestamp } from './serverTime'
 
 // 简易的内存限流器实现，带有最大容量限制防止内存溢出
@@ -63,12 +64,34 @@ export function checkRateLimit(
 /**
  * 优先使用 Redis 执行跨实例限流，Redis 不可用时回退到当前进程内存。
  * 适用于需要在多实例或 Serverless 环境中保持一致计数的敏感接口。
+ *
+ * ⚠️ 本站策略：**取消所有以 IP 为维度**的限流（校园网 NAT 下大量学生共享出口 IP，
+ * 按 IP 计数会把整个学校当成一个人，造成「莫名其妙被限流」）。按用户/按插件维度的
+ * 限流保持不变（music-plugins:<key>、card_code_validate_user_*:<userId>）。
  */
+const IP_SCOPED_RATE_LIMIT_PREFIXES = [
+  'register',
+  'email-code',
+  'captcha_fetch',
+  'captcha_precheck',
+  'forgot_password_ip',
+  'reset_password_ip',
+  'card_code_validate_ip_hourly',
+  'plugin-media'
+]
+
+const isIpScopedRateLimitKey = (key: string) =>
+  IP_SCOPED_RATE_LIMIT_PREFIXES.some((prefix) => key.startsWith(`${prefix}:`))
+
 export async function checkDistributedRateLimit(
   key: string,
   limit: number,
   windowMs: number
 ): Promise<{ isAllowed: boolean; remaining: number; resetTime: number }> {
+  if (isIpScopedRateLimitKey(key)) {
+    return { isAllowed: true, remaining: limit, resetTime: Date.now() + windowMs }
+  }
+
   try {
     const redisModule = await import('./redis')
     const client = await redisModule.getRedisClient()

@@ -1,3 +1,6 @@
+<!--
+Modified by YH-Chen on 2026-10-17
+-->
 <template>
   <div class="request-form">
     <div class="rules-section desktop-only-rules">
@@ -605,6 +608,48 @@
                   </span>
                   <Icon :size="13" name="chevron-right" />
                 </button>
+              </div>
+            </div>
+
+            <!-- 投稿署名方式：匿名投稿 / 实名公开投稿（二选一） -->
+            <div class="form-row mb-4 anonymous-row">
+              <div class="anonymous-toggle-group">
+                <span class="anonymous-toggle-label">{{ locale.submissionIdentityLabel }}</span>
+                <div class="anonymous-toggle-options">
+                  <label
+                    :class="['anonymous-option', { 'is-active': !submissionAnonymous }]"
+                  >
+                    <input
+                      v-model="submissionAnonymous"
+                      class="anonymous-option-input"
+                      type="radio"
+                      name="submission-identity"
+                      :value="false"
+                      :disabled="!siteConfigLoaded"
+                    >
+                    <span class="anonymous-option-text">{{ locale.submissionIdentityPublic }}</span>
+                  </label>
+                  <label
+                    :class="['anonymous-option', { 'is-active': submissionAnonymous }]"
+                  >
+                    <input
+                      v-model="submissionAnonymous"
+                      class="anonymous-option-input"
+                      type="radio"
+                      name="submission-identity"
+                      :value="true"
+                      :disabled="!siteConfigLoaded"
+                    >
+                    <span class="anonymous-option-text">{{ locale.submissionIdentityAnonymous }}</span>
+                  </label>
+                </div>
+                <p class="anonymous-toggle-hint">
+                  {{
+                    submissionAnonymous
+                      ? locale.submissionIdentityAnonymousHint
+                      : locale.submissionIdentityPublicHint
+                  }}
+                </p>
               </div>
             </div>
 
@@ -1542,6 +1587,8 @@ const platformTouched = ref(false) // 用户是否手动切换过平台，切换
 const preferredPlayTimeId = ref('')
 const submissionNote = ref('')
 const submissionNotePublic = ref(true)
+// 匿名投稿：勾选后非管理员看不到投稿人姓名（管理员后台仍可见）。默认实名公开。
+const submissionAnonymous = ref(false)
 const cardCode = ref('')
 const cardCodeDraft = ref('')
 const showCardCodeModal = ref(false)
@@ -3674,6 +3721,7 @@ const submitSong = async (result, options = {}) => {
       durationSeconds: submissionDurationSeconds,
       submissionNote: submissionNote.value.trim() || null,
       submissionNotePublic: submissionNotePublic.value,
+      submissionAnonymous: submissionAnonymous.value,
       collaborators: collaborators.value.map((u) => u.id),
       bilibiliCid: bilibiliCid || null,
       bilibiliPage: bilibiliPage
@@ -3732,6 +3780,7 @@ const handleSubmit = async () => {
       musicId: null, // 手动输入时没有musicId
       submissionNote: submissionNote.value.trim() || null,
       submissionNotePublic: submissionNotePublic.value,
+      submissionAnonymous: submissionAnonymous.value,
       collaborators: collaborators.value.map((u) => u.id)
     }
     if (cardCode.value && cardCode.value.trim()) {
@@ -4122,7 +4171,8 @@ const handleManualSubmit = async () => {
       musicPlatform: hasManualPlayUrl ? null : platform.value,
       musicId: null, // 手动输入时没有musicId
       submissionNote: submissionNote.value.trim() || null,
-      submissionNotePublic: submissionNotePublic.value
+      submissionNotePublic: submissionNotePublic.value,
+      submissionAnonymous: submissionAnonymous.value
     }
 
     if (cardCode.value && cardCode.value.trim()) {
@@ -4162,6 +4212,7 @@ const resetForm = () => {
   collaborators.value = []
   submissionNote.value = ''
   submissionNotePublic.value = true
+  submissionAnonymous.value = false
   cardCode.value = ''
   cardCodeDraft.value = ''
   showCardCodeModal.value = false
@@ -4922,6 +4973,67 @@ defineExpose({
 
 .submission-meta-row {
   align-items: stretch;
+}
+
+/* 匿名投稿 / 实名公开投稿 二选一 */
+.anonymous-row {
+  align-items: stretch;
+}
+
+.anonymous-toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  width: 100%;
+}
+
+.anonymous-toggle-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.anonymous-toggle-options {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.anonymous-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--border-secondary, var(--panel-bg-deep));
+  border-radius: 9999px;
+  background: var(--panel-bg-overlay);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.anonymous-option:hover {
+  border-color: var(--primary-50, var(--text-secondary));
+}
+
+.anonymous-option.is-active {
+  border-color: var(--primary-50, var(--text-secondary));
+  background: var(--primary-10, var(--panel-bg-overlay));
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.anonymous-option-input {
+  accent-color: var(--primary-50, currentColor);
+  margin: 0;
+}
+
+.anonymous-toggle-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin: 0;
 }
 
 .submission-note-group,

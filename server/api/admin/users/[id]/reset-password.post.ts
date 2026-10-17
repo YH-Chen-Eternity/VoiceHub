@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 import { eq } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
@@ -88,6 +89,17 @@ export default defineEventHandler(async (event) => {
         ...getPasswordAuditContext(event)
       }
     })
+
+    // 通知本人（失败不影响重置结果）
+    try {
+      const targetId = Number(event.context.params?.id)
+      if (Number.isInteger(targetId) && targetId > 0) {
+        const { sendAccountEmail, formatMailTime } = await import('~~/server/utils/accountNotifications')
+        await sendAccountEmail(targetId, 'account.password.adminReset', { time: formatMailTime() })
+      }
+    } catch (mailError) {
+      console.error('发送管理员重置密码通知失败:', mailError)
+    }
 
     return {
       success: true,

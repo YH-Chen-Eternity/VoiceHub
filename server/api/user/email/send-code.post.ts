@@ -1,6 +1,8 @@
+// Modified by YH-Chen on 2026-10-17
 import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
+import { checkEmailDeliverability, isPermanentRecipientFailure } from '~~/server/utils/email-deliverability'
 import { SmtpService } from '~~/server/services/smtpService'
 import { getClientIP } from '~~/server/utils/ip-utils'
 import { getServerTimestamp } from '~~/server/utils/serverTime'
@@ -16,7 +18,8 @@ export async function sendEmailVerificationCode(
   userId: number,
   email: string,
   name?: string,
-  ipAddress?: string
+  ipAddress?: string,
+  templateKey = 'verification.code'
 ) {
   const code = generateCode()
   const expiresAt = getServerTimestamp() + 5 * 60 * 1000
@@ -34,7 +37,7 @@ export async function sendEmailVerificationCode(
   try {
     sent = await smtp.renderAndSend(
       email,
-      'verification.code',
+      templateKey,
       {
         name: name || '用户',
         email,
@@ -49,6 +52,10 @@ export async function sendEmailVerificationCode(
   }
   if (!sent) {
     await delStoreIfValue(stateKey, storedValue)
+    // 收件人被永久拒绝（地址不存在/非法）→ 明确提示邮箱有问题
+    if (isPermanentRecipientFailure(smtp.getLastSendFailure())) {
+      throw createApiError(400, 'AUTH_EMAIL_UNREACHABLE', '该邮箱无法接收邮件，请检查邮箱地址是否写错')
+    }
     throw createApiError(500, 'USER_CODE_SEND_FAILED', '验证码发送失败，请稍后重试')
   }
 }
@@ -68,11 +75,25 @@ export default defineEventHandler(async (event) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
   if (!emailRaw || !emailRegex.test(emailRaw)) {
-    throw createApiError(400, 'USER_INVALID_EMAIL', '请输入有效的邮箱地址')
+    throw createApiError(400, 'AUTH_EMAIL_UNREACHABLE', '邮箱格式不正确，请检查后再试')
+  }
+
+  // 域名收信能力预检（同注册发码，避免"发不出去却提示已发送"）
+  const deliverability = await checkEmailDeliverability(emailRaw)
+  if (!deliverability.ok) {
+    throw createApiError(
+      400,
+      'AUTH_EMAIL_UNREACHABLE',
+      '该邮箱无法接收邮件，请检查邮箱地址是否写错（域名不存在或没有邮件服务）'
+    )
   }
 
   // 确认邮箱未被其他用户占用
-  const existing = await db.select().from(users).where(eq(users.email, emailRaw)).limit(1)
+  const existing = await db
+    .select()
+    .from(users)
+    .where(sql`lower(${users.email}) = ${emailRaw} and btrim(coalesce(${users.email}, '')) <> ''`)
+    .limit(1)
   const existingUser = existing[0]
   if (existingUser && existingUser.id !== user.id) {
     throw createApiError(400, 'USER_EMAIL_TAKEN', '该邮箱已被其他用户绑定')

@@ -1,0 +1,27 @@
+-- Copyright (C) 2026 YH-Chen
+--
+-- This file is part of VoiceHub-Plus (an unofficial community edition),
+-- based on VoiceHub <https://github.com/laoshuikaixue/VoiceHub>.
+--
+-- This program is free software: you can redistribute it and/or modify
+-- it under the terms of the GNU General Public License as published by
+-- the Free Software Foundation, either version 3 of the License, or
+-- (at your option) any later version.
+--
+-- This program is distributed in the hope that it will be useful,
+-- but WITHOUT ANY WARRANTY; without even the implied warranty of
+-- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+-- GNU General Public License for more details.
+--
+-- You should have received a copy of the GNU General Public License
+-- along with this program. If not, see <https://www.gnu.org/licenses/>.
+-- 邮箱唯一 + 新增 merged 账号状态（2026-10-11）
+--
+-- ⚠️ 执行前提：库里不能已存在重复邮箱（不区分大小写）。
+--    加索引前必须先清理历史 4 组重复（脚本 deploy/08-cleanup-duplicate-accounts.sh）。
+--    若此刻仍有重复，CREATE UNIQUE INDEX 会失败 → 容器启动的 db-sync 会判定迁移失败。
+--
+-- 'merged' = 该账号已被合并进同名的原账号（清理重复注册时使用），
+--            登录与鉴权中间件都会据此提示「请用原账号登录」。
+ALTER TYPE "public"."user_status" ADD VALUE IF NOT EXISTS 'merged';--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "User_email_lower_unique" ON "User" USING btree (lower(email)) WHERE "email" IS NOT NULL AND btrim("email") <> '';--> statement-breakpoint

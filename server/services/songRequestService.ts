@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 import {
   collaborationLogs,
   db,
@@ -57,6 +58,8 @@ const songRequestBodySchema = z.object({
   // 保持「站点表单 / 机器人 / zod」三处同一个数值
   submissionNote: z.string().trim().max(SUBMISSION_NOTE_MAX_LENGTH, `备注留言不能超过${SUBMISSION_NOTE_MAX_LENGTH}个字符`).optional().nullable(),
   submissionNotePublic: z.boolean().optional(),
+  // 匿名投稿：勾选后非管理员视角不显示投稿人姓名
+  submissionAnonymous: z.boolean().optional(),
   preferredPlayTimeId: z.preprocess(
     (value) => value === null || value === undefined || value === '' ? null : Number(value),
     z.number().int().positive('播出时段 ID 无效').nullable()
@@ -498,6 +501,7 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
           submissionNote,
           submissionNotePublic,
           submissionNotePublicStatus,
+          submissionAnonymous: requestBody.submissionAnonymous === true,
           hitRequestId: hitRequestTime?.id || null
         })
         .returning()
@@ -615,10 +619,14 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
 
     // 群聊推送：谁点了什么歌。后台事件开关关闭或无群目标时该调用直接返回 0；
     // 通知失败不得影响投稿结果。
+    // 匿名投稿不得在群聊里暴露姓名，否则匿名形同虚设。
     try {
-      const [requester] = await db.select({ name: users.name, username: users.username })
-        .from(users).where(eq(users.id, user.id)).limit(1)
-      const displayName = requester?.name || requester?.username || `用户 ${user.id}`
+      let displayName = '匿名'
+      if (song.submissionAnonymous !== true) {
+        const [requester] = await db.select({ name: users.name, username: users.username })
+          .from(users).where(eq(users.id, user.id)).limit(1)
+        displayName = requester?.name || requester?.username || `用户 ${user.id}`
+      }
       await enqueueAstrbotGroupEvent(
         'songRequest',
         '新的点歌投稿',

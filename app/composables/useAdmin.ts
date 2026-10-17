@@ -1,8 +1,9 @@
+// Modified by YH-Chen on 2026-10-17
 import { ref } from 'vue'
 import { useAuth } from './useAuth'
 import { useServerErrors } from './useLocaleText'
 import { useLocale } from '~/utils/locale'
-import type { PlayTime, SystemSettings } from '~/types'
+import type { PlayTime, SystemSettings } from '~~/types'
 
 export const useAdmin = () => {
   const { getAuthConfig, isAdmin } = useAuth()

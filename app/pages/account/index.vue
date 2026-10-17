@@ -1,3 +1,6 @@
+<!--
+Modified by YH-Chen on 2026-10-17
+-->
 <template>
   <div class="min-h-screen bg-bg-primary text-text-primary pb-24">
     <!-- 顶部导航栏 -->
@@ -297,6 +300,12 @@
               <AuthChangePasswordForm />
             </div>
           </section>
+
+          <!-- 修改真实姓名（需管理员审核） -->
+          <AccountNameChange />
+
+          <!-- 注销账号（30 天宽限期，期间登录自动恢复） -->
+          <AccountDeleteAccount />
 
           <!-- 双重认证 -->
           <section :class="sectionClass">

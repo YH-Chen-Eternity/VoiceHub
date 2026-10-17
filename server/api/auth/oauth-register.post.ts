@@ -1,13 +1,16 @@
+// Modified by YH-Chen on 2026-10-17
 import bcrypt from 'bcryptjs'
 import { db, users, userIdentities } from '~/drizzle/db'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { verifyBindingToken } from '~~/server/utils/oauth-token'
 import { getServerDate, getServerTimestamp } from '~~/server/utils/serverTime'
+import { getClientIP } from '~~/server/utils/ip-utils'
 import { validateOAuthRegisterCredentials } from '~/utils/oauth-register'
 import { isSecureRequest } from '~~/server/utils/request-utils'
 import { createApiError } from '~~/server/utils/apiError'
 import { createAuthSession } from '~~/server/utils/auth-session'
 import { SERVER_ERROR_CODES } from '~~/server/config/constants'
-import { resolveGradeClassError, REMARK_MAX_LENGTH } from '~~/server/utils/register-validation'
+import { resolveGradeClassError, REMARK_MAX_LENGTH, validateRealName, maskUsernameForDuplicateHint } from '~~/server/utils/register-validation'
 import { isGradeClassValid } from '~~/server/utils/grade-class-options'
 import { getIdentityAvatarUrl } from '~~/server/utils/user-avatar'
 import { verifyEmailCode } from '~~/server/utils/email-verification'
@@ -121,6 +124,48 @@ export default defineEventHandler(async (event) => {
     throw createApiError(400, SERVER_ERROR_CODES.AUTH_EMAIL_CODE_INVALID, '邮箱验证码无效或已过期，请重新获取')
   }
 
+  // 真实姓名必须中文（与本地注册同一口径）
+  const realNameError = validateRealName(name)
+  if (realNameError) {
+    throw createApiError(400, realNameError.code, realNameError.message)
+  }
+
+  // 邮箱唯一：一个邮箱只能绑定一个账号
+  if (email) {
+    const emailOwner = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(sql`lower(${users.email}) = ${email} and btrim(coalesce(${users.email}, '')) <> ''`)
+      .limit(1)
+    if (emailOwner.length > 0) {
+      throw createApiError(409, 'AUTH_EMAIL_TAKEN', '该邮箱已被其他账号绑定，请换一个邮箱或直接登录原账号')
+    }
+  }
+
+  // 同班同名：与本地注册一致，先确认「是不是忘记密码了」
+  if (name && selectedGrade && selectedClass && body.confirmNotMe !== true) {
+    const sameNameClass = await db
+      .select({ username: users.username, email: users.email })
+      .from(users)
+      .where(
+        and(
+          eq(users.name, name),
+          eq(users.grade, selectedGrade),
+          eq(users.class, selectedClass),
+          inArray(users.status, ['active', 'pending'])
+        )
+      )
+      .limit(1)
+
+    const duplicate = sameNameClass[0]
+    if (duplicate) {
+      throw createApiError(409, 'AUTH_NAME_CLASS_DUPLICATE', '同班已有同名同学，请确认是否本人', {
+        params: [maskUsernameForDuplicateHint(duplicate.username)],
+        hasEmail: Boolean(duplicate.email)
+      })
+    }
+  }
+
   try {
     // 开事务创建用户和关联身份
     const result = await db.transaction(async (tx) => {
@@ -151,7 +196,10 @@ export default defineEventHandler(async (event) => {
           createdAt: now,
           updatedAt: now,
           passwordChangedAt: now,
-          lastLogin: now,
+          // 注册 ≠ 登录：需审核的账号不签发登录态，绝不能把注册时间写成「最后登录」
+          // （2026-10-11 修正：此前会让后台把「注册未登录」误判为已登录，且永远没有 IP）
+          lastLogin: config?.oauthRegisterRequiresApproval ? null : now,
+          lastLoginIp: config?.oauthRegisterRequiresApproval ? null : getClientIP(event),
           forcePasswordChange: false,
           avatarProvider: avatarUrl ? payload.provider : null,
           avatarProviderUserId: avatarUrl ? payload.providerUserId : null,

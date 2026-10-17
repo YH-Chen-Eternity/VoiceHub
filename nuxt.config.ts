@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 import wasm from 'vite-plugin-wasm'
 import { fileURLToPath } from 'url'
 
@@ -13,7 +14,7 @@ try {
 }
 
 const siteTitle =
-  customSeoConfig.title || process.env.NUXT_PUBLIC_SITE_TITLE || 'VoiceHub校园广播站点歌系统'
+  customSeoConfig.title || process.env.NUXT_PUBLIC_SITE_TITLE || 'VoiceHub-Plus（非官方）校园广播站点歌系统'
 const siteShortName = customSeoConfig.shortName || '校园广播'
 const siteDescription =
   customSeoConfig.description ||
@@ -37,10 +38,11 @@ const readNumberEnv = (value: string | undefined, fallback: number): number => {
 
 const ssrInlineLyricPackages = ['@applemusic-like-lyrics/lyric']
 
-const backendSentryDsnDefault =
-  'https://2fca0c8a939c8909e02c082ec847e8e8@o4508946125619200.ingest.de.sentry.io/4511244961448016'
-const frontendSentryDsnDefault =
-  'https://3c4fe5353816bcdce36e7cc28703c8fa@o4508946125619200.ingest.de.sentry.io/4511244934774864'
+// VoiceHub-Plus（非官方社区版）：默认不向任何服务器上传错误数据。
+// 上游原值指向原作者自己的 Sentry 项目，此处已清空；如需自行收集错误，
+// 请设置 SENTRY_DSN / NUXT_PUBLIC_SENTRY_DSN，并显式设置 SENTRY_ENABLED=true。
+const backendSentryDsnDefault = ''
+const frontendSentryDsnDefault = ''
 // Sentry 仅在生产环境启用；Vercel/Netlify 预览部署（测试环境）自动关闭，避免收集测试错误
 // 可显式设置 SENTRY_ENABLED=true/false 强制覆盖，未设置时按 NODE_ENV 与部署环境判断
 const isPreviewDeployment =
@@ -50,7 +52,7 @@ const isPreviewDeployment =
 const sentryRuntimeEnabled =
   process.env.SENTRY_ENABLED !== undefined
     ? process.env.SENTRY_ENABLED === 'true'
-    : process.env.NODE_ENV === 'production' && !isPreviewDeployment
+    : false
 const jwtSecret = process.env.JWT_SECRET || ''
 
 // 构造绝对路径 Logo URL 用于 SEO 标签，如果没有 host，则回退为相对路径
@@ -107,17 +109,8 @@ export default defineNuxtConfig({
         'primary-light': 'var(--primary-light)',
         'primary-border': 'var(--primary-border)',
         // === 语义色 ===
-        success: 'var(--success)',
-        'success-hover': 'var(--success-hover)',
-        'success-light': 'var(--success-light)',
         'success-border': 'var(--success-border)',
-        warning: 'var(--warning)',
-        'warning-hover': 'var(--warning-hover)',
-        'warning-light': 'var(--warning-light)',
         'warning-border': 'var(--warning-border)',
-        error: 'var(--error)',
-        'error-hover': 'var(--error-hover)',
-        'error-light': 'var(--error-light)',
         'error-border': 'var(--error-border)',
         // === 背景色 ===
         'bg-primary': 'var(--bg-primary)',
@@ -684,17 +677,20 @@ export default defineNuxtConfig({
       ],
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
-        // 优先加载常规字体，确保页面快速显示
+        // 字体 CDN 预连接：省掉 DNS + TLS 往返（字体 CSS 是首屏关键路径）
+        { rel: 'preconnect', href: 'https://cdn.jsdelivr.net', crossorigin: 'anonymous' },
+        { rel: 'dns-prefetch', href: 'https://cdn.jsdelivr.net' },
+        // 封面图常用域名预连接，歌单图片能更早开始下载
+        { rel: 'preconnect', href: 'https://y.gtimg.cn', crossorigin: 'anonymous' },
+        { rel: 'preconnect', href: 'https://p1.music.126.net', crossorigin: 'anonymous' },
+        { rel: 'dns-prefetch', href: 'https://api.vkeys.cn' },
+        // 常规字体：preload 预热 + onload 切换为样式表，避免阻塞首屏渲染（先用系统字体绘制）
         {
           rel: 'preload',
           as: 'style',
           crossorigin: 'anonymous',
-          href: 'https://cdn.jsdelivr.net/npm/misans@4.1.0/lib/Normal/MiSans-Regular.min.css'
-        },
-        {
-          rel: 'stylesheet',
-          crossorigin: 'anonymous',
-          href: 'https://cdn.jsdelivr.net/npm/misans@4.1.0/lib/Normal/MiSans-Regular.min.css'
+          href: 'https://cdn.jsdelivr.net/npm/misans@4.1.0/lib/Normal/MiSans-Regular.min.css',
+          onload: "this.onload=null;this.rel='stylesheet'"
         },
         // 延迟加载其他字重，避免阻塞页面渲染
         {
@@ -755,6 +751,12 @@ export default defineNuxtConfig({
     timing: true,
     // 增加请求超时时间
     routeRules: {
+      // 上传的图片（公告栏图片等）：id 不可变，长缓存；必须比 /api/** 更具体才能覆盖 no-store
+      '/api/media/**': {
+        headers: {
+          'Cache-Control': 'public, max-age=604800, immutable'
+        }
+      },
       // 完全禁用所有API路由的缓存，确保每次都请求数据库
       '/api/**': {
         headers: {

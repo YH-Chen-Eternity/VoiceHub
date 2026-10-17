@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
 import { asc } from 'drizzle-orm'
@@ -22,7 +23,7 @@ export default defineEventHandler(async (event) => {
         role: users.role,
         grade: users.grade,
         class: users.class,
-        lastLoginAt: users.lastLoginAt,
+        lastLoginAt: users.lastLogin,
         lastLoginIp: users.lastLoginIp,
         passwordChangedAt: users.passwordChangedAt
       })

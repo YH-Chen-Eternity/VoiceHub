@@ -1,9 +1,10 @@
+// Modified by YH-Chen on 2026-10-17
 import { getMusicUrl } from '~/utils/musicUrl'
 import { isBilibiliSong } from '~/utils/bilibiliSource'
 import { useAudioPlayer, type PlayableSong } from './useAudioPlayer'
 import { useToast } from './useToast'
 import { useLocale } from '~/utils/locale'
-import type { Song } from '~/types'
+import type { Song } from '~~/types'
 
 export const useSongPlayer = () => {
   const audioPlayer = useAudioPlayer()

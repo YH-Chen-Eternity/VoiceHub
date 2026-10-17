@@ -1,3 +1,6 @@
+<!--
+Modified by YH-Chen on 2026-10-17
+-->
 <!-- 侧边栏组件 -->
 <template>
   <aside
@@ -135,7 +138,10 @@ import {
   Database,
   Lock,
   Ticket,
-  GraduationCap
+  GraduationCap,
+  Megaphone,
+  ClipboardCheck,
+  UserCheck
 } from '@lucide/vue'
 import { useLocale } from '~/utils/locale'
 
@@ -177,12 +183,20 @@ const menuGroups = computed(() => [
       { icon: CalendarDays, label: locale.value.menu?.schedule || '排班管理', id: 'schedule' },
       { icon: Printer, label: locale.value.menu?.print || '打印管理', id: 'print' },
       { icon: Music2, label: locale.value.menu?.songs || '点歌管理', id: 'songs' },
+      { icon: Megaphone, label: locale.value.menu?.announcement || '公告栏编辑', id: 'announcement' },
       {
         icon: BarChart3,
         label: locale.value.menu?.dataAnalysis || '数据分析',
         id: 'data-analysis',
         permissionId: 'data-analysis'
       }
+    ]
+  },
+  {
+    section: locale.value.sections?.review || '审核',
+    items: [
+      { icon: ClipboardCheck, label: locale.value.menu?.reviewNotes || '公开备注审核', id: 'review-notes' },
+      { icon: UserCheck, label: locale.value.menu?.reviewUsers || '用户审核', id: 'review-users' }
     ]
   },
   {

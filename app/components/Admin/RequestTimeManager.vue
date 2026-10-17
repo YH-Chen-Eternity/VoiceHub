@@ -1,3 +1,6 @@
+<!--
+Modified by YH-Chen on 2026-10-17
+-->
 <template>
   <div class="max-w-[1400px] mx-auto space-y-8 pb-20 px-2">
     <!-- 顶部标题和全局开关 -->
@@ -649,7 +652,7 @@ import { onMounted, onUnmounted, reactive, ref, computed } from 'vue'
 import { useAuth } from '~/composables/useAuth'
 import { useToast } from '~/composables/useToast'
 import { useLocale } from '~/utils/locale'
-import type { RequestTime } from '~/types'
+import type { RequestTime } from '~~/types'
 import {
   Plus,
   Calendar,

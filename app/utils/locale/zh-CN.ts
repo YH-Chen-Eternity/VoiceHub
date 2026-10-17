@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 /**
  * 中文语言包 — 集中管理用户可见文本。
  * 后续如需多语言支持，可基于此结构扩展其他语言文件并接入 vue-i18n。
@@ -156,7 +157,7 @@ export const siteConfig = {
   guidelinesPlaceholder: '请输入投稿须知内容（支持 Markdown 格式）',
   guidelinesEdit: '编辑',
   guidelinesPreview: '预览',
-  defaultSiteTitle: '校园广播站点歌系统',
+  defaultSiteTitle: 'VoiceHub-Plus（非官方）校园广播站点歌系统',
   defaultSubmissionGuidelines: `1. 投稿时无需加入书名号
 2. 除DJ外，其他类型歌曲均接收（包括小语种）
 3. 禁止投递含有违规内容的歌曲
@@ -535,7 +536,7 @@ export const pages = {
         unbind: '解除绑定',
         unbindTitle: '解除平台绑定',
         unbindMessage: '解绑 {0} 后将不再收到该平台通知，确定继续吗？',
-        unbound: '平台已解绑',
+        unlinked: '平台已解绑',
         unbindFailed: '解绑失败',
         codeFailed: '生成绑定码失败',
         loadFailed: '加载平台绑定状态失败'
@@ -628,7 +629,7 @@ export const pages = {
   dashboard: {
     backToTop: '返回顶部',
     fallbackTitle: '管理后台',
-    defaultSiteTitle: '校园广播站点歌系统',
+    defaultSiteTitle: 'VoiceHub-Plus（非官方）校园广播站点歌系统',
     tabs: {
       overview: '数据概览',
       songs: '歌曲管理',
@@ -645,7 +646,10 @@ export const pages = {
       'music-source': '音源控制',
       database: '数据库操作',
       'api-keys': 'API密钥管理',
-      'card-codes': '点歌券管理'
+      'card-codes': '点歌券管理',
+      'review-notes': '公开备注审核',
+      'review-users': '用户审核',
+      announcement: '公告栏编辑'
     },
     roles: {
       USER: '普通用户',
@@ -874,10 +878,16 @@ export const pages = {
       bindProvider: (providerName: string, providerUsername: string) => `即将绑定 ${providerName} 账号: ${providerUsername}`,
       createWithProvider: (providerName: string) => `通过 ${providerName} 创建新账户`,
       loginSubtitle: '登录您的VoiceHub账户',
+      realNameHint: '请填写与学籍一致的姓名（只能中文，2~20 字）',
+      duplicateNameTitle: '同班已有同名同学',
+      duplicateNameGoReset: '是我，去重置密码',
+      duplicateNameContinue: '不是我，继续注册',
+      duplicateNameNoEmail: '原账号没有绑定邮箱，无法自助重置密码，请联系广播站管理员。',
       setUsername: '设置用户名',
       accountName: '账号名',
       usernamePlaceholder: '请输入账号名',
-      usernamePattern: '3-30个字符，可使用英文、数字、下划线、连字符',
+      usernamePattern: '3-30个字符，可使用中文、英文、数字、下划线、连字符',
+      emailDeliverHint: '若几分钟后仍收不到验证码：请检查邮箱地址是否写错（最常见是域名拼错），并查看垃圾邮件目录；QQ 邮箱有时会延迟。',
       usernameHint: '用户名不能重复，注册后无法修改',
       realName: '真实姓名',
       realNamePlaceholder: '请输入您的真实姓名',
@@ -969,7 +979,7 @@ export const pages = {
       passkeyCleanupNotified: '该 Passkey 已失效，系统已收到清理通知，请重新添加',
       passkeyCleanupRequired: '该 Passkey 已从 VoiceHub 删除，请先在设备密码保险箱中删除后重新添加',
       usernameLengthInvalid: '用户名长度需要在3-30个字符之间',
-      usernamePatternInvalid: '用户名仅可包含英文、数字、下划线和连字符',
+      usernamePatternInvalid: '用户名仅可包含中文、英文、数字、下划线和连字符',
       registerPasswordTooShort: '密码长度至少为6个字符',
       registerPasswordMismatch: '两次输入的密码不一致',
       confirmBind: '确认绑定',
@@ -1726,6 +1736,11 @@ export const pages = {
       },
       publicToUsers: '公开给已登录用户',
       submissionNoteApprovalHint: '公开留言需管理员审核通过后展示',
+      submissionIdentityLabel: '投稿署名',
+      submissionIdentityPublic: '实名公开投稿',
+      submissionIdentityAnonymous: '匿名投稿',
+      submissionIdentityPublicHint: '其他同学可以看到你的姓名',
+      submissionIdentityAnonymousHint: '其他同学只会看到「匿名」，不会显示你的姓名',
       coverAlt: '封面',
       albumDetailsTitle: '点击查看专辑详情',
       album: '专辑：',
@@ -1937,6 +1952,7 @@ export const admin = {
       overview: '概览',
       content: '内容管理',
       users: '用户管理',
+      review: '审核',
       api: 'API管理',
       system: '系统管理',
       account: '账户管理'
@@ -1960,7 +1976,10 @@ export const admin = {
       musicSource: '音源控制',
       siteConfig: '站点配置',
       database: '数据库操作',
-      password: '修改密码'
+      password: '修改密码',
+      announcement: '公告栏编辑',
+      reviewNotes: '公开备注审核',
+      reviewUsers: '用户审核'
     },
     roles: {
       USER: '普通用户',
@@ -4597,7 +4616,7 @@ export const serverErrors = {
   BILIBILI_PLAYURL_FAILED: '获取 Bilibili 音频链接失败',
   AUTH_NAME_USERNAME_PASSWORD_REQUIRED: '姓名、用户名、密码不能为空',
   AUTH_USERNAME_LENGTH_INVALID: '用户名长度需要在3-30个字符之间',
-  AUTH_USERNAME_PATTERN_INVALID: '用户名仅可包含英文、数字、下划线和连字符',
+  AUTH_USERNAME_PATTERN_INVALID: '用户名仅可包含中文、英文、数字、下划线和连字符',
   AUTH_PASSWORD_TOO_SHORT: '密码长度不能少于6个字符',
   AUTH_PASSWORD_TOO_LONG: '密码长度不能超过128位',
   AUTH_PASSWORD_TOO_MANY_BYTES: '密码有效长度不能超过72字节',
@@ -4669,6 +4688,12 @@ export const serverErrors = {
   AUTH_ACCOUNT_GRADUATED: '该账号已毕业，限制访问',
   AUTH_ACCOUNT_BANNED: '该账号已被封禁',
   AUTH_ACCOUNT_WITHDRAWN: '该账号已退学，限制访问',
+  AUTH_ACCOUNT_MERGED: '该账号已合并到你的原账号，请用原账号登录；忘记密码可在登录页用邮箱重置',
+  AUTH_NAME_REQUIRED: '请填写真实姓名',
+  AUTH_NAME_MUST_BE_CHINESE: '真实姓名只能填写中文（2~20 个字，少数民族姓名可用「·」分隔）',
+  AUTH_NAME_CLASS_DUPLICATE: '同班已有同名同学（账号 {0}）',
+  AUTH_EMAIL_TAKEN: '该邮箱已被其他账号绑定，请换一个邮箱或直接登录原账号',
+  AUTH_EMAIL_UNREACHABLE: '该邮箱收不到邮件，请检查地址是否写错（常见：域名拼错、少个字母）',
   AUTH_ACCOUNT_CURRENTLY_UNAVAILABLE: '该账号当前不可用',
   AUTH_NO_SECURITY_EMAIL: '该账号未绑定安全邮箱，无法通过此方式找回密码。请联系管理员。',
   AUTH_RESET_LINK_INVALIDATED: '该重置链接已失效（密码已被修改）',

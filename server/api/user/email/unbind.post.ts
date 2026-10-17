@@ -1,4 +1,6 @@
+// Modified by YH-Chen on 2026-10-17
 import { db } from '~/drizzle/db'
+import { sendAccountEmail, formatMailTime, notifyLoginSuccess, notifyLoginFailure } from '~~/server/utils/accountNotifications'
 import { users } from '~/drizzle/schema'
 import { eq } from 'drizzle-orm'
 import { createApiError } from '~~/server/utils/apiError'
@@ -17,6 +19,12 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
+    const [before] = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, user.id))
+      .limit(1)
+
     // 解绑邮箱
     await db
       .update(users)
@@ -26,6 +34,11 @@ export default defineEventHandler(async (event) => {
         emailVerifiedAt: null
       })
       .where(eq(users.id, user.id))
+
+    void sendAccountEmail(user.id, 'account.email.unbound', {
+      oldEmail: before?.email || '（原邮箱）',
+      time: formatMailTime()
+    })
 
     return {
       success: true,

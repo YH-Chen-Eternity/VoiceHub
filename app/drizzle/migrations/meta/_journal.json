@@ -372,6 +372,34 @@
       "when": 1790488086779,
       "tag": "20260927054806_add_astrbot_notification",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1791687600000,
+      "tag": "20261011110000_add_submission_anonymous",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1791696000000,
+      "tag": "20261011120000_add_email_unique_and_merged_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1791698400000,
+      "tag": "20261011140000_add_announcement_review_deletion",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1791701400000,
+      "tag": "20261011163000_add_announcement_display_mode",
+      "breakpoints": true
     }
   ]
 }

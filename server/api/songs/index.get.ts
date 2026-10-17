@@ -1,9 +1,11 @@
+// Modified by YH-Chen on 2026-10-17
 import { createError, defineEventHandler, getQuery } from 'h3'
 import { client } from '~/drizzle/db'
 import { formatDateTime } from '~/utils/timeUtils'
 import { getServerTimestamp } from '~~/server/utils/serverTime'
 import { SUBMISSION_NOTE_STATUS } from '~~/server/config/constants'
 import {
+  applySubmissionAnonymity,
   maskSongsInfo,
   stripAnonymousSongIdentifiers,
   type MaskableSong
@@ -49,6 +51,7 @@ interface SongResponse extends MaskableSong {
   submissionNote?: string | null
   submissionNotePublic?: boolean
   submissionNotePublicStatus?: string | null
+  submissionAnonymous?: boolean
   replayRequestId?: number | null
 }
 
@@ -99,6 +102,7 @@ const loadBasicSongs = async (
   const rows = await client.unsafe(`
     SELECT s.id, s.title, s.artist, s.played, s."playedAt", s.semester,
       s."createdAt", s."updatedAt", s.cover, s."musicPlatform", s."musicId",
+      (to_jsonb(s) ->> 'submissionAnonymous')::boolean AS "submissionAnonymous",
       u.id AS "requesterId", u.name AS "requesterName", u.grade AS "requesterGrade", u.class AS "requesterClass",
       COUNT(*) OVER()::int AS total
     FROM "Song" s
@@ -120,10 +124,13 @@ const loadBasicSongs = async (
     durationSeconds: null, playUrl: null,
     replayRequested: false, replayRequestCount: 0, isReplay: false, replayRequesters: [],
     hasSubmissionNote: false, submissionNote: null, submissionNotePublic: false,
+    submissionAnonymous: row.submissionAnonymous === true,
     preferredPlayTimeId: null,
   })) as SongResponse[]
   if (hideStudentInfo && !isAdmin) maskSongsInfo(songs)
   if (!user) songs.forEach(stripAnonymousSongIdentifiers)
+  // 匿名投稿必须在姓名脱敏之后处理，否则「匿名」会被脱敏规则覆盖
+  applySubmissionAnonymity(songs, { id: user?.id ?? null, isAdmin })
   return { success: true, data: { songs, total: Number(rows[0]?.total || 0) } }
 }
 
@@ -282,6 +289,7 @@ export default defineEventHandler(async (event) => {
         s."submissionNote",
         s."submissionNotePublic",
         s."submissionNotePublicStatus",
+        s."submissionAnonymous",
         s."preferredPlayTimeId",
         u.id AS "requesterId",
         u.name AS "requesterName",
@@ -408,6 +416,7 @@ export default defineEventHandler(async (event) => {
         submissionNote: canViewSubmissionNote ? row.submissionNote : null,
         submissionNotePublic: canViewSubmissionNote ? row.submissionNotePublic === true : false,
         submissionNotePublicStatus: canViewSubmissionNote ? (row.submissionNotePublicStatus || null) : null,
+        submissionAnonymous: row.submissionAnonymous === true,
         replayRequestId: row.replayRequestId ? Number(row.replayRequestId) : null,
         preferredPlayTimeId: row.preferredPlayTimeId ? Number(row.preferredPlayTimeId) : null
       }
@@ -446,6 +455,8 @@ export default defineEventHandler(async (event) => {
     if (!user) {
       formattedSongs.forEach(stripAnonymousSongIdentifiers)
     }
+    // 匿名投稿必须在姓名脱敏之后处理，否则「匿名」会被脱敏规则覆盖
+    applySubmissionAnonymity(formattedSongs, { id: user?.id ?? null, isAdmin })
 
     return {
       success: true,

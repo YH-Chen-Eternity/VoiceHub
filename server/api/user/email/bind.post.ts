@@ -1,7 +1,9 @@
+// Modified by YH-Chen on 2026-10-17
 import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { createApiError } from '~~/server/utils/apiError'
+import { checkEmailDeliverability } from '~~/server/utils/email-deliverability'
 
 export default defineEventHandler(async (event) => {
   // 检查请求方法
@@ -27,8 +29,23 @@ export default defineEventHandler(async (event) => {
 
     const email = body.email.trim().toLowerCase()
 
+    // 域名收信能力预检：先拦住"域名写错/收不到邮件"的地址，避免存进来还发不出验证码
+    const deliverability = await checkEmailDeliverability(email)
+    if (!deliverability.ok) {
+      throw createApiError(
+        400,
+        'AUTH_EMAIL_UNREACHABLE',
+        '该邮箱无法接收邮件，请检查邮箱地址是否写错（域名不存在或没有邮件服务）'
+      )
+    }
+
     // 检查邮箱是否已被其他用户绑定
-    const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1)
+    // 大小写不敏感地查重（邮箱唯一由 DB 唯一索引 + 这里共同保证）
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(sql`lower(${users.email}) = ${email} and btrim(coalesce(${users.email}, '')) <> ''`)
+      .limit(1)
 
     if (existingUser.length > 0 && existingUser[0].id !== user.id) {
       throw createApiError(400, 'USER_EMAIL_TAKEN', '该邮箱已被其他用户绑定')
@@ -50,8 +67,10 @@ export default defineEventHandler(async (event) => {
       const clientIP = getClientIP(event)
 
       await sendEmailVerificationCode(user.id, email, user.name, clientIP)
-    } catch (emailError) {
+    } catch (emailError: any) {
       console.error('发送邮箱验证码失败:', emailError)
+      // 邮箱不可达这类业务错误必须让前端看到，否则用户以为"已发送"却永远收不到
+      if (emailError?.statusCode) throw emailError
     }
 
     return {

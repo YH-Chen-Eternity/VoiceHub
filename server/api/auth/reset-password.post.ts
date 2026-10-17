@@ -1,4 +1,6 @@
+// Modified by YH-Chen on 2026-10-17
 import crypto from 'node:crypto'
+import { sendAccountEmail, formatMailTime, notifyLoginSuccess, notifyLoginFailure } from '~~/server/utils/accountNotifications'
 import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
 import { eq } from 'drizzle-orm'
@@ -85,6 +87,11 @@ export default defineEventHandler(async (event) => {
       }
     })
     passwordUpdated = true
+
+    void sendAccountEmail(user.id, 'account.password.reset', {
+      time: formatMailTime(),
+      ip: getClientIP(event) || ''
+    })
 
     return { success: true, message: '密码重置成功，请使用新密码登录' }
   } catch (error: any) {

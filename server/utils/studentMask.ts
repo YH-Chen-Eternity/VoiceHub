@@ -1,3 +1,4 @@
+// Modified by YH-Chen on 2026-10-17
 import { maskStudentName } from './siteUtils'
 
 /**
@@ -17,8 +18,11 @@ export interface MaskableUser {
  */
 export interface MaskableSong {
   requester?: string
+  requesterId?: number | null
   requesterGrade?: string | null
   requesterClass?: string | null
+  /** 逐条投稿的匿名标记（Song.submissionAnonymous） */
+  submissionAnonymous?: boolean
   collaborators?: MaskableUser[]
   replayRequesters?: MaskableUser[]
   [key: string]: any
@@ -111,4 +115,61 @@ export function stripAnonymousSongIdentifiersFromSchedules(data: PublicScheduleI
   data.forEach((item) => {
     if (item.song) stripAnonymousSongIdentifiers(item.song)
   })
+}
+
+/** 匿名投稿的统一显示名（前端直接展示该字符串，不参与二次脱敏）。 */
+export const ANONYMOUS_REQUESTER_DISPLAY = '匿名'
+
+export interface AnonymityViewer {
+  id?: number | null
+  /** 管理员视角：不做匿名处理（后台始终可以看到真实投稿人） */
+  isAdmin?: boolean
+}
+
+/**
+ * 按「逐条投稿的匿名标记」脱敏。
+ *
+ * 只有 Song.submissionAnonymous === true 的投稿会被处理：
+ *   - 管理员：完全跳过（后台始终能看到真实投稿人，便于管理与追溯）
+ *   - 投稿人本人：跳过（自己的投稿自己可见，便于在列表中辨认）
+ *   - 其他登录用户 / 游客：投稿人显示为「匿名」，并移除年级班级、联合投稿人
+ *     以及 requesterId / cardCodeId 等可被交叉关联的内部标识。
+ *
+ * 注意：本函数必须在 maskSongsInfo 之后调用，否则「匿名」会被姓名脱敏规则覆盖。
+ */
+export function applySubmissionAnonymity(
+  songs: MaskableSong[],
+  viewer?: AnonymityViewer | null
+) {
+  if (viewer?.isAdmin) return
+
+  songs.forEach((song) => {
+    if (song.submissionAnonymous !== true) return
+
+    const viewerId = viewer?.id ?? null
+    const requesterId = song.requesterId ?? null
+    if (viewerId !== null && requesterId !== null && Number(requesterId) === Number(viewerId)) {
+      return
+    }
+
+    song.requester = ANONYMOUS_REQUESTER_DISPLAY
+    song.requesterGrade = null
+    song.requesterClass = null
+    delete song.requesterId
+    delete song.cardCodeId
+    // 联合投稿人一旦公开，等价于泄露匿名投稿的圈子
+    if (song.collaborators) song.collaborators = []
+  })
+}
+
+/** 批量处理公共排期（`{ song: {...} }` 嵌套结构）。 */
+export function applySubmissionAnonymityToSchedules(
+  data: PublicScheduleItem[],
+  viewer?: AnonymityViewer | null
+) {
+  if (viewer?.isAdmin) return
+  applySubmissionAnonymity(
+    data.map((item) => item.song).filter(Boolean) as MaskableSong[],
+    viewer
+  )
 }

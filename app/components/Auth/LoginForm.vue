@@ -1,3 +1,6 @@
+<!--
+Modified by YH-Chen on 2026-10-17
+-->
 <template>
   <div class="login-form">
     <div class="form-header">
@@ -92,6 +95,7 @@
             @input="error = ''"
           />
         </div>
+        <p v-if="showCreateMode || showRegisterMode" class="hint-text">{{ locale.realNameHint }}</p>
       </div>
 
       <!-- 年级班级字段 - 仅注册/创建模式，可选 -->
@@ -331,6 +335,7 @@
             {{ codeCountdown > 0 ? locale.codeCountdown(codeCountdown) : locale.sendCode }}
           </button>
         </div>
+        <p class="hint-text">{{ locale.emailDeliverHint }}</p>
       </div>
 
       <div
@@ -383,6 +388,25 @@
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
         </button>
+      </div>
+
+      <!-- 同班同名：询问「是不是忘记密码了」。只显示脱敏用户名，避免被用来枚举账号 -->
+      <div v-if="duplicateNamePrompt" class="duplicate-name-prompt">
+        <p class="dnp-title">{{ locale.duplicateNameTitle }}（{{ duplicateNamePrompt.masked }}）</p>
+        <p v-if="!duplicateNamePrompt.hasEmail" class="dnp-hint">{{ locale.duplicateNameNoEmail }}</p>
+        <div class="dnp-actions">
+          <button
+            type="button"
+            class="dnp-btn dnp-btn-primary"
+            :disabled="!duplicateNamePrompt.hasEmail"
+            @click="goResetPasswordFromDuplicate"
+          >
+            {{ locale.duplicateNameGoReset }}
+          </button>
+          <button type="button" class="dnp-btn" @click="continueRegisterDespiteDuplicate">
+            {{ locale.duplicateNameContinue }}
+          </button>
+        </div>
       </div>
 
       <button
@@ -517,6 +541,7 @@ const { allowOAuthRegistration, allowRegister, fetchSiteConfig, smtpEnabled, cap
 const { auth: authLocale, serverErrors } = useLocale()
 const locale = computed(() => authLocale.value?.loginForm || {})
 const { localize: localizeServerError } = useServerErrors()
+const { showToast } = useToast()
 const { success: toastSuccess } = useToast()
 
 const showCreateMode = ref(false)
@@ -947,6 +972,11 @@ const performLogin = async () => {
       return '2fa'
     }
 
+    // 注销宽限期内登录 → 后端会自动撤销注销，这里给用户明确提示
+    if (response.deletionCancelled) {
+      showToast?.('已自动撤销之前的注销申请，账号已恢复', 'success')
+    }
+
     // 登录成功，刷新认证状态
     await auth.initAuth(true)
     await recordLegalConsent()
@@ -1002,7 +1032,12 @@ const handleBindConfirm = async () => {
   }
 }
 
-const handleRegisterOAuth = async () => {
+const handleRegisterOAuth = async (options = {}) => {
+  if (!options.keepConfirmNotMe) {
+    confirmNotMe.value = false
+  }
+  duplicateNamePrompt.value = null
+
   const validationError = validateOAuthRegisterCredentials(
     username.value,
     password.value,
@@ -1011,6 +1046,13 @@ const handleRegisterOAuth = async () => {
 
   if (validationError) {
     error.value = serverErrors.value?.[validationError.code] || locale.value.registerFailed
+    return
+  }
+
+  // 真实姓名必须中文（服务端同样硬校验，这里先给出即时反馈）
+  const realNameValue = name.value.trim()
+  if (!CHINESE_NAME_PATTERN.test(realNameValue)) {
+    error.value = serverErrors.value?.AUTH_NAME_MUST_BE_CHINESE || locale.value.realNameHint
     return
   }
 
@@ -1045,6 +1087,8 @@ const handleRegisterOAuth = async () => {
         remark: remark.value.trim(),
         email: emailValue || undefined,
         emailCode: emailCode.value.trim() || undefined,
+        // 同班同名时：学生点「不是我，继续注册」后才放行
+        confirmNotMe: confirmNotMe.value || undefined,
         ...(legalConsentActive.value && {
           legalConsentAccepted: legalConsentDisplayMode.value === 'modal' || loginTermsAccepted.value === true,
           legalConsentVersion: legalConsentVersion.value
@@ -1074,8 +1118,19 @@ const handleRegisterOAuth = async () => {
     }
   } catch (err) {
     const apiError = err
+    const innerData = apiError.data?.data
     // 统一按错误码本地化服务端错误，未命中再回退到默认文案
     error.value = localizeServerError(apiError, locale.value.registerFailed)
+
+    // 同班同名：改为询问「是不是忘记密码了」
+    if (innerData?.code === 'AUTH_NAME_CLASS_DUPLICATE') {
+      duplicateNamePrompt.value = {
+        masked: String(innerData?.params?.[0] || '***'),
+        hasEmail: innerData?.hasEmail === true
+      }
+      error.value = ''
+      return
+    }
     // 当发生用户名冲突时 (HTTP 409 Conflict)，清空用户名字段
     if (apiError.statusCode === 409) {
       username.value = ''
@@ -1083,6 +1138,27 @@ const handleRegisterOAuth = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// 同班同名提示：去重置密码（原账号没绑邮箱时不可用）
+const goResetPasswordFromDuplicate = () => {
+  const target = duplicateNamePrompt.value
+  if (!target?.hasEmail) return
+  duplicateNamePrompt.value = null
+  router.push({ path: '/forgot-password' })
+}
+
+// 同班同名提示：确认不是本人 → 带 confirmNotMe 重新提交
+const continueRegisterDespiteDuplicate = async () => {
+  confirmNotMe.value = true
+  duplicateNamePrompt.value = null
+  // OAuth 创建视图走 OAuth 注册接口，普通注册走密码注册接口
+  if (showCreateMode.value) {
+    await handleRegister({ keepConfirmNotMe: true })
+  } else {
+    await handleRegisterOAuth({ keepConfirmNotMe: true })
+  }
+  confirmNotMe.value = false
 }
 
 // 发送邮箱验证码：校验格式 → POST /api/auth/email-code → 60 秒倒计时
@@ -1119,8 +1195,22 @@ const sendEmailCode = async () => {
   }
 }
 
+// 同班同名提示：{ masked: 'zz***', hasEmail: boolean }
+const duplicateNamePrompt = ref(null)
+// 学生在弹窗里选了「不是我，继续注册」后，本次提交带 confirmNotMe 放行
+const confirmNotMe = ref(false)
+
+// 真实姓名必须中文（与后端 REAL_NAME_PATTERN 同口径）
+const CHINESE_NAME_PATTERN = /^[\u3400-\u4dbf\u4e00-\u9fff\u{20000}-\u{2ebef}]{2,20}(?:[·•][\u3400-\u4dbf\u4e00-\u9fff\u{20000}-\u{2ebef}]{1,20})*$/u
+
 // 用户名密码注册：提交 /api/auth/register，处理待审核与直接登录两种结果
-const handleRegister = async () => {
+const handleRegister = async (options = {}) => {
+  if (!options.keepConfirmNotMe) {
+    // 用户手动重新提交时，重置「已确认不是我」的放行标记
+    confirmNotMe.value = false
+  }
+  duplicateNamePrompt.value = null
+
   const validationError = validateOAuthRegisterCredentials(
     username.value,
     password.value,
@@ -1129,6 +1219,13 @@ const handleRegister = async () => {
 
   if (validationError) {
     error.value = serverErrors.value?.[validationError.code] || locale.value.registerFailed
+    return
+  }
+
+  // 真实姓名必须中文（服务端同样硬校验，这里先给出即时反馈）
+  const realNameValue = name.value.trim()
+  if (!CHINESE_NAME_PATTERN.test(realNameValue)) {
+    error.value = serverErrors.value?.AUTH_NAME_MUST_BE_CHINESE || locale.value.realNameHint
     return
   }
 
@@ -1160,7 +1257,9 @@ const handleRegister = async () => {
       confirmPassword: confirmPassword.value,
       remark: remark.value.trim(),
       email: emailValue || undefined,
-      emailCode: emailCode.value.trim() || undefined
+      emailCode: emailCode.value.trim() || undefined,
+      // 同班同名时：学生在提示里点「不是我，继续注册」后才放行
+      confirmNotMe: confirmNotMe.value || undefined
     }
     // 条款确认：显式提交用户已同意的内容版本，服务端校验其与当前版本一致（未开启条款时跳过）
     if (legalConsentActive.value) {
@@ -1202,6 +1301,15 @@ const handleRegister = async () => {
     const innerData = apiError.data?.data
     // 统一按错误码本地化服务端错误，未命中再回退到默认文案
     error.value = localizeServerError(apiError, locale.value.registerFailed)
+
+    // 同班同名：不直接报错，改为询问「是不是忘记密码了」
+    if (innerData?.code === 'AUTH_NAME_CLASS_DUPLICATE') {
+      duplicateNamePrompt.value = {
+        masked: String(innerData?.params?.[0] || '***'),
+        hasEmail: innerData?.hasEmail === true
+      }
+      error.value = ''
+    }
     // 被 ESA 边缘拦截时换成带原因码的提示
     applyEsaCaptchaRejectError(apiError)
 
@@ -1855,6 +1963,74 @@ const handleWebAuthnLogin = async () => {
   color: var(--text-quaternary);
   margin: -4px 0 0 0;
   line-height: 1.4;
+}
+
+/* 同班同名询问面板 */
+.duplicate-name-prompt {
+  margin: 0.75rem 0;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--warning-40, rgba(245, 158, 11, 0.4));
+  background: var(--warning-10, rgba(245, 158, 11, 0.08));
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.duplicate-name-prompt .dnp-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.duplicate-name-prompt .dnp-body {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.duplicate-name-prompt .dnp-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.duplicate-name-prompt .dnp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.duplicate-name-prompt .dnp-btn {
+  flex: 1 1 auto;
+  min-height: 36px;
+  padding: 0 0.875rem;
+  border-radius: 10px;
+  border: 1px solid var(--input-border, var(--border-secondary));
+  background: var(--input-bg, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.duplicate-name-prompt .dnp-btn:hover:not(:disabled) {
+  border-color: var(--primary-50, var(--text-secondary));
+  color: var(--text-primary);
+}
+
+.duplicate-name-prompt .dnp-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.duplicate-name-prompt .dnp-btn-primary {
+  background: var(--primary-50, rgba(59, 130, 246, 0.15));
+  border-color: var(--primary-50, var(--input-border));
+  color: var(--text-primary);
 }
 </style>
 

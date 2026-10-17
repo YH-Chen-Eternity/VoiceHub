@@ -1,3 +1,6 @@
+<!--
+Modified by YH-Chen on 2026-10-17
+-->
 <template>
   <Transition
     enter-active-class="transition duration-300 ease-out"
@@ -120,7 +123,7 @@
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
-import type { Song } from '~/types'
+import type { Song } from '~~/types'
 import { convertToHttps } from '~/utils/url'
 import Icon from '~/components/UI/Icon.vue'
 import { useLocale } from '~/utils/locale'

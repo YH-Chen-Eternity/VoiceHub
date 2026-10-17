@@ -1,3 +1,6 @@
+<!--
+Modified by YH-Chen on 2026-10-17
+-->
 <template>
   <div class="max-w-[1400px] mx-auto space-y-8 pb-20 px-2">
     <!-- 页面标题 -->
@@ -354,7 +357,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useAuth } from '~/composables/useAuth'
 import { useToast } from '~/composables/useToast'
 import { useLocale } from '~/utils/locale'
-import type { PlayTime } from '~/types'
+import type { PlayTime } from '~~/types'
 import AppSpinner from '~/components/UI/Common/AppSpinner.vue'
 import {
   Plus,

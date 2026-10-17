@@ -1,9 +1,10 @@
+// Modified by YH-Chen on 2026-10-17
 import { computed, ref } from 'vue'
 import { useAuth } from './useAuth'
 import { extractErrorCode, useServerErrors } from './useLocaleText'
 import { getGlobalDedup } from './useRequestDedup'
 import { useLocale } from '~/utils/locale'
-import type { PlayTime, Schedule, Song } from '~/types'
+import type { PlayTime, Schedule, Song } from '~~/types'
 
 export const useSongs = () => {
   const { isAuthenticated, user, getAuthConfig } = useAuth()
@@ -273,6 +274,7 @@ export const useSongs = () => {
     selectionToken?: string
     submissionNote?: string | null
     submissionNotePublic?: boolean
+    submissionAnonymous?: boolean
     cardCode?: string | null
   }) => {
     if (!isAuthenticated.value) {

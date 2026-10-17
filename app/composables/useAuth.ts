@@ -1,5 +1,6 @@
+// Modified by YH-Chen on 2026-10-17
 import { navigateTo, useState } from '#app'
-import type { User } from '~/types'
+import type { User } from '~~/types'
 import { useUserFilters } from '~/composables/useUserFilters'
 import { useServerErrors } from '~/composables/useLocaleText'
 

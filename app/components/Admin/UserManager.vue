@@ -1,3 +1,6 @@
+<!--
+Modified by YH-Chen on 2026-10-17
+-->
 <template>
   <div class="max-w-[1400px] mx-auto space-y-6 pb-20 px-2">
     <!-- Header -->
@@ -254,19 +257,19 @@
       <template v-else>
         <!-- 桌面端表格 -->
         <div
-          class="hidden lg:block bg-bg-secondary-20 border border-border-secondary-50 rounded-xl overflow-hidden shadow-lg custom-scrollbar"
+          class="hidden lg:block bg-bg-secondary-20 border border-border-secondary-50 rounded-xl overflow-x-auto shadow-lg custom-scrollbar"
         >
-          <table class="w-full">
+          <table class="w-full min-w-[760px]">
             <thead>
               <tr
                 class="bg-bg-secondary-60 border-b border-border-secondary text-[10px] font-black text-text-disabled uppercase tracking-widest"
               >
-                <th class="px-6 py-5 text-left">{{ locale.table.userDetails }}</th>
-                <th class="px-6 py-5 text-left">{{ locale.table.role }}</th>
-                <th class="px-6 py-5 text-left">{{ locale.table.status }}</th>
-                <th class="px-6 py-5 text-center">{{ locale.table.class }}</th>
-                <th class="px-6 py-5 text-left">{{ locale.table.lastActivity }}</th>
-                <th class="px-6 py-5 text-right pr-10">{{ locale.table.actions }}</th>
+                <th class="whitespace-nowrap px-4 py-4 text-left">{{ locale.table.userDetails }}</th>
+                <th class="whitespace-nowrap px-4 py-4 text-left">{{ locale.table.role }}</th>
+                <th class="whitespace-nowrap px-4 py-4 text-left">{{ locale.table.status }}</th>
+                <th class="whitespace-nowrap px-4 py-4 text-center">{{ locale.table.class }}</th>
+                <th class="whitespace-nowrap px-4 py-4 text-left">{{ locale.table.lastActivity }}</th>
+                <th class="whitespace-nowrap px-4 py-4 text-right pr-10">{{ locale.table.actions }}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-panel-bg-dark-40">
@@ -276,7 +279,7 @@
                 class="group hover:bg-bg-tertiary-30 transition-all text-xs cursor-pointer"
                 @click="showUserDetail(user, $event)"
               >
-                <td class="px-6 py-5">
+                <td class="px-4 py-4">
                   <div class="flex items-center gap-4">
                     <img
                       v-if="user.avatar && !failedImages[user.id]"
@@ -298,79 +301,79 @@
                     </div>
                   </div>
                 </td>
-                <td class="px-6 py-5">
+                <td class="px-4 py-4">
                   <span
                     v-if="user.role === 'SUPER_ADMIN'"
-                    class="px-2 py-0.5 bg-warning-10 text-warning text-[10px] font-black rounded border border-warning-20 uppercase tracking-widest"
+                    class="px-2 py-0.5 whitespace-nowrap bg-warning-10 text-warning text-[10px] font-black rounded border border-warning-20 uppercase tracking-widest"
                     >{{ getRoleName('SUPER_ADMIN') }}</span
                   >
                   <span
                     v-else-if="user.role === 'ADMIN'"
-                    class="px-2 py-0.5 bg-primary-10 text-primary text-[10px] font-black rounded border border-primary-20 uppercase tracking-widest"
+                    class="px-2 py-0.5 whitespace-nowrap bg-primary-10 text-primary text-[10px] font-black rounded border border-primary-20 uppercase tracking-widest"
                     >{{ getRoleName('ADMIN') }}</span
                   >
                   <span
                     v-else-if="user.role === 'SONG_ADMIN'"
-                    class="px-2 py-0.5 bg-info-10 text-info text-[10px] font-black rounded border border-info-20 uppercase tracking-widest"
+                    class="px-2 py-0.5 whitespace-nowrap bg-info-10 text-info text-[10px] font-black rounded border border-info-20 uppercase tracking-widest"
                     >{{ getRoleName('SONG_ADMIN') }}</span
                   >
                   <span
                     v-else
-                    class="px-2 py-0.5 bg-bg-tertiary text-text-tertiary text-[10px] font-black rounded border border-border-tertiary-50 uppercase tracking-widest"
+                    class="px-2 py-0.5 whitespace-nowrap bg-bg-tertiary text-text-tertiary text-[10px] font-black rounded border border-border-tertiary-50 uppercase tracking-widest"
                     >{{ getRoleName('USER') }}</span
                   >
                 </td>
-                <td class="px-6 py-5">
+                <td class="px-4 py-4">
                   <div
                     v-if="user.status === 'active'"
-                    class="flex items-center gap-1.5 text-success font-black uppercase text-[10px] tracking-widest"
+                    class="flex items-center gap-1.5 whitespace-nowrap text-success font-black uppercase text-[10px] tracking-widest"
                   >
                     <div
-                      class="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_8px_var(--success-50)]"
+                      class="w-1.5 h-1.5 shrink-0 rounded-full bg-success shadow-[0_0_8px_var(--success-50)]"
                     />
                     {{ getStatusName('active') }}
                   </div>
                   <div
                     v-else-if="user.status === 'pending'"
-                    class="flex items-center gap-1.5 text-info font-black uppercase text-[10px] tracking-widest"
+                    class="flex items-center gap-1.5 whitespace-nowrap text-info font-black uppercase text-[10px] tracking-widest"
                   >
                     <div
-                      class="w-1.5 h-1.5 rounded-full bg-info shadow-[0_0_8px_var(--info-50)]"
+                      class="w-1.5 h-1.5 shrink-0 rounded-full bg-info shadow-[0_0_8px_var(--info-50)]"
                     />
                     {{ getStatusName('pending') }}
                   </div>
                   <div
                     v-else-if="user.status === 'withdrawn'"
-                    class="flex items-center gap-1.5 text-error font-black uppercase text-[10px] tracking-widest"
+                    class="flex items-center gap-1.5 whitespace-nowrap text-error font-black uppercase text-[10px] tracking-widest"
                   >
-                    <div class="w-1.5 h-1.5 rounded-full bg-error" />
+                    <div class="w-1.5 h-1.5 shrink-0 rounded-full bg-error" />
                     {{ getStatusName('withdrawn') }}
                   </div>
                   <div
                     v-else-if="user.status === 'graduate'"
-                    class="flex items-center gap-1.5 text-warning font-black uppercase text-[10px] tracking-widest"
+                    class="flex items-center gap-1.5 whitespace-nowrap text-warning font-black uppercase text-[10px] tracking-widest"
                   >
-                    <div class="w-1.5 h-1.5 rounded-full bg-warning" />
+                    <div class="w-1.5 h-1.5 shrink-0 rounded-full bg-warning" />
                     {{ getStatusName('graduate') }}
                   </div>
                   <div
                     v-else
                     class="flex items-center gap-1.5 text-text-tertiary font-black uppercase text-[10px] tracking-widest"
                   >
-                    <div class="w-1.5 h-1.5 rounded-full bg-bg-quaternary" />
+                    <div class="w-1.5 h-1.5 shrink-0 rounded-full bg-bg-quaternary" />
                     {{ getStatusName('disabled') }}
                   </div>
                 </td>
-                <td class="px-6 py-5 text-center font-bold text-text-tertiary">
+                <td class="px-4 py-4 text-center font-bold text-text-tertiary">
                   {{ user.grade || '-' }} {{ user.class || '-' }}
                 </td>
-                <td class="px-6 py-5">
+                <td class="px-4 py-4">
                   <p class="text-text-tertiary font-bold">{{ formatDate(user.lastLogin) }}</p>
                   <p class="text-[11px] text-text-secondary font-mono mt-1 flex items-center gap-1">
                     <MapPin :size="10" /> {{ user.lastLoginIp || '-' }}
                   </p>
                 </td>
-                <td class="px-6 py-5 text-right pr-10">
+                <td class="px-4 py-4 text-right pr-10">
                   <div
                     class="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-all action-buttons"
                   >
@@ -497,22 +500,22 @@
                 <div>
                   <span
                     v-if="user.role === 'SUPER_ADMIN'"
-                    class="px-2 py-0.5 bg-warning-10 text-warning text-[10px] font-black rounded border border-warning-20 uppercase tracking-widest"
+                    class="px-2 py-0.5 whitespace-nowrap bg-warning-10 text-warning text-[10px] font-black rounded border border-warning-20 uppercase tracking-widest"
                     >{{ getRoleName('SUPER_ADMIN') }}</span
                   >
                   <span
                     v-else-if="user.role === 'ADMIN'"
-                    class="px-2 py-0.5 bg-primary-10 text-primary text-[10px] font-black rounded border border-primary-20 uppercase tracking-widest"
+                    class="px-2 py-0.5 whitespace-nowrap bg-primary-10 text-primary text-[10px] font-black rounded border border-primary-20 uppercase tracking-widest"
                     >{{ getRoleName('ADMIN') }}</span
                   >
                   <span
                     v-else-if="user.role === 'SONG_ADMIN'"
-                    class="px-2 py-0.5 bg-info-10 text-info text-[10px] font-black rounded border border-info-20 uppercase tracking-widest"
+                    class="px-2 py-0.5 whitespace-nowrap bg-info-10 text-info text-[10px] font-black rounded border border-info-20 uppercase tracking-widest"
                     >{{ getRoleName('SONG_ADMIN') }}</span
                   >
                   <span
                     v-else
-                    class="px-2 py-0.5 bg-bg-tertiary text-text-tertiary text-[10px] font-black rounded border border-border-tertiary-50 uppercase tracking-widest"
+                    class="px-2 py-0.5 whitespace-nowrap bg-bg-tertiary text-text-tertiary text-[10px] font-black rounded border border-border-tertiary-50 uppercase tracking-widest"
                     >{{ getRoleName('USER') }}</span
                   >
                 </div>
@@ -1063,7 +1066,7 @@
                         <td class="px-4 py-3">{{ row.username }}</td>
                         <td class="px-4 py-3">
                           <span
-                            class="px-2 py-0.5 bg-bg-tertiary rounded-md text-[10px] text-text-tertiary uppercase"
+                            class="px-2 py-0.5 whitespace-nowrap bg-bg-tertiary rounded-md text-[10px] text-text-tertiary uppercase"
                             >{{ row.role }}</span
                           >
                         </td>

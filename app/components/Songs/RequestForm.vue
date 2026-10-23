@@ -2822,7 +2822,11 @@ const handleEpisodeVote = async (episode) => {
   voting.value = true
 
   try {
-    await songService.voteSong(episode.songId)
+    // 透传署名选择：SongList 的「每次询问」弹窗会把 revealToRequester 随 vote 事件带出，
+    // 之前此处丢弃了该字段，导致在投稿流程里选「署名」实际仍是匿名。
+    await songService.voteSong(episode.songId, {
+      revealToRequester: episode?.revealToRequester === true
+    })
 
     // 只有在后端成功返回后才更新前端状态
     episode.voted = true
@@ -4052,7 +4056,9 @@ const handleAlbumSongVote = async (song) => {
 
   voting.value = true
   try {
-    await songService.voteSong(song.songId)
+    await songService.voteSong(song.songId, {
+      revealToRequester: song?.revealToRequester === true
+    })
 
     if (window.$showNotification) {
       window.$showNotification(locale.value.notifications.likeSuccess, 'success')

@@ -511,7 +511,7 @@
     <Transition name="fade">
       <div
         v-if="pendingVoteSong"
-        class="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         @click.self="cancelReveal"
       >
         <div class="w-full max-w-sm rounded-2xl border border-border-secondary bg-bg-primary p-5 shadow-2xl">

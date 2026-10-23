@@ -125,6 +125,25 @@ VoiceHub 是一个面向校园的广播站点歌系统（Nuxt 4 全栈应用）�
 - 感谢 **[laoshuikaixue](https://github.com/laoshuikaixue)** 的开源贡献——本项目正是在 [VoiceHub](https://github.com/laoshuikaixue/VoiceHub) 的基础上才得以诞生。
 - 感谢所有上游贡献者，以及 Nuxt、Vue、Drizzle、PostgreSQL、Redis、Cloudflare 等开源生态。
 
+## 赞赏支持（社区版维护者）
+
+本分支（VoiceHub-Plus）由 [YH-Chen-Eternity](https://github.com/YH-Chen-Eternity) 在课余时间维护：上游同步、安全加固、管理面板增强、问题排查都占用了大量个人时间。
+
+如果 VoiceHub-Plus 帮到了你的站点，**欢迎扫码赞赏**，这会让这个项目走得更远 ☕
+
+<div align="center">
+
+<img width="220" alt="赞赏码" src=".github/donation-qrcode.png" />
+
+</div>
+
+> 说明：
+>
+> - 赞赏**完全自愿**，与本项目的 GPL-3.0 授权无关——不使用、不赞赏也完全可以自由使用本项目的全部功能。
+> - 赞赏**不提供**任何优先支持、定制开发或商业许可承诺；如需商业支持请另行沟通。
+> - 如果你更想支持**原作者**，请赞赏页面底部原项目的二维码（原项目的赞助入口归 laoshuikaixue 所有）。
+> - 本仓库的另两个项目：[VoiceHub 上游同步 fork](https://github.com/YH-Chen-Eternity/VoiceHub)（仅用于向上游提交 PR）、[抖音火花助手](https://github.com/YH-Chen-Eternity/douyin-spark)。
+
 ---
 
 以下为**原项目 README**（完整保留，未做删改）：

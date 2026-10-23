@@ -607,8 +607,10 @@ const emit = defineEmits(['vote', 'withdraw', 'cancelReplay', 'refresh', 'semest
 const voteInProgress = ref(false)
 const actionInProgress = ref(false)
 const { currentLocale, songs: songsLocale } = useLocale()
-const locale = computed(() => {
+// 点赞署名弹窗词条（修复：此前该定义被误嵌进 locale 的 computed 体内，
+// 导致 t 不在 setup 作用域、弹窗渲染时读 undefined 崩溃、无法点赞）
 const t = useNewUi()
+const locale = computed(() => {
   const base = songsLocale.value?.songList || {}
   const emptyText = () => ''
   return useSafeLocale({

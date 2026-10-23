@@ -127,7 +127,7 @@ VoiceHub 是一个面向校园的广播站点歌系统（Nuxt 4 全栈应用）�
 
 ## 赞赏支持（社区版维护者）
 
-本分支（VoiceHub-Plus）由 [YH-Chen-Eternity](https://github.com/YH-Chen-Eternity) 在课余时间维护：上游同步、安全加固、管理面板增强、问题排查都占用了大量个人时间。
+本分支（VoiceHub-Plus）由 [YH-Chen-Eternity](https://github.com/YH-Chen-Eternity) 。
 
 如果 VoiceHub-Plus 帮到了你的站点，**欢迎扫码赞赏**，这会让这个项目走得更远 ☕
 

@@ -1,8 +1,10 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { db } from '~/drizzle/db'
 import { createSongPlayedNotifications } from '~~/server/services/notificationService'
-import { songs, songReplayRequests } from '~/drizzle/schema'
-import { eq, and, inArray } from 'drizzle-orm'
-import { getBeijingTime } from '~/utils/timeUtils'
+import { songs, songReplayRequests, schedules } from '~/drizzle/schema'
+import { eq, and, inArray, lte, sql } from 'drizzle-orm'
+import { getBeijingTime, getBeijingEndOfDay } from '~/utils/timeUtils'
 import { getClientIP } from '~~/server/utils/ip-utils'
 import { restoreReplayRequestsToPending } from '~~/server/utils/scheduleReplayBinding'
 import { enqueueAstrbotGroupEvent } from '~~/server/services/astrbotGroupService'
@@ -62,10 +64,49 @@ export default defineEventHandler(async (event) => {
   // 撤回已播放
   const isUnmark = validatedData.unmark === true
 
+  // 广播站（SONG_ADMIN）只能标记「今天及以前」排期的歌曲：
+  // 排期在明天及以后的歌曲须等到当天才能标播放，避免提前把未播出场次标成已播。
+  // ADMIN / SUPER_ADMIN 不受此限制（可修正误排期）。
+  let allowedSongIds = songIds
+  let skippedBySchedule = 0
+  if (!isUnmark && user.role === 'SONG_ADMIN') {
+    const earliestSchedules = await db
+      .select({
+        songId: schedules.songId,
+        firstPlayDate: sql<Date | string | null>`min(${schedules.playDate})`
+      })
+      .from(schedules)
+      .where(and(inArray(schedules.songId, songIds), eq(schedules.isDraft, false)))
+      .groupBy(schedules.songId)
+
+    const endOfToday = getBeijingEndOfDay().getTime()
+    const futureSongIds = new Set(
+      earliestSchedules
+        .filter((row) => {
+          if (!row.firstPlayDate) return false
+          const playTime = new Date(row.firstPlayDate).getTime()
+          return Number.isFinite(playTime) && playTime > endOfToday
+        })
+        .map((row) => row.songId)
+    )
+
+    if (futureSongIds.size > 0) {
+      allowedSongIds = songIds.filter((id) => !futureSongIds.has(id))
+      skippedBySchedule = songIds.length - allowedSongIds.length
+
+      if (allowedSongIds.length === 0) {
+        throw createError({
+          statusCode: 400,
+          message: '广播站只能标记今天及以前排期的歌曲，所选歌曲的排期尚未到播放日期'
+        })
+      }
+    }
+  }
+
   // 过滤需要更新的歌曲
   const condition = !isUnmark
-    ? and(inArray(songs.id, songIds), eq(songs.played, false))
-    : and(inArray(songs.id, songIds), eq(songs.played, true))
+    ? and(inArray(songs.id, allowedSongIds), eq(songs.played, false))
+    : and(inArray(songs.id, allowedSongIds), eq(songs.played, true))
 
   const { updatedSongsResult, updatedSongIds } = await db.transaction(async (tx) => {
     const updatedSongsResult = await tx
@@ -138,9 +179,15 @@ export default defineEventHandler(async (event) => {
     })())
   }
 
+  const baseMessage = isUnmark ? '歌曲已成功撤回已播放状态' : '歌曲已成功标记为已播放'
+
   return {
-    message: isUnmark ? '歌曲已成功撤回已播放状态' : '歌曲已成功标记为已播放',
+    message:
+      skippedBySchedule > 0
+        ? `${baseMessage}；另有 ${skippedBySchedule} 首歌曲排期在今天之后已跳过（广播站只能标记今天及以前排期的歌曲）`
+        : baseMessage,
     count: updatedSongsResult.length,
+    skipped: skippedBySchedule,
     updatedSongIds: updatedSongIds
   }
 })

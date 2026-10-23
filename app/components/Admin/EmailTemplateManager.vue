@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 <!--
 Modified by YH-Chen on 2026-10-17
 -->
@@ -285,9 +287,7 @@ const variableHintText = computed(() => {
 const PREVIEW_SAMPLES: Record<string, Record<string, any>> = {
   'account.deletion.scheduled': { username: '示例用户', graceDays: 30, scheduledAt: '2026-11-10 15:00:00' },
   'account.deletion.completed': { username: '示例用户', deletedAt: '2026-11-10 15:00:00' },
-  'account.deletion.cancelled': { username: '示例用户', reason: '宽限期内登录了本站', cancelledAt: '2026-10-12 09:00:00' },
-  'account.nameChange.approved': { username: '示例用户', oldName: '张三', newName: '张三丰' },
-  'account.nameChange.rejected': { username: '示例用户', newName: '张三丰', reason: '姓名与学籍信息不符，请核对后重新提交' }
+  'account.deletion.cancelled': { username: '示例用户', reason: '宽限期内登录了本站', cancelledAt: '2026-10-12 09:00:00' }
 }
 
 async function loadList() {

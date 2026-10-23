@@ -1,9 +1,12 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
 import { eq, sql } from 'drizzle-orm'
 import { createApiError } from '~~/server/utils/apiError'
 import { checkEmailDeliverability } from '~~/server/utils/email-deliverability'
+import { getEmailDomain, getEmailDomainViolation } from '~~/server/utils/email-domain-policy'
 
 export default defineEventHandler(async (event) => {
   // 检查请求方法
@@ -28,6 +31,13 @@ export default defineEventHandler(async (event) => {
     }
 
     const email = body.email.trim().toLowerCase()
+
+    // 域名策略：仅主流邮箱、禁一次性邮箱（明确提示，避免用户等不到验证码）
+    const domainViolation = getEmailDomainViolation(email)
+    if (domainViolation) {
+      console.warn(`[email-policy] blocked bind request for domain: ${getEmailDomain(email) || 'invalid'}`)
+      throw createApiError(400, domainViolation.code, domainViolation.message)
+    }
 
     // 域名收信能力预检：先拦住"域名写错/收不到邮件"的地址，避免存进来还发不出验证码
     const deliverability = await checkEmailDeliverability(email)

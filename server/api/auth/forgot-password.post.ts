@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { isIP } from 'node:net'
 import type { H3Event } from 'h3'
 import { db } from '~/drizzle/db'
@@ -10,6 +12,7 @@ import { checkDistributedRateLimit } from '~~/server/utils/rateLimiter'
 import { getServerTimestamp } from '~~/server/utils/serverTime'
 import { createApiError } from '~~/server/utils/apiError'
 import { publicAddress } from '~~/server/utils/music-source-plugins/network'
+import { assertPasswordTurnstile } from '~~/server/utils/password-turnstile'
 
 // 未配置 NUXT_PUBLIC_HOST 时可安全使用请求 Host 的部署特征：
 // 云平台按域名路由，伪造 Host 的请求到不了应用；局域网/回环地址的链接点击外部攻击者收不到
@@ -64,10 +67,32 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
+  await assertPasswordTurnstile(body, clientIP)
   const { username, email } = body
 
   if (!username) {
     throw createApiError(400, 'AUTH_ACCOUNT_NAME_REQUIRED', '请提供账号名')
+  }
+
+  // 按用户名限流：第一步响应可区分"账号存在/不存在"（存在才返回掩码邮箱），
+  // 这是既定的两步找回 UX；按用户名维度限流使批量枚举失效（2026-10-23 安全加固：
+  // 原 IP 级限流在校园 NAT 策略下被全局旁路，等于无限制枚举）
+  const usernameKey = String(username).trim().toLowerCase()
+  if (usernameKey) {
+    const usernameLimit = await checkDistributedRateLimit(
+      `forgot_password_user:${usernameKey}`,
+      5,
+      60 * 60 * 1000
+    )
+    if (!usernameLimit.isAllowed) {
+      const waitMinutes = Math.ceil((usernameLimit.resetTime - getServerTimestamp()) / 60000)
+      throw createApiError(
+        429,
+        'AUTH_RATE_LIMITED_MINUTES',
+        `操作过于频繁，请等待 ${waitMinutes} 分钟后再试`,
+        { params: [waitMinutes] }
+      )
+    }
   }
 
   try {

@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { onBeforeUnmount, onMounted, ref, readonly } from 'vue'
 
 interface MusicState {
@@ -35,17 +37,16 @@ export function useMusicWebSocket() {
   const onPlaylistUpdate = ref<((playlist: any[]) => void) | null>(null)
   const onConnectionChange = ref<((connected: boolean) => void) | null>(null)
 
-  // 连接WebSocket
-  const connect = (token?: string) => {
+  // 连接WebSocket（SSE）
+  const connect = () => {
     if (eventSource) {
       disconnect()
     }
 
     try {
+      // 认证令牌由 auth-token cookie 随 EventSource 同源请求自动携带，
+      // 不再放入 URL：URL 会落入 Nginx 访问日志与 Referer（2026-10-23 安全加固）
       const url = new URL('/api/music/websocket', window.location.origin)
-      if (token) {
-        url.searchParams.set('token', token)
-      }
 
       eventSource = new EventSource(url.toString())
 

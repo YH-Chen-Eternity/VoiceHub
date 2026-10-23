@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import bcrypt from 'bcryptjs'
 import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
@@ -95,7 +97,7 @@ export default defineEventHandler(async (event) => {
       httpOnly: true,
       secure: isSecureRequest(event),
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: 60 * 60 * 6,
       path: '/'
     })
 

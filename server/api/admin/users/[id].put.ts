@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { createError, defineEventHandler, getRouterParam, readBody } from 'h3'
 import { db } from '~/drizzle/db'
 import { users, userStatusLogs } from '~/drizzle/schema'
@@ -11,6 +13,7 @@ import {
 import { createApiError } from '~~/server/utils/apiError'
 import { SERVER_ERROR_CODES } from '~~/server/config/constants'
 import { getAdminPasswordViolation } from '~~/server/utils/admin-password-policy'
+import { validateUsernameFormat } from '~~/server/utils/username-policy'
 
 const normalizeRequiredText = (value: unknown) => String(value || '').trim()
 const normalizeOptionalText = (value: unknown) => {
@@ -94,6 +97,12 @@ export default defineEventHandler(async (event) => {
         statusCode: 403,
         message: '权限不足：普通管理员无法修改超级管理员信息'
       })
+    }
+
+    // 用户名格式：禁中文、2-20 位、禁纯数字（唯一性在下方查库）
+    const usernameFormatError = validateUsernameFormat(normalizedUsername)
+    if (usernameFormatError) {
+      throw createApiError(400, usernameFormatError.code, usernameFormatError.message)
     }
 
     // 检查用户名是否被其他用户使用

@@ -1,7 +1,10 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { z } from 'zod'
 import { db } from '~/drizzle/db'
 import { users, userStatusLogs } from '~/drizzle/schema'
 import { and, eq, inArray, ne } from 'drizzle-orm'
+import { validateUsernameFormat } from '~~/server/utils/username-policy'
 
 // 请求体验证模式
 const batchUpdateSchema = z.object({
@@ -128,6 +131,16 @@ export default defineEventHandler(async (event) => {
         // 处理用户名更新
         if (update.username !== undefined && update.username.trim()) {
           const newUsername = update.username.trim()
+
+          // 用户名格式：禁中文、2-20 位、禁纯数字
+          const usernameFormatError = validateUsernameFormat(newUsername)
+          if (usernameFormatError) {
+            errors.push({
+              userId: update.userId,
+              error: usernameFormatError.message
+            })
+            continue
+          }
 
           // 检查用户名是否已存在（排除当前用户）
           const existingUser = await db

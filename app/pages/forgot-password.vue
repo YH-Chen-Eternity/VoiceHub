@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 <template>
   <div class="auth-layout">
     <div class="auth-main">
@@ -67,6 +69,8 @@
             <span class="error-message">{{ error }}</span>
           </div>
 
+          <TurnstileWidget v-if="showTurnstile" ref="turnstileRef" v-model="turnstileToken" />
+
           <button :disabled="loading" class="submit-btn" type="submit">
             <svg v-if="loading" class="loading-spinner" viewBox="0 0 24 24">
               <circle cx="12" cy="12" fill="none" r="10" stroke="currentColor" stroke-dasharray="31.416" stroke-dashoffset="31.416" stroke-linecap="round" stroke-width="2">
@@ -79,7 +83,7 @@
           </button>
           
           <div class="form-footer">
-            <button v-if="step === 2" type="button" @click="step = 1; error = '';" class="back-link mr-4" style="background: none; border: none; cursor: pointer;">
+            <button v-if="step === 2" type="button" @click="goBack" class="back-link mr-4" style="background: none; border: none; cursor: pointer;">
               {{ locale.previousStep }}
             </button>
             <NuxtLink to="/login" class="back-link">{{ locale.backLogin }}</NuxtLink>
@@ -94,9 +98,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import TurnstileWidget from '~/components/Auth/TurnstileWidget.vue'
 import { useLocale } from '~/utils/locale'
 
-const { siteTitle, initSiteConfig } = useSiteConfig()
+const { siteTitle, initSiteConfig, captchaEnabled, captchaProvider, turnstileSiteKey } = useSiteConfig()
 const { pages } = useLocale()
 const locale = computed(() => pages.value?.forgotPassword || {})
 
@@ -108,6 +113,12 @@ const success = ref(false)
 const successMessage = ref('')
 const step = ref(1)
 const maskedEmail = ref('')
+const turnstileToken = ref('')
+const turnstileRef = ref(null)
+
+const showTurnstile = computed(
+  () => captchaEnabled.value && captchaProvider.value === 'turnstile' && !!turnstileSiteKey.value
+)
 
 // 服务端错误统一通过错误码本地化，成功文案直接取本地化整句
 const { localize: localizeServerError } = useServerErrors()
@@ -137,9 +148,11 @@ const handleSubmit = async () => {
   error.value = ''
 
   try {
-    const body = step.value === 1 
-      ? { username: username.value }
-      : { username: username.value, email: email.value }
+    const body = {
+      username: username.value,
+      ...(step.value === 2 ? { email: email.value } : {}),
+      turnstileToken: turnstileToken.value
+    }
 
     const response = await $fetch('/api/auth/forgot-password', {
       method: 'POST',
@@ -148,9 +161,11 @@ const handleSubmit = async () => {
 
     if (response.success) {
       if (response.step === 2) {
-        // 进入补全邮箱步骤
+        // 进入补全邮箱步骤；Turnstile token 已在服务端核销，必须换新
         step.value = 2
         maskedEmail.value = response.maskedEmail || ''
+        turnstileToken.value = ''
+        turnstileRef.value?.reset()
       } else if (response.step === 3) {
         // 成功发送邮件
         success.value = true
@@ -159,9 +174,17 @@ const handleSubmit = async () => {
     }
   } catch (err) {
     error.value = localizeServerError(err, locale.value.requestFailed)
+    turnstileToken.value = ''
+    turnstileRef.value?.reset()
   } finally {
     loading.value = false
   }
+}
+const goBack = () => {
+  step.value = 1
+  error.value = ''
+  turnstileToken.value = ''
+  turnstileRef.value?.reset()
 }
 </script>
 

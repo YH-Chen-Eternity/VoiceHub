@@ -1,8 +1,11 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
 import { eq, sql } from 'drizzle-orm'
 import { checkEmailDeliverability, isPermanentRecipientFailure } from '~~/server/utils/email-deliverability'
+import { getEmailDomain, getEmailDomainViolation } from '~~/server/utils/email-domain-policy'
 import { SmtpService } from '~~/server/services/smtpService'
 import { getClientIP } from '~~/server/utils/ip-utils'
 import { getServerTimestamp } from '~~/server/utils/serverTime'
@@ -126,6 +129,13 @@ export default defineEventHandler(async (event) => {
 
   if (!emailRaw || !emailRegex.test(emailRaw)) {
     throw createApiError(400, 'AUTH_EMAIL_UNREACHABLE', '邮箱格式不正确，请检查后再试')
+  }
+
+  // 域名策略：仅主流邮箱、禁一次性邮箱（明确提示，避免用户等不到验证码）
+  const domainViolation = getEmailDomainViolation(emailRaw)
+  if (domainViolation) {
+    console.warn(`[email-policy] blocked bind code for domain: ${getEmailDomain(emailRaw) || 'invalid'}`)
+    throw createApiError(400, domainViolation.code, domainViolation.message)
   }
 
   // 域名收信能力预检（同注册发码，避免"发不出去却提示已发送"）

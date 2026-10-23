@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { db } from '~/drizzle/db'
 import { systemSettings } from '~/drizzle/schema'
 import type { SystemSettings } from '~/drizzle/schema'
@@ -33,8 +35,12 @@ export function computeRequirePasswordChange(
 export async function resolveRequirePasswordChange(user: {
   forcePasswordChange?: boolean | null
   passwordChangedAt?: Date | string | null
+  role?: string | null
 }): Promise<boolean> {
+  // 管理员显式要求的强制改密优先（管理员可在用户管理里给任意角色下发）
   if (user.forcePasswordChange) return true
+  // 管理员 / 超级管理员 / 歌曲管理员不参与「首次登录强制改密」策略
+  if (user.role && ['ADMIN', 'SUPER_ADMIN', 'SONG_ADMIN'].includes(user.role)) return false
   if (user.passwordChangedAt) return false
   return computeRequirePasswordChange(user, await getForcePasswordChangeOnFirstLogin())
 }

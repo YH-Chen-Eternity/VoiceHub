@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import { verifyAuthenticationResponse } from '@simplewebauthn/server'
 import { defineEventHandler, getRequestHeader, setCookie } from 'h3'
@@ -9,6 +11,7 @@ import { createAuthSession } from '~~/server/utils/auth-session'
 import { getBeijingTime } from '~/utils/timeUtils'
 import { getClientIP } from '~~/server/utils/ip-utils'
 import { createApiError } from '~~/server/utils/apiError'
+import { recordLoginAttempt } from '~~/server/utils/loginAttempt'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -111,13 +114,19 @@ export default defineEventHandler(async (event) => {
       // 通行密钥登录同样发登录提醒（异步，不拖慢响应）
       void notifyLoginSuccess(user, getClientIP(event) || '', getRequestHeader(event, 'user-agent') || '')
 
+      await recordLoginAttempt(event, {
+        username: user.username,
+        result: 'success',
+        detail: '通行密钥验证通过'
+      })
+
       // 签发登录 Token
       const { token } = await createAuthSession(event, identity.user, 'webauthn')
       setCookie(event, 'auth-token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7,
+        maxAge: 60 * 60 * 6,
         path: '/'
       })
 

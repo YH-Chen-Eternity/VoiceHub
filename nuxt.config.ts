@@ -1,5 +1,8 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import wasm from 'vite-plugin-wasm'
+import { resolve } from 'node:path'
 import { fileURLToPath } from 'url'
 
 // 解析自定义 SEO 和 PWA 配置
@@ -725,6 +728,24 @@ export default defineNuxtConfig({
   // TypeScript配置
   typescript: {
     strict: true
+  },
+
+  // 全局错误处理脱敏（2026-10-23 安全加固 M-4）：
+  // nitro 2.13.4 的错误处理链是数组。直接配 nitro.errorHandler 会把 Nuxt
+  // 错误页处理器挤出链外（HTML 错误页回归），故在 nitro:init 钩子里把自定义
+  // 脱敏处理器 unshift 到链首，链变为：
+  // [server/error.ts 脱敏处理器, Nuxt 错误页, nitro 默认处理器]
+  // 注意：nitro:init 是 Nuxt 层钩子（nuxt.callHook 触发），必须注册在顶层
+  // hooks；注册到 nitro.hooks 里不会触发（nitro 内部只发 init 之外的构建事件）。
+  hooks: {
+    'nitro:init'(nitro) {
+      const handlers = Array.isArray(nitro.options.errorHandler)
+        ? nitro.options.errorHandler
+        : (nitro.options.errorHandler ? [nitro.options.errorHandler] : [])
+      handlers.unshift(resolve(nitro.options.rootDir, 'server/error.ts'))
+      nitro.options.errorHandler = handlers
+      console.info('[security] M-4 错误脱敏处理器已注册到 nitro 错误处理链首')
+    }
   },
 
   // 服务器端配置

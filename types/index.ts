@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 export interface User {
   id: number
   username: string
@@ -8,6 +10,7 @@ export interface User {
   lastLoginAt?: Date | null
   lastLoginIp?: string | null
   forcePasswordChange?: boolean
+  forceUsernameChange?: boolean
   passwordChangedAt?: Date | string | null
   requirePasswordChange?: boolean
   hasSetPassword?: boolean

@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Copyright (C) 2026 YH-Chen
 //
 // This file is part of VoiceHub-Plus (an unofficial community edition),
@@ -17,11 +19,12 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 import { eq } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
-import { nameChangeRequests, users } from '~/drizzle/schema'
+import { users } from '~/drizzle/schema'
 import { createApiError } from '~~/server/utils/apiError'
 import { purgeExpiredDeletions } from '~~/server/utils/accountPurge'
 
-// 用户审核决策：注册审核 / 改名审核 / 注销处理 / 手动触发清理
+// 用户审核决策：注册审核 / 注销处理 / 手动触发清理
+// 注：真实姓名修改功能已于 2026-10-23 下线（用户自助改名仅保留登录用户名，即时生效无需审核）。
 export default defineEventHandler(async (event) => {
   const operator = event.context.user
   if (!operator || !['ADMIN', 'SUPER_ADMIN'].includes(operator.role)) {
@@ -53,48 +56,6 @@ export default defineEventHandler(async (event) => {
         updatedAt: now
       })
       .where(eq(users.id, id))
-    return { success: true }
-  }
-
-  if (kind === 'name') {
-    const [request] = await db.select().from(nameChangeRequests).where(eq(nameChangeRequests.id, id)).limit(1)
-    if (!request || request.status !== 'PENDING') {
-      throw createApiError(404, 'NAME_CHANGE_NOT_PENDING', '该改名申请不存在或已处理')
-    }
-    if (approve) {
-      await db.update(users).set({ name: request.newName, updatedAt: now }).where(eq(users.id, request.userId))
-    }
-    await db
-      .update(nameChangeRequests)
-      .set({ status: approve ? 'APPROVED' : 'REJECTED', reason: reason || null, reviewedBy: operator.id, reviewedAt: now })
-      .where(eq(nameChangeRequests.id, id))
-
-    // 邮件通知申请人（失败不影响审核结果）——模板可在后台「推送配置 → 通知模板」修改
-    try {
-      const [target] = await db
-        .select({ email: users.email, username: users.username })
-        .from(users)
-        .where(eq(users.id, request.userId))
-        .limit(1)
-      if (target?.email) {
-        const { SmtpService } = await import('~~/server/services/smtpService')
-        const smtp = SmtpService.getInstance()
-        await smtp.initializeSmtpConfig()
-        await smtp.renderAndSend(
-          target.email,
-          approve ? 'account.nameChange.approved' : 'account.nameChange.rejected',
-          {
-            username: target.username,
-            oldName: request.oldName || '未填写',
-            newName: request.newName,
-            reason
-          }
-        )
-      }
-    } catch (emailError) {
-      console.error('发送姓名修改审核邮件失败:', emailError)
-    }
-
     return { success: true }
   }
 

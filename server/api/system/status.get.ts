@@ -1,9 +1,20 @@
-import { defineEventHandler } from 'h3'
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
+import { createError, defineEventHandler } from 'h3'
 import { databaseManager } from '~~/server/utils/database-manager'
 import { getInstanceId } from '~~/server/utils/instance-id'
 import { isTelemetryEnabled } from '~~/server/utils/telemetry'
 
-export default defineEventHandler(async () => {
+const ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN']
+
+export default defineEventHandler(async (event) => {
+  // 系统状态含实例 ID、连接池细节与内部错误信息，仅限管理员（2026-10-23 安全加固：
+  // 原实现任何登录用户均可读取，构成信息泄露）
+  const user = event.context.user
+  if (!user || !ADMIN_ROLES.includes(user.role)) {
+    throw createError({ statusCode: 403, message: '只有管理员可以查看系统状态' })
+  }
+
   try {
     const instanceId = await getInstanceId()
     const telemetryEnabled = await isTelemetryEnabled()
@@ -51,15 +62,16 @@ export default defineEventHandler(async () => {
       system: systemInfo
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    // 细节只进服务端日志，响应不暴露内部错误（2026-10-23 安全加固）
+    console.error('[System Status] 获取系统状态失败:', error)
 
     return {
       status: 'error',
-      error: errorMessage,
+      error: '获取系统状态失败',
       database: {
         connected: false,
         poolStatus: null,
-        error: errorMessage
+        error: '获取数据库状态失败'
       }
     }
   }

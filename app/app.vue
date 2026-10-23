@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 <template>
   <div class="app" data-color-scheme="custom">
     <!-- 注入 PWA Manifest -->
@@ -13,6 +15,9 @@
 
     <!-- 弹窗模式的登录条款全局确认弹窗（覆盖所有登录方式） -->
     <LegalConsentModal />
+
+    <!-- 管理员下发「强制更新用户名」时的全站拦截弹窗 -->
+    <ForceUsernameChangeModal />
 
     <!-- 全局音频播放器 - 使用isPlayerVisible控制显示/隐藏 -->
     <LazyUIAudioPlayer
@@ -41,6 +46,7 @@ import { useImportantNotification } from '~/composables/useImportantNotification
 import ImportantNotificationModal from '~/components/UI/ImportantNotificationModal.vue'
 import OAuthBindReminderModal from '~/components/Auth/OAuthBindReminderModal.vue'
 import LegalConsentModal from '~/components/Auth/LegalConsentModal.vue'
+import ForceUsernameChangeModal from '~/components/Auth/ForceUsernameChangeModal.vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()

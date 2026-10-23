@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import crypto from 'node:crypto'
 import { sendAccountEmail, formatMailTime, notifyLoginSuccess, notifyLoginFailure } from '~~/server/utils/accountNotifications'
@@ -11,6 +13,7 @@ import { checkDistributedRateLimit } from '~~/server/utils/rateLimiter'
 import { getServerTimestamp } from '~~/server/utils/serverTime'
 import { createApiError } from '~~/server/utils/apiError'
 import { getPasswordPolicyViolation } from '~/utils/password-policy'
+import { assertPasswordTurnstile } from '~~/server/utils/password-turnstile'
 import {
   PASSWORD_AUDIT_ACTIONS,
   getPasswordAuditContext,
@@ -35,6 +38,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody<Record<string, unknown> | null>(event)
+  await assertPasswordTurnstile(body, clientIP)
   const token = typeof body?.token === 'string' ? body.token : ''
   const newPassword = typeof body?.newPassword === 'string' ? body.newPassword : ''
 

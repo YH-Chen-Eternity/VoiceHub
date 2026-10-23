@@ -1,9 +1,13 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { defineEventHandler } from 'h3'
 import { prepareBackup, executeUploads, acquireBackupLock, releaseBackupLock } from '~~/server/services/autoBackupService'
 import { createApiError } from '~~/server/utils/apiError'
 import { SERVER_ERROR_CODES } from '~~/server/config/constants'
+import { assertBackupTriggerToken } from '~~/server/utils/backupTriggerToken'
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+  assertBackupTriggerToken(event)
   acquireBackupLock()
   try {
     const prepared = await prepareBackup()

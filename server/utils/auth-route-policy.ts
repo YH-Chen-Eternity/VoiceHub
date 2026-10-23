@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 type HttpMethod = 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
@@ -52,7 +54,9 @@ export const PUBLIC_API_EXACT_ROUTES: readonly RoutePolicy[] = [
   { path: '/api/music/resolve', methods: ['POST'] },
   { path: '/api/music/state', methods: ['POST'] },
   { path: '/api/music/websocket', methods: GET_METHODS },
-  { path: '/api/sys/time', methods: GET_METHODS }
+  { path: '/api/sys/time', methods: GET_METHODS },
+  // 边缘 rewriter 写攻击日志：用共享令牌鉴权，不走用户登录态
+  { path: '/api/internal/attack-log', methods: ['POST'] }
 ]
 
 // /api/music-source-plugins/* 不在公开 API 白名单中，要求登录态。

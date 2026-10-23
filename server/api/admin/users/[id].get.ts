@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { createError, defineEventHandler, getRouterParam } from 'h3'
 import { eq } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
@@ -36,6 +38,7 @@ export default defineEventHandler(async (event) => {
       lastLoginIp: true,
       passwordChangedAt: true,
       forcePasswordChange: true,
+      forceUsernameChange: true,
       meowNickname: true,
       meowBoundAt: true,
       email: true,

@@ -1,3 +1,5 @@
+# Modified by YH-Chen-Eternity on 2026-10-23
+
 #!/bin/bash
 
 # 确保以 bash 运行

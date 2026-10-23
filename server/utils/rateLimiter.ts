@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import { getServerTimestamp } from './serverTime'
 
@@ -65,9 +67,11 @@ export function checkRateLimit(
  * 优先使用 Redis 执行跨实例限流，Redis 不可用时回退到当前进程内存。
  * 适用于需要在多实例或 Serverless 环境中保持一致计数的敏感接口。
  *
- * ⚠️ 本站策略：**取消所有以 IP 为维度**的限流（校园网 NAT 下大量学生共享出口 IP，
- * 按 IP 计数会把整个学校当成一个人，造成「莫名其妙被限流」）。按用户/按插件维度的
- * 限流保持不变（music-plugins:<key>、card_code_validate_user_*:<userId>）。
+ * ⚠️ 本站策略：**不按 IP 精确限流**（校园网 NAT 下大量学生共享出口 IP，
+ * 按 IP 计数会把整个学校当成一个人，造成「莫名其妙被限流」）。IP 维度的键
+ * 走宽松硬上限（见下方 IP_SCOPED_RATE_LIMIT_HARD_CAPS），正常流量不受影响，
+ * 仅拦脚本化洪水。按用户/按插件维度的限流保持不变
+ * （music-plugins:<key>、card_code_validate_user_*:<userId>）。
  */
 const IP_SCOPED_RATE_LIMIT_PREFIXES = [
   'register',
@@ -83,14 +87,44 @@ const IP_SCOPED_RATE_LIMIT_PREFIXES = [
 const isIpScopedRateLimitKey = (key: string) =>
   IP_SCOPED_RATE_LIMIT_PREFIXES.some((prefix) => key.startsWith(`${prefix}:`))
 
+/**
+ * IP 维度限流的宽松硬上限（2026-10-23 安全加固）。
+ *
+ * 背景：本站策略是不按 IP 精确限流（校园 NAT 下大量学生共享出口 IP，按 IP 计数
+ * 会把整所学校当成一个人）。原实现直接把 IP 键全部放行，但调用方传入的限额
+ * 若被调得过大（注册曾配到 100 万/小时），限流即形同虚设，匿名脚本可无限
+ * 注册/发验证码/轰炸 SMTP。
+ *
+ * 方案：对 IP 键取 min(调用方限额, 硬上限)。硬上限取正常 NAT 流量峰值的数倍：
+ * 正常调用方的限额远低于硬上限，行为完全不变；只有被调大的限额会被压回硬上限，
+ * 脚本化洪水仍能被拦住，真实用户永不被误伤。
+ */
+const IP_SCOPED_RATE_LIMIT_HARD_CAPS: Record<string, number> = {
+  register: 500, // 原调用方限额 100 万/小时，压回 500/小时
+  'email-code': 500, // 调用方 10/分钟，不受影响
+  captcha_fetch: 500, // 调用方 100/10 分钟，不受影响
+  captcha_precheck: 500,
+  forgot_password_ip: 200, // 调用方 5/小时，不受影响
+  reset_password_ip: 200, // 调用方 10/小时，不受影响
+  card_code_validate_ip_hourly: 500,
+  'plugin-media': 500 // 调用方 120/分钟，不受影响
+}
+const DEFAULT_IP_SCOPED_HARD_CAP = 500
+
+const getIpScopedHardCap = (key: string): number => {
+  const prefix = IP_SCOPED_RATE_LIMIT_PREFIXES.find((p) => key.startsWith(`${p}:`))
+  return (prefix && IP_SCOPED_RATE_LIMIT_HARD_CAPS[prefix]) || DEFAULT_IP_SCOPED_HARD_CAP
+}
+
 export async function checkDistributedRateLimit(
   key: string,
   limit: number,
   windowMs: number
 ): Promise<{ isAllowed: boolean; remaining: number; resetTime: number }> {
-  if (isIpScopedRateLimitKey(key)) {
-    return { isAllowed: true, remaining: limit, resetTime: Date.now() + windowMs }
-  }
+  // IP 维度键不精确限流，但压回宽松硬上限，防止限额被调大后形同虚设
+  const effectiveLimit = isIpScopedRateLimitKey(key)
+    ? Math.min(limit, getIpScopedHardCap(key))
+    : limit
 
   try {
     const redisModule = await import('./redis')
@@ -113,8 +147,8 @@ export async function checkDistributedRateLimit(
       }
 
       return {
-        isAllowed: count <= limit,
-        remaining: Math.max(0, limit - count),
+        isAllowed: count <= effectiveLimit,
+        remaining: Math.max(0, effectiveLimit - count),
         resetTime: getServerTimestamp() + ttl
       }
     }
@@ -130,7 +164,7 @@ export async function checkDistributedRateLimit(
     }
   }
 
-  return checkRateLimit(key, limit, windowMs)
+  return checkRateLimit(key, effectiveLimit, windowMs)
 }
 
 /**

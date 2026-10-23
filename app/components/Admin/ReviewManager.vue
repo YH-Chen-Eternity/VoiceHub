@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 <!--
 Copyright (C) 2026 YH-Chen
 
@@ -114,25 +116,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
       </section>
 
       <section class="rounded-2xl border border-border-secondary-50 bg-bg-secondary-30 p-4 md:p-5">
-        <h3 class="mb-3 text-sm font-black text-text-primary">{{ t.review.nameChanges(users.nameChanges?.length || 0) }}</h3>
-        <div v-if="!users.nameChanges?.length" class="py-6 text-center text-xs text-text-tertiary">{{ t.review.noPendingNameChanges }}</div>
-        <div v-else class="space-y-3">
-          <div v-for="row in users.nameChanges" :key="`n-${row.id}`" class="flex flex-col gap-3 rounded-xl border border-border-secondary-50 bg-bg-primary-40 p-3 md:flex-row md:items-center md:justify-between">
-            <div class="min-w-0 text-xs text-text-secondary">
-              <span class="text-text-tertiary">{{ row.oldName || '未填写' }}</span>
-              <span class="mx-1 text-text-tertiary">→</span>
-              <span class="font-bold text-text-primary">{{ row.newName }}</span>
-              <span v-if="row.user" class="ml-2 text-text-tertiary">@{{ row.user.username }} {{ row.user.grade || '' }} {{ row.user.class || '' }}</span>
-            </div>
-            <div class="flex shrink-0 gap-2">
-              <button class="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-primary-hover" type="button" @click="decideUser('name', row.id, true)">{{ t.review.approve }}</button>
-              <button class="rounded-lg border border-error-30 px-3 py-1.5 text-xs font-bold text-error hover:bg-error-10" type="button" @click="rejectName(row.id)">{{ t.review.reject }}</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="rounded-2xl border border-border-secondary-50 bg-bg-secondary-30 p-4 md:p-5">
         <h3 class="mb-3 text-sm font-black text-text-primary">{{ t.review.deletions(users.deletions?.length || 0) }}</h3>
         <p class="mb-3 text-[11px] text-text-tertiary">{{ t.review.deletionsHint }}</p>
         <div v-if="!users.deletions?.length" class="py-6 text-center text-xs text-text-tertiary">{{ t.review.noPendingDeletions }}</div>
@@ -167,7 +150,7 @@ const t = useNewUi()
 const { showToast } = useToast()
 const loading = ref(false)
 const notes = ref({ songs: [], replays: [] })
-const users = ref({ registrations: [], nameChanges: [], deletions: [] })
+const users = ref({ registrations: [], deletions: [] })
 
 const isNotes = computed(() => props.mode !== 'users')
 
@@ -190,7 +173,6 @@ const load = async () => {
       const res = await $fetch('/api/admin/review/users')
       users.value = {
         registrations: res?.data?.registrations || [],
-        nameChanges: res?.data?.nameChanges || [],
         deletions: res?.data?.deletions || []
       }
     }
@@ -219,11 +201,6 @@ const decideUser = async (kind, id, approve, reason = '') => {
   } catch (error) {
     showToast?.(error?.data?.message || t.value.review.opFailed, 'error')
   }
-}
-
-const rejectName = async (id) => {
-  const reason = prompt(t.value.review.rejectReasonPrompt) || ''
-  await decideUser('name', id, false, reason)
 }
 
 const runPurge = async () => {

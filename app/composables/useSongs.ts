@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import { computed, ref } from 'vue'
 import { useAuth } from './useAuth'
@@ -520,7 +522,12 @@ export const useSongs = () => {
       // 绕过去重，从数据库重新校准写入后的列表
       await fetchSongs(true, undefined, true)
 
-      showNotification(actionLocale.value.markPlayedSucceeded, 'success')
+      // 广播站批量标记时可能有部分歌曲因排期未到被跳过，服务端会给出说明
+      if (data?.skipped > 0 && data?.message) {
+        showNotification(data.message, 'info')
+      } else {
+        showNotification(actionLocale.value.markPlayedSucceeded, 'success')
+      }
       return data
     } catch (err: any) {
       const errorMsg = err.data?.message || err.message || '标记歌曲失败'

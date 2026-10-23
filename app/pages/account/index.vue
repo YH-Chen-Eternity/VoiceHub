@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 <!--
 Modified by YH-Chen on 2026-10-17
 -->
@@ -304,8 +306,8 @@ Modified by YH-Chen on 2026-10-17
           <!-- 我的点赞（可设置对其他同学是否可见） -->
           <AccountMyLikes />
 
-          <!-- 修改真实姓名（需管理员审核） -->
-          <AccountNameChange />
+          <!-- 修改登录用户名（即时生效，无需审核） -->
+          <AccountUsernameChange />
 
           <!-- 注销账号（30 天宽限期，期间登录自动恢复） -->
           <AccountDeleteAccount />

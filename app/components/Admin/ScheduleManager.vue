@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 <!--
 Modified by YH-Chen on 2026-10-17
 -->
@@ -4729,14 +4731,19 @@ const markAllAsPlayed = async () => {
     try {
       const songIds = localScheduledSongs.value.map((s) => s.song.id)
 
-      await $fetch('/api/admin/songs/mark-played', {
+      const result = await $fetch('/api/admin/songs/mark-played', {
         method: 'POST',
         body: { songIds },
         ...auth.getAuthConfig()
       })
 
       if (window.$showNotification) {
-        window.$showNotification(locale.value.messages.allMarkedPlayed, 'success')
+        // 广播站标记未来场次时服务端会跳过并说明原因
+        if (result?.skipped > 0 && result?.message) {
+          window.$showNotification(result.message, 'info')
+        } else {
+          window.$showNotification(locale.value.messages.allMarkedPlayed, 'success')
+        }
       }
 
       // 重新加载数据
@@ -4744,7 +4751,7 @@ const markAllAsPlayed = async () => {
     } catch (err) {
       console.error('标记播放失败:', err)
       if (window.$showNotification) {
-        window.$showNotification(locale.value.errors.operationFailed, 'error')
+        window.$showNotification(err?.data?.message || locale.value.errors.operationFailed, 'error')
       }
     } finally {
       loading.value = false

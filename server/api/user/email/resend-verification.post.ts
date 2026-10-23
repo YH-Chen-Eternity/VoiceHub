@@ -1,8 +1,15 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
 import { eq } from 'drizzle-orm'
 import { getClientIP } from '~~/server/utils/ip-utils'
 import { createApiError } from '~~/server/utils/apiError'
+import {
+  getEmailDomain,
+  getEmailDomainViolation,
+  isAllowedPersonalEmail
+} from '~~/server/utils/email-domain-policy'
 
 export default defineEventHandler(async (event) => {
   // 检查请求方法
@@ -29,6 +36,17 @@ export default defineEventHandler(async (event) => {
 
     if (currentUser.emailVerified) {
       throw createApiError(400, 'USER_EMAIL_ALREADY_VERIFIED', '邮箱已验证，无需重新发送')
+    }
+
+    // 历史遗留的非主流邮箱：不再静默成功，直接提示更换邮箱，避免用户反复重发收不到
+    if (!isAllowedPersonalEmail(currentUser.email)) {
+      console.warn(`[email-policy] blocked resend for domain: ${getEmailDomain(currentUser.email) || 'invalid'}`)
+      const violation = getEmailDomainViolation(currentUser.email)
+      throw createApiError(
+        400,
+        violation?.code || 'AUTH_EMAIL_DOMAIN_NOT_ALLOWED',
+        violation?.message || '当前绑定的邮箱不在支持范围内，请先更换主流邮箱'
+      )
     }
 
     // 发送邮箱验证码

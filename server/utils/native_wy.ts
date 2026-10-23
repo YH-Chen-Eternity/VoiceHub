@@ -1,8 +1,12 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { createCipheriv, createHash, randomBytes } from 'node:crypto'
 import { getServerTimestamp } from '~~/server/utils/serverTime'
 
 // --- 加密逻辑 ---
-const eapiKey = 'e82ckenh8dichen8'
+// eapiKey 是网易云音乐 eapi 协议的公开常量（所有第三方客户端均使用同一值），
+// 允许通过环境变量覆盖以便应急轮换；并非站点私有凭据。
+const eapiKey = process.env.NETEASE_EAPI_KEY || 'e82ckenh8dichen8'
 
 const aesEncrypt = (buffer: Buffer, mode: string, key: string | Buffer, iv: string | Buffer) => {
   const cipher = createCipheriv(mode, key, iv)

@@ -1,4 +1,7 @@
-import { and, db, desc, eq, songs, songReplayRequests, semesters, playTimes } from '~/drizzle/db'
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
+import { and, db, desc, eq, songs, songReplayRequests, semesters, playTimes, users, notifications } from '~/drizzle/db'
+import { inArray } from 'drizzle-orm'
 import { getSystemSettingsCached } from '~~/server/utils/system-settings-helper'
 import { enqueueAstrbotGroupEvent } from '~~/server/services/astrbotGroupService'
 import { createApiError } from '~~/server/utils/apiError'
@@ -129,6 +132,24 @@ export default defineEventHandler(async (event) => {
       submissionNotePublic,
       submissionNotePublicStatus
     })
+    if (submissionNotePublicStatus === SUBMISSION_NOTE_STATUS.PENDING) {
+      try {
+        const admins = await db.select({ id: users.id }).from(users).where(inArray(users.role, ['ADMIN', 'SUPER_ADMIN']))
+        if (admins.length > 0) {
+          await db.insert(notifications).values(
+            admins.map((a) => ({
+              userId: a.id,
+              type: 'SYSTEM_NOTICE',
+              title: '公开留言待审核',
+              message: `重播申请《${song.title}》有一条公开留言待审核。`,
+              important: false
+            }))
+          )
+        }
+      } catch (e) {
+        console.error('公开留言待审核通知失败:', e)
+      }
+    }
     // 群聊推送：重播申请（默认关闭，按需开启）。申请人姓名由推送侧统一取 users 表。
     await enqueueAstrbotGroupEvent('replayRequest', '新的重播申请', `《${song.title}》- ${song.artist} 收到重播申请`)
     return { success: true, message: latestRequest ? '重新申请重播成功' : '申请重播成功' }

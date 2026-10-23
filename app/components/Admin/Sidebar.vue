@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 <!--
 Modified by YH-Chen on 2026-10-17
 -->
@@ -142,7 +144,8 @@ import {
   Megaphone,
   ClipboardCheck,
   UserCheck,
-  Activity
+  Activity,
+  ShieldAlert
 } from '@lucide/vue'
 import { useLocale } from '~/utils/locale'
 
@@ -224,7 +227,8 @@ const menuGroups = computed(() => [
       { icon: ListMusic, label: locale.value.menu?.musicSource || '音源控制', id: 'music-source' },
       { icon: Globe, label: locale.value.menu?.siteConfig || '站点配置', id: 'site-config' },
       { icon: Database, label: locale.value.menu?.database || '数据库', id: 'database' },
-      { icon: Activity, label: locale.value.menu?.systemBoard || '系统看板', id: 'system-board' }
+      { icon: Activity, label: locale.value.menu?.systemBoard || '系统看板', id: 'system-board' },
+      { icon: ShieldAlert, label: locale.value.menu?.attackLogs || '攻击日志', id: 'attack-logs' }
     ]
   },
   {

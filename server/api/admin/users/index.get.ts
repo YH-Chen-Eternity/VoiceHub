@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { createError, defineEventHandler, getQuery } from 'h3'
 import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
@@ -70,6 +72,7 @@ export default defineEventHandler(async (event) => {
         lastLoginIp: true,
         passwordChangedAt: true,
         forcePasswordChange: true,
+        forceUsernameChange: true,
         meowNickname: true,
         meowBoundAt: true,
         email: true,

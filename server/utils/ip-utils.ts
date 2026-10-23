@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import type { H3Event } from 'h3'
 import { getHeaders } from 'h3'
 import { isIP } from 'node:net'
@@ -27,14 +29,13 @@ const SUPPORTED_CLIENT_IP_HEADERS = new Set([
   'forwarded'
 ])
 
-// 未配置 TRUSTED_CLIENT_IP_HEADERS 时的回退头部列表，覆盖主流平台
-const FALLBACK_CLIENT_IP_HEADERS = Object.freeze([
-  'x-forwarded-for',
-  'x-real-ip',
-  'x-vercel-forwarded-for',
-  'cf-connecting-ip',
-  'true-client-ip'
-])
+// 未配置 TRUSTED_CLIENT_IP_HEADERS 时**不信任任何转发头**，只使用 TCP 连接地址。
+// 2026-10-23 安全加固：原回退列表直接信任 x-forwarded-for 等 5 个客户端可伪造的头，
+// 与 .env.example 中「未配置时只使用 TCP 连接地址」的文档承诺相反；直连源站部署下，
+// 攻击者每请求换一个 XFF 即可刷新登录失败计数，使 IP 封禁失效。
+// 需要识别代理透传的真实 IP 时（如 Nginx 设置 x-real-ip），必须显式配置
+// TRUSTED_CLIENT_IP_HEADERS=x-real-ip，由部署者保证该头只会被受信代理覆写。
+const FALLBACK_CLIENT_IP_HEADERS = Object.freeze([] as string[])
 
 function getTrustedClientIPHeaders() {
   const configured = String(process.env.TRUSTED_CLIENT_IP_HEADERS || '')

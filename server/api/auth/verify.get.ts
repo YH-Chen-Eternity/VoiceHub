@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
 import { eq } from 'drizzle-orm'
@@ -26,9 +28,12 @@ export default defineEventHandler(async (event) => {
       role: true,
       password: true,
       forcePasswordChange: true,
+      forceUsernameChange: true,
       passwordChangedAt: true,
       avatarProvider: true,
-      avatarProviderUserId: true
+      avatarProviderUserId: true,
+      email: true,
+      emailVerified: true
     },
     with: {
       identities: {
@@ -51,6 +56,7 @@ export default defineEventHandler(async (event) => {
 
   // 与登录接口保持一致：按系统开关与用户状态计算强制改密及首次设置密码状态
   const requirePasswordChange = await resolveRequirePasswordChange(dbUser)
+
   const passwordSetupState = getPasswordSetupState(dbUser, requirePasswordChange)
 
   // 构建返回的用户对象，只包含需要的字段
@@ -63,11 +69,14 @@ export default defineEventHandler(async (event) => {
     class: dbUser.class,
     role: dbUser.role,
     forcePasswordChange: dbUser.forcePasswordChange,
+    forceUsernameChange: dbUser.forceUsernameChange,
     passwordChangedAt: dbUser.passwordChangedAt,
     requirePasswordChange,
     ...passwordSetupState,
     has2FA: dbUser.identities?.some((id: any) => id.provider === 'totp') || false,
-    avatar: avatarSource?.url ?? null
+    avatar: avatarSource?.url ?? null,
+    email: dbUser.email ?? null,
+    emailVerified: !!dbUser.emailVerified
   }
 
   return {

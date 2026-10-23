@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import { createError, defineEventHandler, getQuery } from 'h3'
 import { client } from '~/drizzle/db'
@@ -104,7 +106,6 @@ const loadBasicSchedules = async (client: any, semester: string, user: any, isAd
       hasSubmissionNote: false,
       submissionNote: null,
       submissionNotePublic: false,
-      submissionAnonymous: false,
       preferredPlayTimeId: null,
       requesterId: row.requesterId ? Number(row.requesterId) : null,
       submissionAnonymous: row.submissionAnonymous === true,
@@ -277,7 +278,6 @@ export default defineEventHandler(async (event) => {
         s."submissionNotePublic",
         s."submissionAnonymous",
         s."submissionNotePublicStatus" AS "songSubmissionNotePublicStatus",
-        s."submissionAnonymous",
         CASE WHEN rm.id IS NOT NULL THEN rm.submission_note ELSE s."submissionNote" END AS "effectiveSubmissionNote",
         CASE WHEN rm.id IS NOT NULL THEN COALESCE(rm.submission_note_public, false) ELSE s."submissionNotePublic" END AS "effectiveSubmissionNotePublic",
         CASE WHEN rm.id IS NOT NULL THEN rm.submission_note_public_status ELSE s."submissionNotePublicStatus" END AS "effectiveSubmissionNotePublicStatus",
@@ -432,7 +432,6 @@ export default defineEventHandler(async (event) => {
           originalSubmissionNotePublic: isAdmin ? songNotePublic : false,
           preferredPlayTimeId: effectivePlayTimeId,
           requesterId: row.requesterId ? Number(row.requesterId) : null,
-          submissionAnonymous: row.submissionAnonymous === true,
           replayRequestCount,
           replayRequesters,
           isReplay: linkedReplayRequestId !== null

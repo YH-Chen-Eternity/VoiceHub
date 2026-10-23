@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 #!/bin/bash
 FILE_PATH="${TRIM_APPDEST}/docker/docker-compose.yaml"
 # 检查 Docker 容器是否正在运行

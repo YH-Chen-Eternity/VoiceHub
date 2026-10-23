@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { apiKeyPermissions, apiKeys, db } from '~/drizzle/db'
 import { and, eq, sql } from 'drizzle-orm'
 import { ApiLogService } from '~~/server/services/apiLogService'
@@ -18,6 +20,34 @@ const truncateResponseBody = (responseBody: any, maxLength = 10000) => {
     return json.length <= maxLength ? json : `${json.slice(0, maxLength)}...`
   } catch {
     return String(responseBody).slice(0, maxLength)
+  }
+}
+
+// 请求体脱敏：卡密/密码/token 等敏感字段掩码后入库（2026-10-23 安全加固：
+// 原实现把 /api/open/card-codes 等端点的完整请求体明文写进 API 日志表，
+// 日志查看者可提取用户提交的卡密与凭据）
+const SENSITIVE_FIELD_PATTERN = /pass|token|secret|api[-_]?key|captcha|code|auth|cookie|credential|card/i
+
+const redactSensitiveFields = (requestBody?: string, maxLength = 10000): string | undefined => {
+  if (!requestBody) return requestBody
+  try {
+    const parsed = JSON.parse(requestBody)
+    const redact = (node: any): any => {
+      if (Array.isArray(node)) return node.map(redact)
+      if (node && typeof node === 'object') {
+        const result: Record<string, any> = {}
+        for (const [key, value] of Object.entries(node)) {
+          result[key] = SENSITIVE_FIELD_PATTERN.test(key) ? '***' : redact(value)
+        }
+        return result
+      }
+      return node
+    }
+    const json = JSON.stringify(redact(parsed))
+    return json.length <= maxLength ? json : `${json.slice(0, maxLength)}...`
+  } catch {
+    // 非 JSON body：整体截断，避免原样落库
+    return `${requestBody.slice(0, 200)}...[已截断]`
   }
 }
 
@@ -300,7 +330,7 @@ export default defineEventHandler(async (event) => {
         Date.now() - startTime,
         ipAddress,
         userAgent,
-        requestBody ? JSON.stringify(requestBody) : undefined,
+        redactSensitiveFields(requestBody ? JSON.stringify(requestBody) : undefined),
         responseBody,
         errorMessage
       )

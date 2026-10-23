@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import bcrypt from 'bcryptjs'
 import { db, eq, users, userIdentities, systemSettings } from '~/drizzle/db'
 import { JWTEnhanced } from '~~/server/utils/jwt-enhanced'
@@ -242,7 +244,7 @@ export default defineEventHandler(async (event) => {
     httpOnly: true,
     secure: isSecure,
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: 60 * 60 * 6,
     path: '/'
   })
 

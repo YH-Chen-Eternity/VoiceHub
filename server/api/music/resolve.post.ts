@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 /*
 Copyright (C) 2026 YH-Chen
 
@@ -49,6 +51,16 @@ async function fetchWithTimeout(url: string, timeout = 8000, init: RequestInit =
   } finally {
     clearTimeout(timer)
   }
+}
+
+// 网易 CDN 不返回 CORS 头，浏览器 <audio crossorigin=anonymous> 无法直接加载，
+// 统一改写为同源代理 /audio-proxy/<host>/<path>（nginx 白名单仅放行 *.music.126.net）
+function wrapNeteaseProxy(url: string) {
+  const m = String(url || '').match(/^https?:\/\/([^\/?#]+)(\/?[^#]*)$/i)
+  if (!m) return url
+  const host = m[1].toLowerCase()
+  if (!/(^|\.)music\.126\.net$/.test(host) && !/(^|\.)music\.163\.com$/.test(host)) return url
+  return '/audio-proxy/' + host + m[2]
 }
 
 function isPlayable(url: string) {
@@ -112,7 +124,7 @@ export default defineEventHandler(async (event) => {
   const key = `${platform}:${musicId}:${Number.isFinite(quality) ? quality : 4}`
   const cached = cache.get(key)
   if (cached && cached.expireAt > Date.now()) {
-    return { success: true, data: { url: cached.url, source: cached.source, cached: true } }
+    return { success: true, data: { url: wrapNeteaseProxy(cached.url), source: cached.source, cached: true } }
   }
 
   const attempts = [
@@ -125,7 +137,7 @@ export default defineEventHandler(async (event) => {
     if (hit) {
       pruneCache()
       cache.set(key, { ...hit, expireAt: Date.now() + CACHE_TTL })
-      return { success: true, data: { url: hit.url, source: hit.source, cached: false } }
+      return { success: true, data: { url: wrapNeteaseProxy(hit.url), source: hit.source, cached: false } }
     }
   }
 

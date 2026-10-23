@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { computed, ref } from 'vue'
 import * as zhCN from './zh-CN'
 
@@ -267,6 +269,7 @@ export function useLocale() {
     loadLocaleMessages,
     siteConfig: withFallback('siteConfig'),
     changePassword: withFallback('changePassword'),
+    forceUsernameChange: withFallback('forceUsernameChange'),
     common: withFallback('common'),
     pages: withFallback('pages'),
     auth: withFallback('auth'),

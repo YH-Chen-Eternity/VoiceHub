@@ -1,9 +1,12 @@
-import { createError, defineEventHandler, getQuery } from 'h3'
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
+import { createError, defineEventHandler, getHeader, getQuery } from 'h3'
 import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
 import { asc } from 'drizzle-orm'
 import { formatDateTime } from '~/utils/timeUtils'
 import { buildUserFilterConditions } from '~~/server/utils/user-filter'
+import { verifyEmailCode } from '~~/server/utils/email-verification'
 
 // 用户导出：按当前筛选条件返回全量用户（不分页），时间字段统一格式化为北京时间字符串，
 // role/status 保留原始枚举值交由前端按界面语言本地化，实际生成 .xlsx 由前端完成。
@@ -16,6 +19,18 @@ export default defineEventHandler(async (event) => {
         statusCode: 403,
         message: '只有系统管理员可以导出用户列表'
       })
+    }
+
+    // 导出前必须通过邮箱验证码（一次性，5 分钟有效）
+    const exportCode = String(getHeader(event, 'x-export-code') || '').trim()
+    if (!user.email) {
+      throw createError({ statusCode: 403, message: '当前账号未绑定邮箱，无法导出，请先在账号设置中绑定邮箱' })
+    }
+    if (!exportCode) {
+      throw createError({ statusCode: 403, message: '导出前需要邮箱验证码' })
+    }
+    if (!(await verifyEmailCode(user.email, exportCode))) {
+      throw createError({ statusCode: 403, message: '邮箱验证码错误或已过期' })
     }
 
     const query = getQuery(event)

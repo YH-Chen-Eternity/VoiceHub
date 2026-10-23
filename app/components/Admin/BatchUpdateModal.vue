@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 <template>
   <Transition
     enter-active-class="transition duration-300 ease-out"
@@ -1572,21 +1574,32 @@ const parseExcelData = (jsonData) => {
 }
 
 const loadXLSX = async () => {
-  return new Promise((resolve, reject) => {
-    if (typeof window.XLSX !== 'undefined') {
-      resolve()
-      return
-    }
+  if (typeof window.XLSX !== 'undefined') return
 
-    const script = document.createElement('script')
-    script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
-    script.onload = resolve
-    script.onerror = (error) => {
-      console.error('加载XLSX库失败:', error)
-      reject(new Error(getNestedText('errors', 'loadXlsxFailed')))
-    }
-    document.head.appendChild(script)
-  })
+  // 锁定 0.20.2：0.18.5 存在原型污染（CVE-2023-30533）与 ReDoS（CVE-2024-22363）两个高危漏洞，
+  // SheetJS 已停止向 npm 发布新版本，官方 CDN 为唯一修复版来源（2026-10-23 安全加固）
+  const cdnUrls = [
+    'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js',
+    'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'
+  ]
+
+  const tryLoad = (index) =>
+    new Promise((resolve, reject) => {
+      if (index >= cdnUrls.length) {
+        reject(new Error(getNestedText('errors', 'loadXlsxFailed')))
+        return
+      }
+      const script = document.createElement('script')
+      script.src = cdnUrls[index]
+      script.onload = () => resolve()
+      script.onerror = (error) => {
+        console.error(`加载XLSX库失败(${cdnUrls[index]}):`, error)
+        tryLoad(index + 1).then(resolve, reject)
+      }
+      document.head.appendChild(script)
+    })
+
+  return tryLoad(0)
 }
 
 const downloadTemplate = async () => {

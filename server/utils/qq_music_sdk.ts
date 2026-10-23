@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import {
   checkQQLoginQr,
   getLyric,
@@ -544,8 +546,8 @@ const fetchQqCdnSip = async (): Promise<string> => {
         )
       : []
     qqCdnCache = { sips, expireAt: now + QQ_CDN_CACHE_TTL }
-  } catch (err) {
-    console.warn('[qq_music_sdk] CDN 调度失败，回退响应节点与兜底域名:', err)
+  } catch {
+    console.warn('[qq_music_sdk] CDN 调度失败，已回退响应节点与兜底域名')
     qqCdnCache = { sips: [], expireAt: now + QQ_CDN_FAIL_TTL }
   }
 
@@ -615,8 +617,8 @@ export const resolveQqOfficialPlayUrl = async ({
       const signedResult = parseQqOfficialPlayUrl(signedResponse, filenames, guid, cdnSip)
       url = signedResult.url || url
       info = signedResult.info || info
-    } catch (signedErr) {
-      console.error('[qq_music_sdk] 签名请求也失败，保留已获取的诊断信息:', signedErr)
+    } catch {
+      console.warn('[qq_music_sdk] 签名请求失败，使用未签名结果')
     }
   }
 

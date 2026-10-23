@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 <!--
 Modified by YH-Chen on 2026-10-17
 -->
@@ -231,6 +233,14 @@ Modified by YH-Chen on 2026-10-17
               class="animate-in fade-in slide-in-from-bottom-4 duration-500"
             >
               <LazyAdminSystemBoard />
+            </div>
+
+            <!-- 攻击日志 -->
+            <div
+              v-if="activeTab === 'attack-logs' && permissions.canAccessPage('attack-logs')"
+              class="animate-in fade-in slide-in-from-bottom-4 duration-500"
+            >
+              <LazyAdminAttackLogs />
             </div>
           </div>
         </main>

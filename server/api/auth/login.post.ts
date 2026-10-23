@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import bcrypt from 'bcryptjs'
 import { getRequestHeader } from 'h3'
@@ -23,8 +25,12 @@ import { getPasswordSetupState } from '~~/server/utils/initial-password-policy'
 
 // 导入验证码校验函数
 import { verifyAndConsumeCaptcha } from '~~/server/utils/captcha'
+
+// 用户不存在时执行同等成本的 bcrypt 比较，抹平时序侧信道（2026-10-23 安全加固）
+const DUMMY_BCRYPT_HASH = '$2a$10$vnKaCYoD4PXLMsHYyO5Mguv2Re7QihXvQDJA2Lw2SGo.GhSHrT6.S'
 import { createApiError } from '~~/server/utils/apiError'
 import { createAuthSession } from '~~/server/utils/auth-session'
+import { recordLoginAttempt } from '~~/server/utils/loginAttempt'
 
 export default defineEventHandler(async (event) => {
   const startTime = Date.now()
@@ -56,6 +62,7 @@ export default defineEventHandler(async (event) => {
     // 检查IP是否被限制
     if (await isIPBlocked(clientIp)) {
       const remainingTime = await getIPBlockRemainingTime(clientIp)
+      await recordLoginAttempt(event, { username: body.username, result: 'account_locked', detail: `IP 锁定 ${remainingTime} 分钟` })
       throw createApiError(423, 'AUTH_IP_BLOCKED_RETRY_MINUTES', `您的IP地址已被限制访问，请在 ${remainingTime} 分钟后重试`, { params: [remainingTime] })
     }
 
@@ -131,6 +138,7 @@ export default defineEventHandler(async (event) => {
         lastLoginIp: users.lastLoginIp,
         passwordChangedAt: users.passwordChangedAt,
         forcePasswordChange: users.forcePasswordChange,
+        forceUsernameChange: users.forceUsernameChange,
         tokenVersion: users.tokenVersion,
         status: users.status,
         email: users.email,
@@ -144,8 +152,12 @@ export default defineEventHandler(async (event) => {
 
     if (!user) {
       // 记录登录失败（用户不存在）
+      await recordLoginAttempt(event, { username: body.username, result: 'no_user' })
       await recordLoginFailure(body.username, clientIp)
       void notifyLoginFailure(body.username, clientIp)
+      // 与"用户存在"路径执行同等成本的 bcrypt 比较，消除响应时间差异，
+      // 避免统计性用户名枚举（2026-10-23 安全加固）
+      await bcrypt.compare(body.password, DUMMY_BCRYPT_HASH).catch(() => false)
       throw createApiError(401, 'AUTH_INVALID_CREDENTIALS', '用户名或密码错误')
     }
 
@@ -153,12 +165,16 @@ export default defineEventHandler(async (event) => {
     const isPasswordValid = await bcrypt.compare(body.password, user.password)
     if (!isPasswordValid) {
       // 记录登录失败（密码错误）
+      await recordLoginAttempt(event, { username: body.username, result: 'wrong_password' })
       await recordLoginFailure(body.username, clientIp)
       void notifyLoginFailure(body.username, clientIp)
       throw createApiError(401, 'AUTH_INVALID_CREDENTIALS', '用户名或密码错误')
     }
 
     // 检查用户状态 (移到2FA之前，防止已退学用户进行2FA验证)
+    if (['withdrawn', 'merged', 'graduate', 'banned', 'pending', 'rejected'].includes(user.status)) {
+      await recordLoginAttempt(event, { username: body.username, result: 'status_rejected', detail: user.status })
+    }
     if (user.status === 'withdrawn') {
       throw createApiError(403, 'AUTH_ACCOUNT_WITHDRAWN', '该账号已退学，限制访问')
     } else if (user.status === 'merged') {
@@ -225,6 +241,7 @@ export default defineEventHandler(async (event) => {
       await cancelAccountDeletion(user.id, '宽限期内登录了本站').catch((err) => console.error('撤销注销失败:', err))
     }
 
+    await recordLoginAttempt(event, { username: body.username, result: 'success' })
     await recordLoginSuccess(body.username, clientIp)
 
     // 登录提醒邮件（30 分钟内不重复发；可在后台「推送配置 → 邮件模板管理」改文案）
@@ -261,7 +278,7 @@ export default defineEventHandler(async (event) => {
       httpOnly: true,
       secure: isSecure,
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7天
+      maxAge: 60 * 60 * 6, // 6小时
       path: '/'
     })
 
@@ -285,6 +302,7 @@ export default defineEventHandler(async (event) => {
         email: user.email,
         emailVerified: user.emailVerified,
         forcePasswordChange: user.forcePasswordChange,
+        forceUsernameChange: user.forceUsernameChange,
         passwordChangedAt: user.passwordChangedAt,
         requirePasswordChange,
         // 兼容旧客户端字段名

@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { getTxSongPlayableInfo, upgradeTxAudioUrl } from '~~/server/utils/native_tx'
 import {
   getQqCookieDiagnostic,
@@ -7,13 +9,16 @@ import {
   resolveQqSdkPlayUrl
 } from '~~/server/utils/qq_music_sdk'
 
-const HYW_TX_URL = 'http://103.79.184.97/api/music/url'
-const HYW_CARD_KEY = 'PYPW-QFRL-3DBF-95O6'
-const YUAFENG_TX_URL = 'https://api-v2.yuafeng.cn/API/qqmusic.php'
-const YUAFENG_TX_APIKEY = '3ff23523e47465224a3f48579acf41f241540ce04b6cc0b94164f37a5b6299d5'
+// 第三方解析源凭据一律从环境变量读取，不在代码中硬编码（2026-10-23 安全加固：
+// 原实现把付费卡密/API Key 明文写在源码中，仓库泄露即被盗刷；未配置时该源自动禁用）
+const HYW_TX_URL = process.env.MUSIC_HYW_TX_URL || 'http://103.79.184.97/api/music/url'
+const YUAFENG_TX_URL = process.env.MUSIC_YUAFENG_TX_URL || 'https://api-v2.yuafeng.cn/API/qqmusic.php'
 const HELLOWORLD_TX_URL = 'https://a.aa.cab/qq.music'
 // QQ 已知无效占位音频，命中说明源返回的是错误录音
 const INVALID_QQ_AUDIO_URL_SUFFIX = '/2149972737147268278.mp3'
+
+const getHywCardKey = (): string => String(process.env.MUSIC_HYW_CARD_KEY || '').trim()
+const getYuafengApiKey = (): string => String(process.env.MUSIC_YUAFENG_APIKEY || '').trim()
 
 // 从任意 JSON/文本响应中防御式提取 QQ 音频直链
 const extractTxAudioUrl = (payload: unknown): string => {
@@ -35,6 +40,8 @@ const extractTxAudioUrl = (payload: unknown): string => {
 const isValidTxAudioUrl = (url: string) => /^https?:\/\//i.test(url) && !url.includes(INVALID_QQ_AUDIO_URL_SUFFIX)
 
 const resolveTxWithHyw = async (songmid: string, quality: unknown) => {
+  const cardKey = getHywCardKey()
+  if (!cardKey) throw new Error('HYW 源未配置（MUSIC_HYW_CARD_KEY），已跳过')
   const qualityMap: Record<string, string> = {
     '4': '128k',
     '8': '320k',
@@ -48,11 +55,11 @@ const resolveTxWithHyw = async (songmid: string, quality: unknown) => {
     songmid,
     platform: 'tx',
     quality: qualityMap[String(quality)] || String(quality || '128k'),
-    key: HYW_CARD_KEY
+    key: cardKey
   })
   const response = await fetch(`${HYW_TX_URL}?${query.toString()}`, {
     signal: AbortSignal.timeout(8000),
-    headers: { Accept: 'application/json', 'X-Card-Key': HYW_CARD_KEY }
+    headers: { Accept: 'application/json', 'X-Card-Key': cardKey }
   })
   if (!response.ok) throw new Error(`HYW 返回 ${response.status}`)
   const data: any = await response.json()
@@ -64,6 +71,8 @@ const resolveTxWithHyw = async (songmid: string, quality: unknown) => {
 }
 
 const resolveTxWithYuafeng = async (songmid: string, quality: unknown) => {
+  const apiKey = getYuafengApiKey()
+  if (!apiKey) throw new Error('玉宁熙源未配置（MUSIC_YUAFENG_APIKEY），已跳过')
   const typeMap: Record<string, string> = {
     '4': '标准',
     '8': '高品质',
@@ -71,7 +80,7 @@ const resolveTxWithYuafeng = async (songmid: string, quality: unknown) => {
     '11': '无损',
     '14': '无损'
   }
-  const url = `${YUAFENG_TX_URL}?type=${encodeURIComponent(typeMap[String(quality)] || '标准')}&mid=${encodeURIComponent(songmid)}&apikey=${YUAFENG_TX_APIKEY}`
+  const url = `${YUAFENG_TX_URL}?type=${encodeURIComponent(typeMap[String(quality)] || '标准')}&mid=${encodeURIComponent(songmid)}&apikey=${encodeURIComponent(apiKey)}`
   const response = await fetch(url, {
     signal: AbortSignal.timeout(8000),
     headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' }

@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import bcrypt from 'bcryptjs'
 import { getRequestHeader } from 'h3'
@@ -16,6 +18,7 @@ import { verifyAndConsumeCaptcha } from '~~/server/utils/captcha'
 import { resolveGradeClassError, REMARK_MAX_LENGTH, validateRealName, maskUsernameForDuplicateHint } from '~~/server/utils/register-validation'
 import { isGradeClassValid } from '~~/server/utils/grade-class-options'
 import { verifyEmailCode } from '~~/server/utils/email-verification'
+import { getEmailDomainViolation } from '~~/server/utils/email-domain-policy'
 import { notifyRegistration } from '~~/server/utils/registration-notify'
 import { resolveRegisteredLegalConsentVersion } from '~~/server/utils/legal-consent'
 
@@ -140,6 +143,13 @@ export default defineEventHandler(async (event) => {
   // 邮箱格式校验（验证码校验在用户名唯一性检查之后执行，避免失败即烧码）
   if (email && !EMAIL_REGEX.test(email)) {
     throw createApiError(400, SERVER_ERROR_CODES.COMMON_INVALID_PARAMS, '请输入有效的邮箱地址')
+  }
+  // 域名策略：仅主流邮箱、禁一次性邮箱（发码环节已拦，这里再兜一层防绕过）
+  if (email) {
+    const domainViolation = getEmailDomainViolation(email)
+    if (domainViolation) {
+      throw createApiError(400, domainViolation.code, domainViolation.message)
+    }
   }
 
   if (remark.length > REMARK_MAX_LENGTH) {
@@ -278,7 +288,7 @@ export default defineEventHandler(async (event) => {
       httpOnly: true,
       secure: isSecure,
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7天
+      maxAge: 60 * 60 * 6, // 6小时
       path: '/'
     })
 

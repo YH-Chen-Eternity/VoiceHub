@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Copyright (C) 2026 YH-Chen
 //
 // This file is part of VoiceHub-Plus (an unofficial community edition),
@@ -15,13 +17,14 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-import { desc, eq, inArray } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
-import { nameChangeRequests, users } from '~/drizzle/schema'
+import { users } from '~/drizzle/schema'
 import { createApiError } from '~~/server/utils/apiError'
 import { purgeExpiredDeletions } from '~~/server/utils/accountPurge'
 
-// 用户审核：注册待审核 + 改名待审核 + 待注销账号（顺带跑一次逾期的注销清理）
+// 用户审核：注册待审核 + 待注销账号（顺带跑一次逾期的注销清理）
+// 注：真实姓名修改功能已于 2026-10-23 下线，不再有改名待审列表。
 export default defineEventHandler(async (event) => {
   const user = event.context.user
   if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
@@ -45,23 +48,6 @@ export default defineEventHandler(async (event) => {
     .orderBy(desc(users.createdAt))
     .limit(200)
 
-  const nameRows = await db
-    .select()
-    .from(nameChangeRequests)
-    .where(eq(nameChangeRequests.status, 'PENDING'))
-    .orderBy(desc(nameChangeRequests.createdAt))
-    .limit(200)
-
-  const nameUserIds = [...new Set(nameRows.map((n) => n.userId))]
-  const infoMap = new Map<number, { username: string; name: string | null; grade: string | null; class: string | null }>()
-  if (nameUserIds.length > 0) {
-    const rows = await db
-      .select({ id: users.id, username: users.username, name: users.name, grade: users.grade, class: users.class })
-      .from(users)
-      .where(inArray(users.id, nameUserIds))
-    rows.forEach((r) => infoMap.set(r.id, { username: r.username, name: r.name, grade: r.grade, class: r.class }))
-  }
-
   const deletionRows = await db
     .select({
       id: users.id,
@@ -80,7 +66,6 @@ export default defineEventHandler(async (event) => {
     success: true,
     data: {
       registrations: pendingUsers,
-      nameChanges: nameRows.map((n) => ({ ...n, user: infoMap.get(n.userId) || null })),
       deletions: deletionRows,
       purge
     }

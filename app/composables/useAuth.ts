@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import { navigateTo, useState } from '#app'
 import type { User } from '~~/types'
@@ -159,12 +161,12 @@ export const useAuth = () => {
     }
   }
 
-  const changePassword = async (currentPassword: string, newPassword: string) => {
+  const changePassword = async (currentPassword: string, newPassword: string, turnstileToken = '') => {
     loading.value = true
     try {
       const response = await $fetch<PasswordChangeResponse>('/api/auth/change-password', {
         method: 'POST',
-        body: { currentPassword, newPassword }
+        body: { currentPassword, newPassword, turnstileToken }
       })
       await syncPasswordChangeState(response, '密码修改成功，但刷新用户状态失败:')
     } catch (error: any) {

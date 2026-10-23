@@ -1,3 +1,5 @@
+# Modified by YH-Chen-Eternity on 2026-10-23
+
 #!/usr/bin/env python3
 """读写 flake.nix 中 pnpmDeps 哈希，仅供 Nix CI 调用。"""
 

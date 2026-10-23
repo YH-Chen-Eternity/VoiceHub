@@ -442,6 +442,41 @@
       "when": 1792305400000,
       "tag": "20261017233000_add_vote_reveal_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1792305403000,
+      "tag": "20261018010000_add_admin_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1792305404000,
+      "tag": "20261018013000_add_login_attempt_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1792305405000,
+      "tag": "20261018030000_add_name_change_field",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1792305406000,
+      "tag": "20261018120000_add_attack_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1792746000000,
+      "tag": "20261023093000_add_force_username_change",
+      "breakpoints": true
     }
   ]
 }

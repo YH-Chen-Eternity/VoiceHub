@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import { db, userIdentities, eq, and, users, systemSettings } from '~/drizzle/db'
 import { getRequestHeader } from 'h3'
@@ -26,6 +28,7 @@ import {
 import { getPasswordSetupState } from '~~/server/utils/initial-password-policy'
 import { canBindOAuthIdentity } from '~~/server/utils/auth-route-policy'
 import { syncOAuthIdentityAvatar } from '~~/server/utils/oauth-identity'
+import { recordLoginAttempt } from '~~/server/utils/loginAttempt'
 
 const { authenticator } = otplib
 const TOTP_FAILURE_LIMIT = 5
@@ -257,6 +260,12 @@ export default defineEventHandler(async (event) => {
     .where(eq(users.id, user.id))
     .catch((err) => console.error('Error updating user login info:', err))
 
+  await recordLoginAttempt(event, {
+    username: user.username,
+    result: 'success',
+    detail: `双因素验证通过（${type === 'totp' ? 'TOTP' : '邮箱'}）`
+  })
+
   // 完成 2FA 即视为一次真实登录 → 发登录提醒（异步，不拖慢响应）
   void notifyLoginSuccess(user, clientIp, getRequestHeader(event, 'user-agent') || '')
 
@@ -269,7 +278,7 @@ export default defineEventHandler(async (event) => {
     httpOnly: true,
     secure: isSecure,
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: 60 * 60 * 6,
     path: '/'
   })
 
@@ -291,6 +300,7 @@ export default defineEventHandler(async (event) => {
       email: user.email,
       emailVerified: user.emailVerified,
       forcePasswordChange: user.forcePasswordChange,
+      forceUsernameChange: user.forceUsernameChange,
       passwordChangedAt: user.passwordChangedAt,
       requirePasswordChange,
       // 兼容旧客户端字段名

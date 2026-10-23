@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 /*
 Copyright (C) 2026 YH-Chen
 
@@ -98,8 +100,6 @@ export const newUiZh = {
     noPendingNotes: '暂无待审留言',
     registrations: (n: number) => `注册待审核（${n}）`,
     noPendingRegistrations: '暂无待审核注册',
-    nameChanges: (n: number) => `真实姓名修改申请（${n}）`,
-    noPendingNameChanges: '暂无待审改名',
     deletions: (n: number) => `注销宽限期账号（${n}）`,
     deletionsHint: '宽限期内登录一次即自动恢复；30 天未登录会由系统清理（也可点上方「立即清理逾期注销账号」）。',
     noPendingDeletions: '暂无待注销账号',
@@ -117,17 +117,17 @@ export const newUiZh = {
     opSuccess: '操作成功',
     loadFailed: '加载失败'
   },
-  nameChange: {
-    title: '修改真实姓名',
-    current: (name: string) => `当前姓名：${name || '未填写'}。提交后需管理员审核，通过后才生效。`,
-    pending: (from: string, to: string) => `已提交改名申请（${from || '未填写'} → ${to}），等待管理员审核。`,
-    rejected: (reason: string) => `上次改名申请被驳回${reason ? `：${reason}` : ''}，可修改后重新提交。`,
-    placeholder: '请输入新的真实姓名（只能中文）',
-    hint: '2~20 个汉字，少数民族姓名可用「·」分隔（如 阿依古丽·买买提）。',
-    submit: '提交改名申请',
-    submitting: '提交中…',
-    success: '改名申请已提交，等待管理员审核',
-    failed: '提交失败，请稍后重试'
+  usernameChange: {
+    title: '修改登录用户名',
+    current: (name: string) => `当前用户名：${name || '未设置'}`,
+    hint: '2-20 个字符，仅支持英文、数字和下划线，不能是纯数字，不能与他人重名。修改后立即生效，无需审核。',
+    placeholder: '请输入新的登录用户名',
+    submit: '确认修改',
+    submitting: '修改中…',
+    success: '用户名已修改，即时生效',
+    failed: '修改失败，请稍后重试',
+    same: '新用户名与当前用户名相同',
+    taken: '该用户名已被占用'
   },
   deleteAccount: {
     title: '注销账号',
@@ -284,8 +284,6 @@ export const newUiEn: typeof newUiZh = {
     noPendingNotes: 'No notes pending review',
     registrations: (n: number) => `Pending registrations (${n})`,
     noPendingRegistrations: 'No registrations pending',
-    nameChanges: (n: number) => `Real-name change requests (${n})`,
-    noPendingNameChanges: 'No name changes pending',
     deletions: (n: number) => `Accounts in deletion grace period (${n})`,
     deletionsHint: 'Logging in during the grace period cancels the deletion; otherwise the system purges after 30 days (you can also purge now).',
     noPendingDeletions: 'No accounts pending deletion',
@@ -303,17 +301,17 @@ export const newUiEn: typeof newUiZh = {
     opSuccess: 'Done',
     loadFailed: 'Failed to load'
   },
-  nameChange: {
-    title: 'Change real name',
-    current: (name: string) => `Current name: ${name || 'not set'}. Changes take effect after an administrator approves them.`,
-    pending: (from: string, to: string) => `Request submitted (${from || 'not set'} → ${to}), waiting for approval.`,
-    rejected: (reason: string) => `Your last request was rejected${reason ? `: ${reason}` : ''}. You can edit and submit again.`,
-    placeholder: 'Enter your new real name (Chinese only)',
-    hint: '2–20 Chinese characters; use “·” for ethnic minority names.',
-    submit: 'Submit name change',
-    submitting: 'Submitting…',
-    success: 'Request submitted, waiting for approval',
-    failed: 'Submit failed, please try again'
+  usernameChange: {
+    title: 'Change login username',
+    current: (name: string) => `Current username: ${name || 'not set'}`,
+    hint: '2–20 characters; letters, digits and underscore only (no Chinese); not all digits; must be unique. Changes take effect immediately, no review needed.',
+    placeholder: 'Enter your new login username',
+    submit: 'Save username',
+    submitting: 'Saving…',
+    success: 'Username updated, effective immediately',
+    failed: 'Update failed, please try again',
+    same: 'The new username is the same as the current one',
+    taken: 'This username is already taken'
   },
   deleteAccount: {
     title: 'Delete account',

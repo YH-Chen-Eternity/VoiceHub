@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Copyright (C) 2026 YH-Chen
 //
 // This file is part of VoiceHub-Plus (an unofficial community edition),
@@ -24,10 +26,11 @@ export default defineEventHandler(async (event) => {
   const user = event.context.user
   if (!user) throw createApiError(401, 'AUTH_UNAUTHORIZED_ACCESS', '未授权访问')
 
+  // 返回最近一条用户名修改记录（即时生效，无待审状态；真实姓名修改功能已下线）
   const [latest] = await db
     .select()
     .from(nameChangeRequests)
-    .where(eq(nameChangeRequests.userId, user.id))
+    .where(and(eq(nameChangeRequests.userId, user.id), eq(nameChangeRequests.field, 'USERNAME')))
     .orderBy(desc(nameChangeRequests.createdAt))
     .limit(1)
 

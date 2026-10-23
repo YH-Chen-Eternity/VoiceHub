@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import {
   decodeOAuthStateCookie,
   getOAuthStateCookieNames,
@@ -20,6 +22,7 @@ import {
   isSupportedOAuthProvider
 } from '~~/server/services/oauthConfigService'
 import { getClientIP } from '~~/server/utils/ip-utils'
+import { recordLoginAttempt } from '~~/server/utils/loginAttempt'
 import { getBeijingTime } from '~/utils/timeUtils'
 import type { H3Event } from 'h3'
 import { getRequestOrigin, isSecureRequest } from '~~/server/utils/request-utils'
@@ -420,12 +423,18 @@ async function handleUserLoginOrBind(
         .where(eq(users.id, user.id))
     })
 
+    await recordLoginAttempt(event, {
+      username: existingIdentity.user.username,
+      result: 'success',
+      detail: `OAuth 登录（${provider}）`
+    })
+
     const { token } = await createAuthSession(event, existingIdentity.user, provider)
     setCookie(event, 'auth-token', token, {
       httpOnly: true,
       secure: isSecure,
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: 60 * 60 * 6,
       path: '/'
     })
     return sendRedirect(event, safeReturnTo || '/')

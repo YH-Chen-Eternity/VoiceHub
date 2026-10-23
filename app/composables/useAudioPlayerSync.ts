@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 import { ref } from 'vue'
 import { useAudioPlayer } from '~/composables/useAudioPlayer'
 import { useAudioPlayerControl } from '~/composables/useAudioPlayerControl'
@@ -477,9 +479,8 @@ export const useAudioPlayerSync = () => {
   // 初始化 WebSocket 连接
   const initializeWebSocket = () => {
     if (isHarmonyOS()) {
-      const { getToken } = useAuth()
-      const token = getToken()
-      musicWebSocket.connect(token || undefined)
+      // 令牌经 auth-token cookie 自动携带，无需传入 URL（2026-10-23 安全加固）
+      musicWebSocket.connect()
 
       // 设置WebSocket事件监听器
       musicWebSocket.setStateUpdateListener((state) => {

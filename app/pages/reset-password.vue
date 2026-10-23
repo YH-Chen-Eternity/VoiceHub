@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 <template>
   <div class="auth-layout">
     <div class="auth-main">
@@ -115,6 +117,8 @@
             <span class="error-message">{{ error }}</span>
           </div>
 
+          <TurnstileWidget v-if="showTurnstile" ref="turnstileRef" v-model="turnstileToken" />
+
           <button :disabled="loading || !token" class="submit-btn" type="submit">
             <svg v-if="loading" class="loading-spinner" viewBox="0 0 24 24">
               <circle cx="12" cy="12" fill="none" r="10" stroke="currentColor" stroke-dasharray="31.416" stroke-dashoffset="31.416" stroke-linecap="round" stroke-width="2">
@@ -139,12 +143,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import TurnstileWidget from '~/components/Auth/TurnstileWidget.vue'
 
 import { usePasswordStrength } from '~/composables/usePasswordStrength'
 import { useLocale } from '~/utils/locale'
 import { PASSWORD_MIN_LENGTH } from '~/utils/password-policy'
 
-const { siteTitle, initSiteConfig } = useSiteConfig()
+const { siteTitle, initSiteConfig, captchaEnabled, captchaProvider, turnstileSiteKey } = useSiteConfig()
 const route = useRoute()
 const { pages } = useLocale()
 const locale = computed(() => pages.value?.resetPassword || {})
@@ -158,6 +163,12 @@ const loading = ref(false)
 const error = ref('')
 const success = ref(false)
 const successMessage = ref('')
+const turnstileToken = ref('')
+const turnstileRef = ref(null)
+
+const showTurnstile = computed(
+  () => captchaEnabled.value && captchaProvider.value === 'turnstile' && !!turnstileSiteKey.value
+)
 
 const passwordStrength = usePasswordStrength(password)
 
@@ -193,7 +204,8 @@ const handleSubmit = async () => {
       method: 'POST',
       body: {
         token: token.value,
-        newPassword: password.value
+        newPassword: password.value,
+        turnstileToken: turnstileToken.value
       }
     })
 
@@ -203,6 +215,8 @@ const handleSubmit = async () => {
     }
   } catch (err) {
     error.value = err.data?.message || err.message || locale.value.failed
+    turnstileToken.value = ''
+    turnstileRef.value?.reset()
   } finally {
     loading.value = false
   }

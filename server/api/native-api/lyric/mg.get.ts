@@ -1,4 +1,9 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // 咪咕 mrc 逐字歌词解密（TEA 算法）
+import type { IncomingMessage } from 'node:http'
+import { openNetwork } from '~~/server/utils/music-source-plugins/network'
+
 const DELTA = BigInt('2654435769')
 const MIN_LENGTH = 32
 const keyArr = [
@@ -126,15 +131,56 @@ const MIGU_LYRIC_HEADERS = {
   channel: '0146921'
 }
 
+// 歌词 URL 主机白名单：仅允许咪咕官方歌词域名（2026-10-23 安全加固：
+// 原实现将 query 中的 lrcUrl/mrcUrl 直接 fetch 并回显响应，构成匿名 SSRF，
+// 可探测内网 HTTP 服务与云元数据地址；现限制为官方域名 + 走 openNetwork 安全通道）
+const MIGU_LYRIC_HOST_SUFFIXES = ['.migu.cn', 'migu.cn']
+
+const isAllowedLyricHost = (hostname: string): boolean => {
+  const host = hostname.toLowerCase().replace(/\.$/, '')
+  return MIGU_LYRIC_HOST_SUFFIXES.some((suffix) => host === suffix || host.endsWith(suffix))
+}
+
+// 带大小上限地读取响应体（openNetwork 已做协议/内网 IP/重绑定/逐跳重定向校验）
+const readResponseText = async (response: IncomingMessage, maxBytes = 2 * 1024 * 1024): Promise<string> => {
+  const chunks: Buffer[] = []
+  let loaded = 0
+  for await (const chunk of response) {
+    loaded += (chunk as Buffer).length
+    if (loaded > maxBytes) {
+      response.destroy()
+      throw createError({ statusCode: 413, message: '歌词内容过大' })
+    }
+    chunks.push(chunk as Buffer)
+  }
+  return Buffer.concat(chunks).toString('utf8')
+}
+
 const fetchLyricText = async (url: string) => {
-  const response = await fetch(url, {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw createError({ statusCode: 400, message: '歌词URL格式无效' })
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw createError({ statusCode: 400, message: '歌词URL仅支持 http/https' })
+  }
+  if (!isAllowedLyricHost(parsed.hostname)) {
+    throw createError({ statusCode: 403, message: '歌词URL不在允许的域名范围内' })
+  }
+
+  const response = await openNetwork(url, {
+    method: 'GET',
     headers: MIGU_LYRIC_HEADERS,
     signal: AbortSignal.timeout(8000)
   })
-  if (!response.ok) {
-    throw createError({ statusCode: 502, message: `咪咕歌词接口返回 ${response.status}` })
+
+  if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 300) {
+    response.destroy()
+    throw createError({ statusCode: 502, message: `咪咕歌词接口返回 ${response.statusCode ?? '无响应'}` })
   }
-  return response.text()
+  return readResponseText(response)
 }
 
 export default defineEventHandler(async (event) => {

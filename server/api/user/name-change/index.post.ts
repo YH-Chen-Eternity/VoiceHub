@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Copyright (C) 2026 YH-Chen
 //
 // This file is part of VoiceHub-Plus (an unofficial community edition),
@@ -15,41 +17,60 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import { nameChangeRequests, users } from '~/drizzle/schema'
 import { createApiError } from '~~/server/utils/apiError'
-import { validateRealName } from '~~/server/utils/register-validation'
+import { validateUsernameFormat } from '~~/server/utils/username-policy'
 
-// 提交真实姓名修改申请（需管理员审核通过后才生效）
+// 修改登录用户名（2026-10-23 起仅保留用户名修改；真实姓名自助修改功能已下线）
+// 策略：格式校验（禁中文/禁纯数字/限长）→ 唯一性校验 → 即时生效，无需审核。
+// 修改成功后同步清除管理员下发的「强制更新用户名」标记，并写入历史记录。
 export default defineEventHandler(async (event) => {
   const user = event.context.user
   if (!user) throw createApiError(401, 'AUTH_UNAUTHORIZED_ACCESS', '未授权访问')
 
   const body = await readBody(event)
-  const newName = typeof body?.name === 'string' ? body.name.trim() : ''
+  const rawValue = typeof body?.value === 'string' ? body.value.trim() : ''
 
-  const nameError = validateRealName(newName)
-  if (nameError) throw createApiError(400, nameError.code, nameError.message)
+  const formatError = validateUsernameFormat(rawValue)
+  if (formatError) throw createApiError(400, formatError.code, formatError.message)
 
-  const [current] = await db.select({ name: users.name }).from(users).where(eq(users.id, user.id)).limit(1)
-  if (current?.name === newName) {
-    throw createApiError(400, 'NAME_CHANGE_SAME', '新姓名与当前姓名相同')
-  }
-
-  const [pending] = await db
-    .select({ id: nameChangeRequests.id })
-    .from(nameChangeRequests)
-    .where(and(eq(nameChangeRequests.userId, user.id), eq(nameChangeRequests.status, 'PENDING')))
+  const [current] = await db
+    .select({ username: users.username })
+    .from(users)
+    .where(eq(users.id, user.id))
     .limit(1)
-  if (pending) {
-    throw createApiError(409, 'NAME_CHANGE_PENDING', '已有一条待审核的改名申请，请等待管理员处理')
+
+  if (current?.username === rawValue) {
+    throw createApiError(400, 'USERNAME_CHANGE_SAME', '新用户名与当前用户名相同')
   }
+
+  const [dup] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.username, rawValue))
+    .limit(1)
+  if (dup) throw createApiError(409, 'USERNAME_TAKEN', '该用户名已被占用')
+
+  // 即时生效，无需审核；同时清除管理员下发的「强制更新用户名」标记
+  await db
+    .update(users)
+    .set({ username: rawValue, forceUsernameChange: false, updatedAt: new Date() })
+    .where(eq(users.id, user.id))
 
   const [row] = await db
     .insert(nameChangeRequests)
-    .values({ userId: user.id, oldName: current?.name || null, newName, status: 'PENDING' })
+    .values({
+      userId: user.id,
+      field: 'USERNAME',
+      oldName: current?.username || null,
+      newName: rawValue,
+      status: 'APPROVED',
+      reviewedBy: user.id,
+      reviewedAt: new Date()
+    })
     .returning()
 
-  return { success: true, data: row }
+  return { success: true, data: row, applied: true }
 })

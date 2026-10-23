@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import {bigint, boolean, index, integer, jsonb, pgEnum, pgTable, primaryKey, serial, text, timestamp, uniqueIndex, uuid, varchar, unique} from 'drizzle-orm/pg-core';
 import {relations, sql} from 'drizzle-orm';
@@ -33,6 +35,8 @@ export const users = pgTable('User', {
   lastLoginIp: text('lastLoginIp'),
   passwordChangedAt: timestamp('passwordChangedAt'),
   forcePasswordChange: boolean('forcePasswordChange').default(false).notNull(),
+  // 管理员在用户管理中「强制更新」：要求该用户下次进入站点时先改用户名
+  forceUsernameChange: boolean('forceUsernameChange').default(false).notNull(),
   tokenVersion: integer('tokenVersion').default(0).notNull(),
   meowNickname: text('meowNickname'),
   meowBoundAt: timestamp('meowBoundAt'),
@@ -952,10 +956,11 @@ export const announcements = pgTable('Announcement', {
 export type Announcement = typeof announcements.$inferSelect;
 export type NewAnnouncement = typeof announcements.$inferInsert;
 
-// 真实姓名修改申请（必须管理员审核通过才生效）
+// 用户名修改记录（即时生效，仅作历史留痕；真实姓名自助修改功能已于 2026-10-23 下线）
 export const nameChangeRequests = pgTable('NameChangeRequest', {
   id: serial('id').primaryKey(),
   userId: integer('userId').notNull(),
+  field: text('field').default('NAME').notNull(),
   oldName: text('oldName'),
   newName: text('newName').notNull(),
   // PENDING | APPROVED | REJECTED
@@ -968,3 +973,55 @@ export const nameChangeRequests = pgTable('NameChangeRequest', {
 
 export type NameChangeRequest = typeof nameChangeRequests.$inferSelect;
 export type NewNameChangeRequest = typeof nameChangeRequests.$inferInsert;
+
+// 管理端敏感操作审计
+export const adminAuditLogs = pgTable('AdminAuditLog', {
+  id: serial('id').primaryKey(),
+  actorId: integer('actorId'),
+  actorName: text('actorName'),
+  action: text('action').notNull(),
+  target: text('target'),
+  detail: text('detail'),
+  ip: text('ip'),
+  userAgent: text('userAgent'),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+}, (table) => [
+  index('admin_audit_created_idx').on(table.createdAt),
+  index('admin_audit_action_idx').on(table.action),
+]);
+
+// 边缘 rewriter 上报的攻击行为
+export const attackLogs = pgTable('AttackLog', {
+  id: serial('id').primaryKey(),
+  ip: text('ip').notNull(),
+  kind: text('kind').notNull(),
+  path: text('path'),
+  count: integer('count').default(0),
+  userAgent: text('userAgent'),
+  fingerprint: text('fingerprint'),
+  action: text('action'),
+  detail: text('detail'),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+}, (table) => [
+  index('attack_log_created_idx').on(table.createdAt),
+  index('attack_log_ip_idx').on(table.ip),
+  index('attack_log_kind_idx').on(table.kind),
+]);
+
+// 登录尝试日志（安全事件追溯）
+export const loginAttempts = pgTable('LoginAttempt', {
+  id: serial('id').primaryKey(),
+  username: text('username'),
+  ip: text('ip'),
+  userAgent: text('userAgent'),
+  result: text('result').notNull(),
+  detail: text('detail'),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+}, (table) => [
+  index('login_attempt_created_idx').on(table.createdAt),
+  index('login_attempt_username_idx').on(table.username),
+]);
+
+export type AdminAuditLog = typeof adminAuditLogs.$inferSelect;
+export type AttackLog = typeof attackLogs.$inferSelect;
+export type LoginAttempt = typeof loginAttempts.$inferSelect;

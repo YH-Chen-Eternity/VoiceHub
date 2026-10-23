@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import {
   collaborationLogs,
@@ -9,7 +11,8 @@ import {
   cardCodes,
   songCollaborators,
   songs,
-  users
+  users,
+  notifications
 } from '~/drizzle/db'
 import { and, eq, gte, gt, inArray, lt, lte, or, sql } from 'drizzle-orm'
 import { createError } from 'h3'
@@ -52,7 +55,13 @@ const songRequestBodySchema = z.object({
   musicId: z.string().trim().max(200, '音乐 ID 不能超过200个字符').optional().nullable(),
   bilibiliCid: z.string().trim().max(100, 'Bilibili CID 不能超过100个字符').optional().nullable(),
   bilibiliPage: z.union([z.string(), z.number()]).optional().nullable(),
-  playUrl: z.string().trim().max(2000, '播放链接不能超过2000个字符').optional().nullable(),
+  playUrl: z
+    .string()
+    .trim()
+    .max(2000, '播放链接不能超过2000个字符')
+    .refine((value) => value === '' || /^https?:\/\//i.test(value), '播放链接必须以 http(s):// 开头')
+    .optional()
+    .nullable(),
   durationSeconds: z.number().int().min(SONG_DURATION_MIN_SECONDS, '时长不能为负数').max(SONG_DURATION_MAX_SECONDS, '时长不能超过2小时').optional().nullable(),
   // 留言长度上限：与 RequestForm.vue 的 maxlength 同源，导出供机器人端点前置校验，
   // 保持「站点表单 / 机器人 / zod」三处同一个数值
@@ -601,6 +610,25 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
         event.waitUntil(durationValidationTask)
       } else {
         durationValidationTask.catch((err) => console.error(`[投稿时长] 后台任务 #${song.id} 异常:`, err))
+      }
+    }
+
+    if (song.submissionNotePublicStatus === SUBMISSION_NOTE_STATUS.PENDING) {
+      try {
+        const admins = await db.select({ id: users.id }).from(users).where(inArray(users.role, ['ADMIN', 'SUPER_ADMIN']))
+        if (admins.length > 0) {
+          await db.insert(notifications).values(
+            admins.map((a) => ({
+              userId: a.id,
+              type: 'SYSTEM_NOTICE',
+              title: '公开留言待审核',
+              message: `投稿歌曲《${song.title}》有一条公开留言待审核。`,
+              important: false
+            }))
+          )
+        }
+      } catch (e) {
+        console.error('公开留言待审核通知失败:', e)
       }
     }
 

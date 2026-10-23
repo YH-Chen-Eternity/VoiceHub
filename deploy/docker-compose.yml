@@ -1,0 +1,201 @@
+# VoiceHub-Plus — 非官方社区版（基于 laoshuikaixue/VoiceHub，GPL-3.0）
+# Copyright (C) 2026 YH-Chen-Eternity  |  SPDX-License-Identifier: GPL-3.0-only
+# 社区版新增文件；完整许可证见仓库根目录 LICENSE。
+
+# ============================================================
+#  VoiceHub 校园广播站（修改版）—— 腾讯云轻量 2C4G 生产编排
+#  架构：Cloudflare(橙云, Full strict) → Nginx(宿主, 443)
+#        → rewriter(边缘安全层 3001) → voicehub(3000) → postgres/redis
+#
+#  原则：
+#   1) 只把 Nginx 需要的端口发布到 127.0.0.1，任何容器都不对公网暴露
+#   2) 应用镜像用你自己构建的加固版（VOICEHUB_IMAGE），不用官方 latest
+#   3) 容器 TZ 统一 UTC：现有数据库是 timestamp without time zone + UTC 语义，
+#      改成 Asia/Shanghai 会让新旧数据差 8 小时
+# ============================================================
+
+services:
+  # ---------------- 边缘安全层（地域闸 / 封禁 / 攻击声明页 / 指纹 / 攻击日志） ----------------
+  rewriter:
+    image: node:22-alpine
+    container_name: voicehub-rewriter
+    working_dir: /app
+    command: ["node", "/app/app.js"]
+    restart: unless-stopped
+    volumes:
+      - ./rewriter/app-rewriter.js:/app/app.js:ro
+      - ./rewriter/guangdong-cidrs.txt:/app/guangdong-cidrs.txt:ro
+      - ./rewriter/geo-allow-cidrs.txt:/app/geo-allow-cidrs.txt:ro
+      - ./rewriter/state:/app/state
+      - ./rewriter/data:/app/data
+    environment:
+      - TZ=UTC
+      - UPSTREAM_HOST=voicehub
+      - UPSTREAM_PORT=3000
+      - PORT=3001
+      - NODE_OPTIONS=--max-old-space-size=192
+      - GEO_GATE=${GEO_GATE:-1}
+      - TRUST_CF_HEADER=${TRUST_CF_HEADER:-0}
+      - BAN_IPS=${BAN_IPS:-}
+      - PERMA_BAN_WHITELIST=${PERMA_BAN_WHITELIST:-}
+      - TRUSTED_IPS=${TRUSTED_IPS:-}
+      - ATK_LOGIN_MAX=${ATK_LOGIN_MAX:-30}
+      - ATK_FAIL_MAX=${ATK_FAIL_MAX:-12}
+      - ATK_SEARCH_MAX=${ATK_SEARCH_MAX:-20}
+      - ATK_PERMA_FAILS=${ATK_PERMA_FAILS:-20}
+      - BOT_GUARD=${BOT_GUARD:-1}
+      - BOT_BLOCK_SCORE=${BOT_BLOCK_SCORE:-9}
+      - ATTACK_LOG_TOKEN=${ATTACK_LOG_TOKEN}
+      - ATTACK_LOG_URL=http://voicehub:3000/api/internal/attack-log
+      - RL_AUTH_PER_MIN=${RL_AUTH_PER_MIN:-30}
+      - RL_SEARCH_PER_MIN=${RL_SEARCH_PER_MIN:-60}
+      - RL_ADMIN_PER_MIN=${RL_ADMIN_PER_MIN:-120}
+      - RL_GLOBAL_PER_MIN=${RL_GLOBAL_PER_MIN:-1800}
+      - RL_MUSIC_PER_MIN=${RL_MUSIC_PER_MIN:-60}
+    ports:
+      - "127.0.0.1:3001:3001"        # 仅供宿主 Nginx 回源
+    mem_limit: 256m
+    cpus: '0.50'
+    depends_on:
+      voicehub:
+        condition: service_started
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+
+  # ---------------- 应用 ----------------
+  voicehub:
+    image: ${VOICEHUB_IMAGE}
+    container_name: voicehub
+    restart: unless-stopped
+    expose:
+      - '3000'
+    ports:
+      - "127.0.0.1:3000:3000"        # 仅本地，便于 curl 自检；公网永远走 Nginx
+    environment:
+      - TZ=UTC
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://voicehub:${DB_PASSWORD}@postgres:5432/voicehub?sslmode=disable
+      - JWT_SECRET=${JWT_SECRET}
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379
+      - REDIS_KEY_PREFIX="voicehub:"
+      - NODE_OPTIONS=--max-old-space-size=1024
+      - SKIP_BUILD=true
+      # 公网适配：只信任 Nginx 传来的单值 X-Real-IP（禁止再信任 cf-connecting-ip 等链式头）
+      - TRUSTED_CLIENT_IP_HEADERS=x-real-ip
+      - NUXT_PUBLIC_HOST=${NUXT_PUBLIC_HOST}
+      - ATTACK_LOG_TOKEN=${ATTACK_LOG_TOKEN}
+      - NETEASE_SHARE_COOKIE=${NETEASE_SHARE_COOKIE}
+      - NETEASE_SHARE_IPS=
+      # ---- 第三方音源（可随时换源，无需改代码/重建镜像）----
+      - MUSIC_SRC_HYW_URL=${MUSIC_SRC_HYW_URL:-}
+      - MUSIC_SRC_HYW_KEY=${MUSIC_SRC_HYW_KEY:-}
+      - MUSIC_SRC_YUAFENG_URL=${MUSIC_SRC_YUAFENG_URL:-}
+      - MUSIC_SRC_YUAFENG_KEY=${MUSIC_SRC_YUAFENG_KEY:-}
+      - MUSIC_SRC_HELLOWORLD_URL=${MUSIC_SRC_HELLOWORLD_URL:-}
+      - MUSIC_SRC_VKEYS_URL=${MUSIC_SRC_VKEYS_URL:-}
+      - MUSIC_SRC_GDSTUDIO_URL=${MUSIC_SRC_GDSTUDIO_URL:-}
+    mem_limit: 1536m
+    cpus: '1.50'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+
+  # ---------------- PostgreSQL 15（与 NAS 上 15.18 同主版本） ----------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: voicehub-postgres
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+      - PGTZ=UTC
+      - POSTGRES_USER=voicehub
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=voicehub
+      - POSTGRES_INITDB_ARGS=--encoding=UTF8 --locale=C
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - effective_cache_size=1536MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - max_connections=60
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=200
+      - -c
+      - wal_compression=on
+      - -c
+      - max_wal_size=1GB
+      - -c
+      - min_wal_size=256MB
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - pg_stat_statements.max=5000
+      - -c
+      - pg_stat_statements.track=all
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - timezone=UTC
+      - -c
+      - log_min_duration_statement=500
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    shm_size: 256m
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U voicehub -d voicehub']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    mem_limit: 1024m
+    cpus: '1.00'
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+
+  # ---------------- Redis（应用强依赖：限流、会话、验证码） ----------------
+  redis:
+    image: redis:7-alpine
+    container_name: voicehub-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD}
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - noeviction
+      - --appendonly
+      - "yes"
+      - --save
+      - "900 1"
+    environment:
+      - TZ=UTC
+      - REDIS_PASSWORD=${REDIS_PASSWORD}   # 供 healthcheck 使用
+    volumes:
+      - ./redis_data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    mem_limit: 320m
+    cpus: '0.30'
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+

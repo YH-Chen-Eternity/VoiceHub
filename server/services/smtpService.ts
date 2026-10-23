@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import nodemailer from 'nodemailer'
 import { db } from '~/drizzle/db'
@@ -140,19 +142,6 @@ export class SmtpService {
     accountDeletionCancelled: `
       <p>您好 <strong>{{username}}</strong>，您的账号注销申请已撤销（{{cancelledAt}}），账号已恢复正常使用。</p>
       <p>本次撤销原因：{{reason}}。</p>
-    `,
-    nameChangeApproved: `
-      <p>您好 <strong>{{username}}</strong>，您提交的真实姓名修改申请<b>已通过审核</b>。</p>
-      <p>姓名已由 <strong>{{oldName}}</strong> 更新为 <strong>{{newName}}</strong>。</p>
-      <p>如需再次修改，可在「账号」页面重新提交申请。</p>
-    `,
-    nameChangeRejected: `
-      <p>您好 <strong>{{username}}</strong>，您提交的真实姓名修改申请<b>未通过审核</b>。</p>
-      <p>申请修改为：<strong>{{newName}}</strong></p>
-      {{#if reason}}
-      <p>驳回原因：<strong>{{reason}}</strong></p>
-      {{/if}}
-      <p>你可以核对后重新提交，或联系广播站管理员处理。</p>
     `,
     accountLoginAlert: `
       <p>您好 <strong>{{username}}</strong>，您的账号刚刚在新位置登录。</p>
@@ -309,20 +298,6 @@ export class SmtpService {
       contentType: 'accountDeletionCancelled',
       headerSubtitle: '账号注销',
       variables: ['username', 'reason', 'cancelledAt']
-    },
-    'account.nameChange.approved': {
-      name: '真实姓名修改通过',
-      subject: '真实姓名修改已通过 | {{siteTitle}}',
-      contentType: 'nameChangeApproved',
-      headerSubtitle: '姓名修改审核',
-      variables: ['username', 'oldName', 'newName']
-    },
-    'account.nameChange.rejected': {
-      name: '真实姓名修改被驳回',
-      subject: '真实姓名修改未通过 | {{siteTitle}}',
-      contentType: 'nameChangeRejected',
-      headerSubtitle: '姓名修改审核',
-      variables: ['username', 'newName', 'reason']
     },
     'account.login.alert': {
       name: '登录提醒（新登录）',

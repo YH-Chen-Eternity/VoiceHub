@@ -1,3 +1,5 @@
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
 // Modified by YH-Chen on 2026-10-17
 import { createApiError } from '~~/server/utils/apiError'
 import { SERVER_ERROR_CODES } from '~~/server/config/constants'
@@ -8,6 +10,7 @@ import { SmtpService } from '~~/server/services/smtpService'
 import { db } from '~/drizzle/db'
 import { systemSettings } from '~/drizzle/schema'
 import { checkEmailDeliverability, isPermanentRecipientFailure } from '~~/server/utils/email-deliverability'
+import { getEmailDomain, getEmailDomainViolation } from '~~/server/utils/email-domain-policy'
 import {
   generateEmailCode,
   storeEmailCode,
@@ -30,17 +33,6 @@ export default defineEventHandler(async (event) => {
     throw createApiError(400, 'AUTH_EMAIL_UNREACHABLE', '邮箱格式不正确，请检查后再试')
   }
 
-  // 域名收信能力预检：把「域名写错/根本收不到邮件」提前变成明确提示，
-  // 否则学生只会看到"已发送"却永远等不到验证码（2026-10-11）
-  const deliverability = await checkEmailDeliverability(email)
-  if (!deliverability.ok) {
-    throw createApiError(
-      400,
-      'AUTH_EMAIL_UNREACHABLE',
-      '该邮箱无法接收邮件，请检查邮箱地址是否写错（域名不存在或没有邮件服务）'
-    )
-  }
-
   // 注册/三方注册任一开放时允许发码（否则拒绝，避免成为邮件群发通道）
   const config = await db.query.systemSettings.findFirst()
   if (!config?.allowRegister && !config?.allowOAuthRegistration) {
@@ -52,6 +44,27 @@ export default defineEventHandler(async (event) => {
   if (!limitResult.isAllowed) {
     const waitSeconds = Math.ceil((limitResult.resetTime - getServerTimestamp()) / 1000)
     throw createApiError(429, SERVER_ERROR_CODES.AUTH_RATE_LIMITED_SECONDS, `操作过于频繁，请 ${waitSeconds} 秒后再试`, { params: [waitSeconds] })
+  }
+
+  // 域名策略：仅主流邮箱、禁一次性邮箱。明确告知原因，避免"提示已发送却永远收不到"。
+  // 放在限流与注册开关之后，防止绕过频控探测策略。
+  const domainViolation = getEmailDomainViolation(email)
+  if (domainViolation) {
+    console.warn(
+      `[email-policy] blocked registration code for domain: ${getEmailDomain(email) || 'invalid'}`
+    )
+    throw createApiError(400, domainViolation.code, domainViolation.message)
+  }
+
+  // 域名收信能力预检：把「域名写错/根本收不到邮件」提前变成明确提示，
+  // 否则学生只会看到"已发送"却永远等不到验证码（2026-10-11）
+  const deliverability = await checkEmailDeliverability(email)
+  if (!deliverability.ok) {
+    throw createApiError(
+      400,
+      'AUTH_EMAIL_UNREACHABLE',
+      '该邮箱无法接收邮件，请检查邮箱地址是否写错（域名不存在或没有邮件服务）'
+    )
   }
 
   // 同邮箱 60 秒冷却

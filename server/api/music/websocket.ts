@@ -1,4 +1,6 @@
-import { defineEventHandler, getQuery } from 'h3'
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
+
+import { defineEventHandler, getCookie, getQuery } from 'h3'
 import { db, users } from '~/drizzle/db'
 import { eq } from 'drizzle-orm'
 import { JWTEnhanced } from '~~/server/utils/jwt-enhanced'
@@ -110,7 +112,10 @@ export function broadcastSongChange(songInfo: any) {
 export default defineEventHandler(async (event) => {
   // 获取查询参数
   const query = getQuery(event)
-  const token = query.token as string
+  // 优先从 auth-token cookie 取令牌：EventSource 同源请求自动携带 cookie。
+  // query.token 仅为兼容旧客户端保留。2026-10-23 安全加固：JWT 不放 URL，
+  // 避免令牌落入 Nginx 访问日志与 Referer。
+  const token = (getCookie(event, 'auth-token') as string) || (query.token as string)
 
   // 验证token（可选，根据需要决定是否需要认证）
   let userId: number | null = null

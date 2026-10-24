@@ -428,3 +428,23 @@ GET  /api/admin/replay-requests
 3. 如需图片机器审核，设置 `COMMUNITY_PUBLIC_ORIGIN=https://实际域名` 并保证外网可访问
    `/api/media/{id}`。
 4. 新增角色需在「用户管理」中分配；`REVIEWER` 不会出现在原有审核菜单之外。
+
+### 10.7 独立九宫格审核服务融合（2026-10-24）
+
+在保留原有「直连阿里云审核」的基础上，新增可选的独立审核服务 `moderation-service/`：
+
+- **服务端**：Python/FastAPI + 进程内异步队列；调用阿里云内容安全 `MultiModalAgent`，每次请求只送 1 张图，全局 ≤10 QPS。
+- **处置映射**：`PASS → APPROVED`；`MANUAL_REVIEW / API_UNAVAILABLE → PENDING`。
+  后台命中策略为 `BLOCK` 且存在明确风险标签时映射为 `BLOCKED`；
+  仅因图片失败 / 服务不可用导致的 `MANUAL_REVIEW` 不拦截。
+- **接入开关**：`COMMUNITY_MODERATION_SERVICE_URL`。未配置或后台关闭审核时，完全走原有直连逻辑。
+- **图片地址**：由 `COMMUNITY_PUBLIC_ORIGIN` 拼接 `/api/media/{id}`；未配置时审核服务收到空图片列表，按规则转人工。
+- **失败处理**：调用超时、非 200、返回未知状态一律按 `API_UNAVAILABLE` 处理，帖子保持 `PENDING`，绝不自动放行。
+- **后台展示**：管理后台「回声社区 → 社区配置 → 内容审核」显示独立服务是否已接入。
+- **文件**：
+  - 服务：`moderation-service/`（含 Dockerfile、README、31 个测试与本地端到端脚本）
+  - 客户端：`server/utils/communityModerationService.ts`
+  - 接入点：`server/api/community/posts/index.post.ts`
+  - 配置展示：`server/api/admin/community/settings.get.ts`、`app/components/Admin/CommunitySettings.vue`
+
+**上线前注意**：独立服务不在本次变更中部署到生产；启用前需先部署服务并设置上述环境变量，按 VoiceHub 既有流程重建容器（`docker compose up -d`），不要使用 `docker restart`。

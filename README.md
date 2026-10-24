@@ -17,7 +17,14 @@ VoiceHub 是一个面向校园的广播站点歌系统（Nuxt 4 全栈应用）�
 
 ## 主要修改内容（Changelog）
 
-> 修改日期：**2026-10-23**（本轮内容）。更早的社区版功能见下方详细章节。
+> 修改日期：**2026-10-24**（本轮内容）。更早的社区版功能见下方详细章节。
+
+### 2026-10-24 回声社区审核服务融合
+
+- 新增独立九宫格审核服务 `moderation-service/`（Python/FastAPI），基于阿里云内容安全 MultiModalAgent。
+- VoiceHub 通过 `COMMUNITY_MODERATION_SERVICE_URL` 接入：`PASS → APPROVED`，`MANUAL_REVIEW / API_UNAVAILABLE → PENDING`。
+- 未配置该变量时，完全回落到后台原有的阿里云直连审核，不改变既有部署。
+- 服务具备 Endpoint 故障切换、10 QPS 全局整形、SSRF 防护、DEGRADED 降级与中文部署文档，详见 [`moderation-service/README.md`](moderation-service/README.md)。
 
 ### 2026-10-23 本轮更新
 
@@ -110,6 +117,20 @@ VoiceHub 是一个面向校园的广播站点歌系统（Nuxt 4 全栈应用）�
 | 新增环境变量 | `ATTACK_LOG_TOKEN`（应用 ↔ 边缘层内部令牌）、`GEO_GATE`（地域闸默认状态，默认关闭）等，见 `deploy/.env.example` |
 | 非 root 运行 | Dockerfile 内置 `voicehub` 非 root 用户，容器不以 root 运行 |
 | 数据库迁移 | 新增多张审计/攻击日志/账号策略表，迁移文件位于 `app/drizzle/migrations/`，升级时正常执行 `drizzle-kit migrate` 即可 |
+
+### 回声社区内容审核服务（可选）
+
+`moderation-service/` 是独立的 Python/FastAPI 审核服务，用于处理九宫格图文的并发审核、风险聚合与故障降级。VoiceHub 侧只需三个环境变量：
+
+| 环境变量 | 说明 |
+|---|---|
+| `COMMUNITY_PUBLIC_ORIGIN` | 图片公网地址（如 `https://voicehub.example.com`），用于拼接 `/api/media/{id}` |
+| `COMMUNITY_MODERATION_SERVICE_URL` | 独立服务地址，如 Docker 网络内 `http://moderation:8000`；**未配置时回落原有直连审核** |
+| `COMMUNITY_MODERATION_SERVICE_TIMEOUT_MS` | 调用独立服务的超时，默认 25000 毫秒 |
+
+处置映射：`PASS → APPROVED`（直接发布），`MANUAL_REVIEW / API_UNAVAILABLE → PENDING`（转人工）。后台命中策略为 `BLOCK` 且存在明确风险标签时仍可拦截；仅因服务不可用或图片失败不会误拦截。
+
+部署、环境变量、验收 curl 与安全说明见 [`moderation-service/README.md`](moderation-service/README.md)。**生产环境请只在内部网络暴露该服务，不要直接开放公网端口。**
 
 ## 开源协议与版权声明
 

@@ -1,4 +1,5 @@
 import { getCommunitySettings, requireCommunityAdmin } from '~~/server/utils/community'
+import { isCommunityModerationServiceConfigured } from '~~/server/utils/communityModerationService'
 
 function maskKey(value: string | null): string | null {
   if (!value) return null
@@ -29,6 +30,7 @@ export default defineEventHandler(async (event) => {
       hasAccessKeyId: !!settings.aliyunAccessKeyId,
       hasAccessKeySecret: !!settings.aliyunAccessKeySecret,
       accessKeyIdMasked: maskKey(settings.aliyunAccessKeyId),
+      moderationServiceConfigured: isCommunityModerationServiceConfigured(),
       updatedAt: settings.updatedAt
     }
   }

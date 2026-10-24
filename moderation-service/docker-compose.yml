@@ -1,0 +1,30 @@
+services:
+  moderation:
+    build: .
+    image: community-moderation-service:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      # 仅监听本机，由 Nginx/Caddy 反向代理暴露；如需公网直连改为 8000:8000
+      - "127.0.0.1:8000:8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

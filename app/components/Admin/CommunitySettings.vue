@@ -144,6 +144,11 @@
             />
           </div>
         </div>
+        <p class="mt-3 text-[11px] leading-relaxed text-text-tertiary">
+          <span :class="meta.moderationServiceConfigured ? 'text-success' : 'text-text-tertiary'">
+            {{ meta.moderationServiceConfigured ? t.moderationServiceActive : t.moderationServiceInactive }}
+          </span>
+        </p>
       </section>
 
       <!-- 阿里云 -->
@@ -327,7 +332,12 @@ const form = reactive({
 })
 
 const secrets = reactive({ accessKeyId: '', accessKeySecret: '' })
-const meta = reactive({ hasAccessKeyId: false, hasAccessKeySecret: false, accessKeyIdMasked: null })
+const meta = reactive({
+  hasAccessKeyId: false,
+  hasAccessKeySecret: false,
+  accessKeyIdMasked: null,
+  moderationServiceConfigured: false
+})
 
 const loading = ref(true)
 const error = ref(false)
@@ -350,6 +360,7 @@ const applySettings = (settings) => {
   meta.hasAccessKeyId = !!settings.hasAccessKeyId
   meta.hasAccessKeySecret = !!settings.hasAccessKeySecret
   meta.accessKeyIdMasked = settings.accessKeyIdMasked || null
+  meta.moderationServiceConfigured = !!settings.moderationServiceConfigured
   secrets.accessKeyId = ''
   secrets.accessKeySecret = ''
 }

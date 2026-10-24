@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { readBody } from 'h3'
 import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
@@ -10,6 +11,10 @@ import {
 } from '~~/server/utils/community'
 import { createApiError } from '~~/server/utils/apiError'
 import { moderateCommunityImage, moderateCommunityText } from '~~/server/utils/communityModeration'
+import {
+  isCommunityModerationServiceConfigured,
+  moderateCommunityPostWithService
+} from '~~/server/utils/communityModerationService'
 
 function cleanText(input: unknown): string {
   return String(input ?? '')
@@ -91,26 +96,47 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const moderation = await moderateCommunityText(content, settings)
   let status = 'PENDING'
   let moderationLabel: string | null = null
   let moderationDetail: string | null = null
-  if (moderation.hit) {
-    moderationLabel = moderation.labels.join(',') || 'RISK'
-    moderationDetail = moderation.detail
-    if (settings.moderationHitAction === 'BLOCK') status = 'BLOCKED'
-  }
 
-  // 图片走人工审核；若配置了公网地址则额外调用阿里云图片审核作为辅助标记
-  if (settings.allowImages && imageIds.length > 0) {
+  if (settings.moderationEnabled && isCommunityModerationServiceConfigured()) {
+    // 独立审核服务：并发处理九宫格，PASS 直接通过，其余转人工
     const publicOrigin = String(process.env.COMMUNITY_PUBLIC_ORIGIN || '').replace(/\/$/, '')
-    if (publicOrigin) {
-      for (const imageId of imageIds) {
-        const result = await moderateCommunityImage(`${publicOrigin}/api/media/${imageId}`, settings)
-        if (result.hit) {
-          moderationLabel = [moderationLabel, result.labels.join(',')].filter(Boolean).join(',')
-          moderationDetail = [moderationDetail, result.detail].filter(Boolean).join('；')
-          if (settings.moderationHitAction === 'BLOCK') status = 'BLOCKED'
+    const imageUrls =
+      publicOrigin && settings.allowImages && imageIds.length > 0
+        ? imageIds.map((imageId) => `${publicOrigin}/api/media/${imageId}`)
+        : []
+    const result = await moderateCommunityPostWithService({
+      // 帖子尚未入库，使用带用户与随机后缀的临时业务 ID，仅用于审核链路追踪
+      postId: `community-${user.id}-${Date.now()}-${randomUUID().slice(0, 8)}`,
+      text: content,
+      imageUrls,
+      settings
+    })
+    status = result.postStatus
+    moderationLabel = result.label
+    moderationDetail = result.detail
+  } else {
+    // 未配置独立服务：保持原有直连阿里云审核逻辑
+    const moderation = await moderateCommunityText(content, settings)
+    if (moderation.hit) {
+      moderationLabel = moderation.labels.join(',') || 'RISK'
+      moderationDetail = moderation.detail
+      if (settings.moderationHitAction === 'BLOCK') status = 'BLOCKED'
+    }
+
+    // 图片走人工审核；若配置了公网地址则额外调用阿里云图片审核作为辅助标记
+    if (settings.allowImages && imageIds.length > 0) {
+      const publicOrigin = String(process.env.COMMUNITY_PUBLIC_ORIGIN || '').replace(/\/$/, '')
+      if (publicOrigin) {
+        for (const imageId of imageIds) {
+          const result = await moderateCommunityImage(`${publicOrigin}/api/media/${imageId}`, settings)
+          if (result.hit) {
+            moderationLabel = [moderationLabel, result.labels.join(',')].filter(Boolean).join(',')
+            moderationDetail = [moderationDetail, result.detail].filter(Boolean).join('；')
+            if (settings.moderationHitAction === 'BLOCK') status = 'BLOCKED'
+          }
         }
       }
     }
@@ -145,7 +171,9 @@ export default defineEventHandler(async (event) => {
   const message =
     created.status === 'BLOCKED'
       ? '内容未通过安全审核，已被拦截'
-      : '发布成功，审核通过后会出现在回声社区'
+      : created.status === 'APPROVED'
+        ? '发布成功'
+        : '发布成功，审核通过后会出现在回声社区'
 
   return { success: true, id: created.id, status: created.status, message }
 })

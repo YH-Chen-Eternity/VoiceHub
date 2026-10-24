@@ -1173,6 +1173,8 @@ export const pages = {
       moderationSection: '内容审核',
       moderationEnabledLabel: '启用阿里云内容安全',
       moderationEnabledHint: '开启后文本与图片会送审；审核失败时保持待审，绝不自动放行',
+      moderationServiceActive: '独立审核服务已接入：通过直接发布，风险与异常转人工',
+      moderationServiceInactive: '未接入独立审核服务：使用下方阿里云配置直连审核',
       hitAction: '命中处理',
       hitManual: '转人工审核',
       hitBlock: '直接拦截',

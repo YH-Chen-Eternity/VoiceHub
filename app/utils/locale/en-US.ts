@@ -1194,6 +1194,8 @@ export const pages = {
       moderationSection: 'Content moderation',
       moderationEnabledLabel: 'Enable Aliyun content moderation',
       moderationEnabledHint: 'Text and images are submitted for moderation. On failure posts stay pending and are never auto-approved.',
+      moderationServiceActive: 'Dedicated moderation service connected: clean posts publish immediately, risks and errors go to manual review',
+      moderationServiceInactive: 'Dedicated moderation service not connected: using the Aliyun configuration below',
       hitAction: 'On hit',
       hitManual: 'Send to manual review',
       hitBlock: 'Block immediately',

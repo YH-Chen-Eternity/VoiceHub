@@ -1,4 +1,4 @@
-import { asc, desc, eq, inArray, lt, and, sql } from 'drizzle-orm'
+import { asc, desc, eq, inArray, isNull, lt, and, sql } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import {
   communityBoards,
@@ -20,6 +20,7 @@ type LoadOptions = {
   authorId?: number
   beforeId?: number
   limit?: number
+  includeDeleted?: boolean
 }
 
 export function serializeSong(song: any) {
@@ -45,6 +46,7 @@ export async function loadCommunityPosts(options: LoadOptions) {
   if (options.boardIds) conditions.push(inArray(communityPosts.boardId, options.boardIds))
   if (options.authorId) conditions.push(eq(communityPosts.authorId, options.authorId))
   if (options.beforeId) conditions.push(lt(communityPosts.id, options.beforeId))
+  if (!options.includeDeleted) conditions.push(isNull(communityPosts.deletedAt))
 
   const limit = Math.min(Math.max(Number(options.limit) || 20, 1), 50)
   const rows = await db
@@ -73,7 +75,7 @@ export async function loadCommunityPosts(options: LoadOptions) {
       songIdForVote: communityPosts.songId,
       voteCount: sql<number>`(select count(*)::int from "Vote" v where v."songId" = ${communityPosts.songId})`,
       likedByMe: sql<boolean>`exists(select 1 from "Vote" v2 where v2."songId" = ${communityPosts.songId} and v2."userId" = ${viewerId})`,
-      commentCount: sql<number>`(select count(*)::int from "CommunityComment" c where c."postId" = ${communityPosts.id})`
+      commentCount: sql<number>`(select count(*)::int from "CommunityComment" c where c."postId" = ${communityPosts.id} and c."status" = 'APPROVED' and c."deletedAt" is null)`
     })
     .from(communityPosts)
     .innerJoin(users, eq(users.id, communityPosts.authorId))

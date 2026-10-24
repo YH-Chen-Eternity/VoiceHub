@@ -174,6 +174,15 @@
                 <button class="footer-action" type="button" @click="openDetail(post)">
                   <span>{{ t.comments }}</span>
                 </button>
+                <button
+                  v-if="canRemovePost(post)"
+                  class="footer-action footer-danger"
+                  type="button"
+                  @click="askRemovePost(post)"
+                >
+                  <Trash2 :size="16" />
+                  <span>{{ isOwnPost(post) ? t.withdraw : t.deleteContent }}</span>
+                </button>
               </footer>
             </article>
 
@@ -219,7 +228,7 @@
           <section class="rules-card">
             <h3>{{ t.rulesTitle }}</h3>
             <p>{{ t.pendingHint }}</p>
-            <p v-if="settings.allowImages">{{ t.imageHint(settings.maxImages) }}</p>
+            <p v-if="settings.allowImages">{{ t.imageHint(maxImages) }}</p>
           </section>
         </aside>
       </div>
@@ -327,7 +336,7 @@
                 <div class="field-title">
                   <ImagePlus :size="15" />
                   <span>{{ t.addImages }}</span>
-                  <span class="field-title-extra">{{ publishForm.images.length }}/{{ settings.maxImages }}</span>
+                  <span class="field-title-extra">{{ publishForm.images.length }}/{{ maxImages }}</span>
                 </div>
                 <div class="image-uploader">
                   <div
@@ -341,7 +350,7 @@
                     </button>
                   </div>
                   <button
-                    v-if="publishForm.images.length < settings.maxImages"
+                    v-if="publishForm.images.length < maxImages"
                     class="upload-add"
                     :disabled="uploading > 0"
                     type="button"
@@ -352,7 +361,7 @@
                     <span>{{ uploading > 0 ? t.uploading : t.addImages }}</span>
                   </button>
                 </div>
-                <p class="field-hint">{{ t.imageHint(settings.maxImages) }}</p>
+                <p class="field-hint">{{ t.imageHint(maxImages) }}</p>
                 <input
                   ref="imageInput"
                   accept="image/png,image/jpeg,image/webp,image/gif"
@@ -399,9 +408,20 @@
                   {{ statusText(selectedPost.status) }}
                 </span>
               </div>
-              <button class="icon-button" type="button" @click="closeDetail">
-                <X :size="18" />
-              </button>
+              <div class="detail-head-actions">
+                <button
+                  v-if="canRemovePost(selectedPost)"
+                  class="ghost-button detail-remove"
+                  type="button"
+                  @click="askRemovePost(selectedPost)"
+                >
+                  <Trash2 :size="14" />
+                  <span>{{ isOwnPost(selectedPost) ? t.withdraw : t.deleteContent }}</span>
+                </button>
+                <button class="icon-button" type="button" @click="closeDetail">
+                  <X :size="18" />
+                </button>
+              </div>
             </header>
 
             <div class="modal-body detail-body">
@@ -470,11 +490,33 @@
                 <div v-else-if="!comments.length" class="comment-empty">{{ t.noComments }}</div>
                 <div v-else class="comment-list">
                   <div v-for="comment in comments" :key="comment.id" class="comment-item">
-                    <button class="identity comment-identity" type="button" @click="openProfile(comment.author.id)">
-                      <span class="identity-name">{{ comment.author.displayName }}</span>
-                      <span v-if="comment.author.title" class="identity-title">{{ comment.author.title }}</span>
-                    </button>
+                    <div class="comment-head">
+                      <button class="identity comment-identity" type="button" @click="openProfile(comment.author.id)">
+                        <span class="identity-name">{{ comment.author.displayName }}</span>
+                        <span v-if="comment.author.title" class="identity-title">{{ comment.author.title }}</span>
+                      </button>
+                      <div class="comment-tail">
+                        <span
+                          v-if="comment.status !== 'APPROVED'"
+                          :class="['status-pill', `status-${comment.status.toLowerCase()}`]"
+                        >
+                          {{ statusText(comment.status) }}
+                        </span>
+                        <button
+                          v-if="canRemoveComment(comment)"
+                          class="comment-remove"
+                          :title="isOwnComment(comment) ? t.withdraw : t.deleteContent"
+                          type="button"
+                          @click="askRemoveComment(comment)"
+                        >
+                          <Trash2 :size="13" />
+                        </button>
+                      </div>
+                    </div>
                     <p>{{ comment.content }}</p>
+                    <p v-if="comment.reviewNote" class="comment-note">
+                      {{ t.reviewNoteLabel }}：{{ comment.reviewNote }}
+                    </p>
                     <span class="comment-time">{{ formatTime(comment.createdAt) }}</span>
                   </div>
                 </div>
@@ -627,6 +669,19 @@
         </div>
       </Transition>
     </Teleport>
+
+    <ConfirmDialog
+      v-model:show="removeConfirm.show"
+      :title="removeConfirm.title"
+      :message="removeConfirm.message"
+      :type="'danger'"
+      :loading="removeConfirm.loading"
+      :show-input="removeConfirm.isDelete"
+  :input-required="false"
+      :input-placeholder="t.removeReasonPlaceholder"
+      @confirm="runRemove"
+      @cancel="removeConfirm.show = false"
+    />
   </div>
 </template>
 
@@ -648,11 +703,18 @@ import {
   Search,
   Send,
   ShieldCheck,
+  Trash2,
   UserRound,
   X
 } from '@lucide/vue'
+import ConfirmDialog from '~/components/UI/ConfirmDialog.vue'
 import { useLocale } from '~/utils/locale'
 import { useToast } from '~/composables/useToast'
+import {
+  COMMUNITY_IMAGE_MAX_UPLOAD_BYTES,
+  compressCommunityImageFile,
+  isCommunityImageType
+} from '~/utils/communityImage'
 
 type AnyRecord = Record<string, any>
 
@@ -676,7 +738,7 @@ const settings = computed<AnyRecord>(
     status.value?.settings || {
       enabled: false,
       allowImages: false,
-      maxImages: 3,
+      maxImages: 9,
       maxContentLength: 1000,
       maxCommentLength: 300
     }
@@ -688,6 +750,26 @@ const ban = computed<AnyRecord>(
 )
 const violationCount = computed(() => Number(status.value?.viewer?.violationCount || 0))
 const activeBoards = computed(() => boards.value.filter((board) => board.isActive))
+const maxImages = computed(() => Math.min(Number(settings.value.maxImages || 9), 9))
+const myUserId = computed(() => Number(me.value?.user?.id || 0))
+
+function isOwnPost(post: AnyRecord | null) {
+  return !!post && Number(post.author?.id) === myUserId.value && myUserId.value > 0
+}
+
+function isOwnComment(comment: AnyRecord | null) {
+  return !!comment && Number(comment.author?.id) === myUserId.value && myUserId.value > 0
+}
+
+function canRemovePost(post: AnyRecord | null) {
+  if (!post) return false
+  return isOwnPost(post) || canReview.value
+}
+
+function canRemoveComment(comment: AnyRecord | null) {
+  if (!comment) return false
+  return isOwnComment(comment) || canReview.value
+}
 
 const publishOpen = ref(false)
 const submitting = ref(false)
@@ -726,6 +808,16 @@ const lightbox = reactive<{ open: boolean; images: AnyRecord[]; index: number }>
   open: false,
   images: [],
   index: 0
+})
+
+const removeConfirm = reactive({
+  show: false,
+  loading: false,
+  title: '',
+  message: '',
+  isDelete: false,
+  kind: '' as 'post' | 'comment' | '',
+  target: null as AnyRecord | null
 })
 
 function apiMessage(error: any, fallback: string) {
@@ -915,21 +1007,24 @@ async function handleImageSelect(event: Event) {
   const files = Array.from(input.files || [])
   input.value = ''
   if (!files.length) return
-  const remaining = settings.value.maxImages - publishForm.images.length
+  const remaining = maxImages.value - publishForm.images.length
   for (const file of files.slice(0, Math.max(remaining, 0))) {
-    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) {
+    if (!isCommunityImageType(file.type)) {
       showToast(t.value.imageTypeUnsupported || '仅支持 PNG / JPEG / WebP / GIF', 'error')
       continue
     }
-    if (file.size > 2 * 1024 * 1024) {
-      showToast(t.value.imageTooLarge || '图片不能超过 2MB', 'error')
+    if (file.size > COMMUNITY_IMAGE_MAX_UPLOAD_BYTES) {
+      showToast(t.value.imageTooLarge || '图片原始文件不能超过 15MB', 'error')
       continue
     }
     uploading.value += 1
     try {
+      const prepared = await compressCommunityImageFile(file)
+      if (prepared.compressed) showToast(t.value.imageCompressed, 'info', 2500)
       const form = new FormData()
-      form.append('file', file)
+      form.append('file', prepared.file)
       const res = await $fetch<AnyRecord>('/api/community/media', { method: 'POST', body: form })
+      if (res.compressed && !prepared.compressed) showToast(t.value.imageCompressed, 'info', 2500)
       publishForm.images.push({ id: res.id, url: res.url })
     } catch (error: any) {
       showToast(apiMessage(error, t.value.imageUploadFailed), 'error')
@@ -972,6 +1067,64 @@ async function submitPost() {
   }
 }
 
+function askRemovePost(post: AnyRecord) {
+  const withdraw = isOwnPost(post) && !canReview.value
+  Object.assign(removeConfirm, {
+    show: true,
+    loading: false,
+    kind: 'post',
+    target: post,
+    isDelete: !withdraw,
+    title: withdraw ? t.value.withdrawPostTitle : t.value.deletePostTitle,
+    message: withdraw ? t.value.withdrawPostMsg : t.value.deletePostMsg
+  })
+}
+
+function askRemoveComment(comment: AnyRecord) {
+  const withdraw = isOwnComment(comment) && !canReview.value
+  Object.assign(removeConfirm, {
+    show: true,
+    loading: false,
+    kind: 'comment',
+    target: comment,
+    isDelete: !withdraw,
+    title: withdraw ? t.value.withdrawCommentTitle : t.value.deleteCommentTitle,
+    message: withdraw ? t.value.withdrawCommentMsg : t.value.deleteCommentMsg
+  })
+}
+
+async function runRemove(reason?: string) {
+  if (!removeConfirm.target || removeConfirm.loading) return
+  removeConfirm.loading = true
+  const { kind, target } = removeConfirm
+  try {
+    const url =
+      kind === 'post' ? `/api/community/posts/${target.id}` : `/api/community/comments/${target.id}`
+    await $fetch(url, {
+      method: 'DELETE',
+      body: { reason: String(reason || '').trim() }
+    })
+    showToast(removeConfirm.isDelete ? t.value.deleteSuccess : t.value.withdrawSuccess, 'success')
+    removeConfirm.show = false
+    if (kind === 'post') {
+      if (selectedPost.value?.id === target.id) closeDetail()
+      await loadFeed(true)
+    } else {
+      comments.value = comments.value.filter((item) => item.id !== target.id)
+      if (selectedPost.value && target.status === 'APPROVED') {
+        selectedPost.value.commentCount = Math.max(0, Number(selectedPost.value.commentCount || 0) - 1)
+        const post = posts.value.find((item) => item.id === selectedPost.value?.id)
+        if (post) post.commentCount = selectedPost.value.commentCount
+      }
+    }
+    me.value = await $fetch<AnyRecord>('/api/community/me').catch(() => me.value)
+  } catch (error: any) {
+    showToast(apiMessage(error, t.value.loadFailed), 'error')
+  } finally {
+    removeConfirm.loading = false
+  }
+}
+
 async function openDetail(post: AnyRecord) {
   selectedPost.value = { ...post }
   detailOpen.value = true
@@ -1002,17 +1155,20 @@ async function sendComment() {
   if (!content || sendingComment.value || !selectedPost.value) return
   sendingComment.value = true
   try {
-    await $fetch(`/api/community/posts/${selectedPost.value.id}/comments`, {
+    const result = await $fetch<AnyRecord>(`/api/community/posts/${selectedPost.value.id}/comments`, {
       method: 'POST',
       body: { content }
     })
     commentContent.value = ''
-    selectedPost.value.commentCount = Number(selectedPost.value.commentCount || 0) + 1
-    const post = posts.value.find((item) => item.id === selectedPost.value?.id)
-    if (post) post.commentCount = selectedPost.value.commentCount
+    const approved = result?.status === 'APPROVED'
+    if (approved) {
+      selectedPost.value.commentCount = Number(selectedPost.value.commentCount || 0) + 1
+      const post = posts.value.find((item) => item.id === selectedPost.value?.id)
+      if (post) post.commentCount = selectedPost.value.commentCount
+    }
     const res = await $fetch<AnyRecord>(`/api/community/posts/${selectedPost.value.id}/comments`)
     comments.value = res.comments || []
-    showToast(t.value.commentSuccess, 'success')
+    showToast(approved ? t.value.commentSuccess : t.value.commentPendingSuccess, 'success')
   } catch (error: any) {
     showToast(apiMessage(error, t.value.loadFailed), 'error')
   } finally {
@@ -1635,6 +1791,31 @@ onUnmounted(() => {
   color: var(--color-accent);
 }
 
+.footer-danger {
+  margin-left: auto;
+  color: var(--text-quaternary);
+}
+
+.footer-danger:hover {
+  color: var(--error);
+}
+
+.detail-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.detail-remove {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.7rem;
+}
+
+.detail-remove:hover {
+  color: var(--error);
+  border-color: var(--error-border);
+}
+
 .load-more-row {
   display: flex;
   justify-content: center;
@@ -2172,6 +2353,45 @@ onUnmounted(() => {
   flex-direction: row;
   align-items: center;
   gap: 0.4rem;
+}
+
+.comment-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.comment-tail {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.comment-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.45rem;
+  border: none;
+  background: transparent;
+  color: var(--text-quaternary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.comment-remove:hover {
+  color: var(--error);
+  background: var(--error-light);
+}
+
+.comment-note {
+  margin-top: 0.3rem;
+  font-size: 0.66rem;
+  color: var(--warning);
 }
 
 .comment-identity .identity-name {

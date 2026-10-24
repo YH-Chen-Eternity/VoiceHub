@@ -187,6 +187,13 @@ export class SmtpService {
       <p>您好 <strong>{{username}}</strong>，管理员已为你的账号<b>重置密码</b>。</p>
       <p>操作时间：<strong>{{time}}</strong></p>
       <p>请使用管理员提供的新密码登录，并在登录后立即在「账号」页面修改为你自己的密码。</p>
+    `,
+    communityResonanceAwarded: `
+      <p>恭喜你！你与 <strong>{{partnerName}}</strong> 相互点赞的歌曲已达到 <strong>{{mutualCount}}</strong> 首，获得称号「<strong>{{titleName}}</strong>」。</p>
+      <p>达成时间：<strong>{{achievedAt}}</strong></p>
+      <p>你们共同点赞的歌曲：</p>
+      <div style="white-space: pre-wrap; background: #f8f9fa; border-radius: 4px; padding: 12px;">{{songList}}</div>
+      <p style="color: #888;">该记录仅你本人可见；对外仅展示你所佩戴的称号。</p>
     `
   }
 
@@ -241,6 +248,13 @@ export class SmtpService {
       contentType: 'generic',
       headerSubtitle: '通知推送',
       actionText: '查看详情'
+    },
+    'community.resonance.awarded': {
+      name: '回声社区：获得共鸣称号',
+      subject: '获得「{{titleName}}」称号 | {{siteTitle}}通知推送',
+      contentType: 'communityResonanceAwarded',
+      headerSubtitle: '回声社区',
+      variables: ['titleName', 'partnerName', 'mutualCount', 'songList', 'achievedAt']
     },
     'notification.songSelected': {
       name: '歌曲被选中',

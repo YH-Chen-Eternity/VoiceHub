@@ -1,17 +1,15 @@
 import { getRouterParam, readBody } from 'h3'
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
-import { communityPosts, communityProfiles, notifications } from '~/drizzle/schema'
+import { communityPosts, notifications } from '~/drizzle/schema'
 import {
-  ensureCommunityProfile,
+  applyCommunityViolation,
+  formatCommunityMuteNotice,
   getReviewableBoardIds,
   isCommunityAdmin,
-  requireCommunityReviewer,
-  resolveCommunityBanState
+  requireCommunityReviewer
 } from '~~/server/utils/community'
 import { createApiError } from '~~/server/utils/apiError'
-
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
 
 export default defineEventHandler(async (event) => {
   const user = requireCommunityReviewer(event)
@@ -86,49 +84,10 @@ export default defineEventHandler(async (event) => {
         updatedAt: new Date()
       })
       .where(eq(communityPosts.id, postId))
-
-    await ensureCommunityProfile(post.authorId)
-    const [profile] = await tx
-      .update(communityProfiles)
-      .set({
-        violationCount: sql`${communityProfiles.violationCount} + 1`,
-        updatedAt: new Date()
-      })
-      .where(eq(communityProfiles.userId, post.authorId))
-      .returning()
-
-    const violationCount = Number(profile?.violationCount || 0)
-    const currentState = resolveCommunityBanState(profile)
-    let banned = profile?.banned ?? false
-    let bannedUntil = profile?.bannedUntil ?? null
-    let banReason = profile?.banReason ?? null
-
-    if (violationCount >= 6) {
-      banned = true
-      bannedUntil = null
-      banReason = `累计 ${violationCount} 次违规，永久禁言`
-    } else if (violationCount >= 3 && !currentState.muted) {
-      banned = true
-      bannedUntil = new Date(Date.now() + THIRTY_DAYS_MS)
-      banReason = `累计 ${violationCount} 次违规，禁言 30 天`
-    }
-
-    if (banned !== profile?.banned || bannedUntil !== profile?.bannedUntil) {
-      await tx
-        .update(communityProfiles)
-        .set({ banned, bannedUntil, banReason, updatedAt: new Date() })
-        .where(eq(communityProfiles.userId, post.authorId))
-    }
-
-    return { violationCount, banned, bannedUntil, banReason }
+    return applyCommunityViolation(tx, post.authorId)
   })
 
-  const muteText =
-    result.violationCount >= 6
-      ? '你的账号已被永久禁言。'
-      : result.violationCount >= 3
-        ? '你已被禁言 30 天。'
-        : ''
+  const muteText = formatCommunityMuteNotice(result.violationCount)
 
   await db.insert(notifications).values({
     userId: post.authorId,

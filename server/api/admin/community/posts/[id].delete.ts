@@ -1,8 +1,6 @@
-import { getRouterParam } from 'h3'
-import { eq } from 'drizzle-orm'
-import { db } from '~/drizzle/db'
-import { communityPosts, notifications } from '~/drizzle/schema'
+import { getRouterParam, readBody } from 'h3'
 import { requireCommunityAdmin } from '~~/server/utils/community'
+import { softDeleteCommunityPost } from '~~/server/utils/communityArchive'
 import { createApiError } from '~~/server/utils/apiError'
 
 export default defineEventHandler(async (event) => {
@@ -12,19 +10,7 @@ export default defineEventHandler(async (event) => {
     throw createApiError(400, 'COMMUNITY_POST_INVALID', '帖子参数不正确')
   }
 
-  const [deleted] = await db
-    .delete(communityPosts)
-    .where(eq(communityPosts.id, postId))
-    .returning({ id: communityPosts.id, authorId: communityPosts.authorId })
-  if (!deleted) throw createApiError(404, 'COMMUNITY_POST_NOT_FOUND', '帖子不存在')
-
-  await db.insert(notifications).values({
-    userId: deleted.authorId,
-    type: 'COMMUNITY_POST_REMOVED',
-    source: 'COMMUNITY',
-    title: '回声社区：帖子已被移除',
-    message: '你的帖子因违反社区规范已被管理员移除。'
-  })
-
-  return { success: true }
+  const body = await readBody(event).catch(() => null)
+  const reason = typeof body?.reason === 'string' ? body.reason : ''
+  return softDeleteCommunityPost({ postId, actor: event.context.user, reason })
 })

@@ -12,7 +12,7 @@ import {
   communityTitles,
   users
 } from '~/drizzle/schema'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { createApiError } from './apiError'
 
 export const COMMUNITY_REVIEWER_ROLE = 'REVIEWER'
@@ -23,6 +23,14 @@ export const COMMUNITY_POST_STATUS = {
   REJECTED: 'REJECTED',
   BLOCKED: 'BLOCKED'
 } as const
+export const COMMUNITY_CONTENT_STATUS = COMMUNITY_POST_STATUS
+export const COMMUNITY_DELETE_TYPE = {
+  WITHDRAW: 'WITHDRAW',
+  DELETE: 'DELETE'
+} as const
+
+/** 归档保留期：撤回/删除后 30 天物理清理 */
+export const COMMUNITY_ARCHIVE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 
 export type CommunitySettingsRow = typeof communitySettings.$inferSelect
 
@@ -208,6 +216,63 @@ export async function getReviewableBoardIds(user: any): Promise<number[] | null>
     .where(eq(communityBoardReviewers.userId, user.id))
   if (rows.length === 0) return null
   return rows.map((row) => row.boardId)
+}
+
+/** 审帖员只能操作被分配板块；管理员无限制 */
+export async function assertCommunityBoardAccess(user: any, boardId: number): Promise<void> {
+  const scopedBoardIds = await getReviewableBoardIds(user)
+  if (scopedBoardIds && !scopedBoardIds.includes(boardId)) {
+    throw createApiError(403, 'COMMUNITY_REVIEW_BOARD_FORBIDDEN', '你没有被分配到该板块')
+  }
+}
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
+
+/**
+ * 审核驳回后的违规计数与自动禁言。
+ * 帖子与评论共用，必须在事务内调用。
+ */
+export async function applyCommunityViolation(tx: any, authorId: number) {
+  await tx.insert(communityProfiles).values({ userId: authorId }).onConflictDoNothing()
+  const [profile] = await tx
+    .update(communityProfiles)
+    .set({
+      violationCount: sql`${communityProfiles.violationCount} + 1`,
+      updatedAt: new Date()
+    })
+    .where(eq(communityProfiles.userId, authorId))
+    .returning()
+
+  const violationCount = Number(profile?.violationCount || 0)
+  const currentState = resolveCommunityBanState(profile)
+  let banned = profile?.banned ?? false
+  let bannedUntil = profile?.bannedUntil ?? null
+  let banReason = profile?.banReason ?? null
+
+  if (violationCount >= 6) {
+    banned = true
+    bannedUntil = null
+    banReason = `累计 ${violationCount} 次违规，永久禁言`
+  } else if (violationCount >= 3 && !currentState.muted) {
+    banned = true
+    bannedUntil = new Date(Date.now() + THIRTY_DAYS_MS)
+    banReason = `累计 ${violationCount} 次违规，禁言 30 天`
+  }
+
+  if (banned !== profile?.banned || bannedUntil !== profile?.bannedUntil) {
+    await tx
+      .update(communityProfiles)
+      .set({ banned, bannedUntil, banReason, updatedAt: new Date() })
+      .where(eq(communityProfiles.userId, authorId))
+  }
+
+  return { violationCount, banned, bannedUntil, banReason }
+}
+
+export function formatCommunityMuteNotice(violationCount: number): string {
+  if (violationCount >= 6) return '你的账号已被永久禁言。'
+  if (violationCount >= 3) return '你已被禁言 30 天。'
+  return ''
 }
 
 /** 带称号的用户身份（用于评论等单条场景） */

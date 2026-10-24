@@ -1086,6 +1086,24 @@ export const communityProfiles = pgTable('CommunityProfile', {
   banReason: text('banReason'),
 });
 
+// 相互点赞成就：每个用户在每个阈值上只记录第一位达成伙伴
+// songsSnapshot 保存达成时双方共同点赞歌曲的标题快照（JSON），仅本人可见
+export const communityResonance = pgTable('CommunityResonance', {
+  id: serial('id').primaryKey(),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  userId: integer('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  partnerId: integer('partnerId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  titleId: integer('titleId').references(() => communityTitles.id, { onDelete: 'set null' }),
+  // 达成阈值：50 / 200
+  threshold: integer('threshold').notNull(),
+  mutualCount: integer('mutualCount').notNull(),
+  songsSnapshot: text('songsSnapshot').notNull(),
+}, (table) => [
+  uniqueIndex('CommunityResonance_user_threshold_unique').on(table.userId, table.threshold),
+  index('CommunityResonance_partner_idx').on(table.partnerId),
+  index('CommunityResonance_user_idx').on(table.userId, table.createdAt)
+]);
+
 export const communityPosts = pgTable('CommunityPost', {
   id: serial('id').primaryKey(),
   createdAt: timestamp('createdAt').defaultNow().notNull(),
@@ -1101,10 +1119,19 @@ export const communityPosts = pgTable('CommunityPost', {
   reviewNote: text('reviewNote'),
   reviewedBy: integer('reviewedBy').references(() => users.id, { onDelete: 'set null' }),
   reviewedAt: timestamp('reviewedAt'),
+  // 软删除/撤回：归档保留 30 天，到期由清理任务物理删除
+  deletedAt: timestamp('deletedAt'),
+  deletedBy: integer('deletedBy').references(() => users.id, { onDelete: 'set null' }),
+  // WITHDRAW=作者撤回 / DELETE=管理员或审帖员删除
+  deleteType: text('deleteType'),
+  deleteReason: text('deleteReason'),
+  purgeAt: timestamp('purgeAt'),
 }, (table) => [
   index('CommunityPost_feed_idx').on(table.status, table.createdAt),
   index('CommunityPost_board_feed_idx').on(table.boardId, table.status, table.createdAt),
-  index('CommunityPost_author_idx').on(table.authorId, table.createdAt)
+  index('CommunityPost_author_idx').on(table.authorId, table.createdAt),
+  index('CommunityPost_deleted_idx').on(table.deletedAt),
+  index('CommunityPost_purge_idx').on(table.purgeAt)
 ]);
 
 export const communityComments = pgTable('CommunityComment', {
@@ -1113,7 +1140,24 @@ export const communityComments = pgTable('CommunityComment', {
   postId: integer('postId').notNull().references(() => communityPosts.id, { onDelete: 'cascade' }),
   authorId: integer('authorId').notNull().references(() => users.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
-}, (table) => [index('CommunityComment_post_idx').on(table.postId, table.createdAt)]);
+  // PENDING / APPROVED / REJECTED / BLOCKED，评论与帖子走同一套审核流程
+  status: text('status').default('PENDING').notNull(),
+  moderationLabel: text('moderationLabel'),
+  moderationDetail: text('moderationDetail'),
+  reviewNote: text('reviewNote'),
+  reviewedBy: integer('reviewedBy').references(() => users.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewedAt'),
+  deletedAt: timestamp('deletedAt'),
+  deletedBy: integer('deletedBy').references(() => users.id, { onDelete: 'set null' }),
+  deleteType: text('deleteType'),
+  deleteReason: text('deleteReason'),
+  purgeAt: timestamp('purgeAt'),
+}, (table) => [
+  index('CommunityComment_post_idx').on(table.postId, table.createdAt),
+  index('CommunityComment_status_idx').on(table.status, table.createdAt),
+  index('CommunityComment_author_idx').on(table.authorId, table.createdAt),
+  index('CommunityComment_purge_idx').on(table.purgeAt)
+]);
 
 // 帖子配图：图片先落到 MediaAsset，再按顺序关联到帖子，避免帖子表存大字段
 export const communityPostImages = pgTable('CommunityPostImage', {
@@ -1133,7 +1177,7 @@ export const communitySettings = pgTable('CommunitySettings', {
   enabled: boolean('enabled').default(false).notNull(),
   // 发帖是否允许附加图片
   allowImages: boolean('allowImages').default(false).notNull(),
-  maxImages: integer('maxImages').default(3).notNull(),
+  maxImages: integer('maxImages').default(9).notNull(),
   maxContentLength: integer('maxContentLength').default(1000).notNull(),
   maxCommentLength: integer('maxCommentLength').default(300).notNull(),
   // 阿里云内容安全（Green）：未填写密钥时只走人工审核
@@ -1157,3 +1201,4 @@ export type CommunityTitle = typeof communityTitles.$inferSelect;
 export type CommunityProfile = typeof communityProfiles.$inferSelect;
 export type CommunitySettings = typeof communitySettings.$inferSelect;
 export type CommunityPostImage = typeof communityPostImages.$inferSelect;
+export type CommunityResonance = typeof communityResonance.$inferSelect;

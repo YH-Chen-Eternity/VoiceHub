@@ -1,5 +1,5 @@
 import { getRouterParam } from 'h3'
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq, isNull, or } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import {
   communityComments,
@@ -8,7 +8,11 @@ import {
   communityTitles,
   users
 } from '~/drizzle/schema'
-import { buildCommunityIdentity, requireCommunityUser } from '~~/server/utils/community'
+import {
+  buildCommunityIdentity,
+  isCommunityReviewer,
+  requireCommunityUser
+} from '~~/server/utils/community'
 import { createApiError } from '~~/server/utils/apiError'
 
 export default defineEventHandler(async (event) => {
@@ -19,21 +23,37 @@ export default defineEventHandler(async (event) => {
   }
 
   const postRow = await db
-    .select({ id: communityPosts.id, status: communityPosts.status, authorId: communityPosts.authorId })
+    .select({
+      id: communityPosts.id,
+      status: communityPosts.status,
+      authorId: communityPosts.authorId,
+      deletedAt: communityPosts.deletedAt
+    })
     .from(communityPosts)
     .where(eq(communityPosts.id, postId))
     .limit(1)
   const post = postRow[0]
-  if (!post) throw createApiError(404, 'COMMUNITY_POST_NOT_FOUND', '帖子不存在')
-  if (post.status !== 'APPROVED' && post.authorId !== user.id) {
+  if (!post || post.deletedAt) throw createApiError(404, 'COMMUNITY_POST_NOT_FOUND', '帖子不存在')
+
+  const privileged = isCommunityReviewer(user) || post.authorId === user.id
+  if (post.status !== 'APPROVED' && !privileged) {
     throw createApiError(403, 'COMMUNITY_POST_NOT_PUBLIC', '帖子尚未公开')
   }
+
+  const visibility = isCommunityReviewer(user)
+    ? isNull(communityComments.deletedAt)
+    : and(
+        isNull(communityComments.deletedAt),
+        or(eq(communityComments.status, 'APPROVED'), eq(communityComments.authorId, user.id))
+      )
 
   const rows = await db
     .select({
       id: communityComments.id,
       createdAt: communityComments.createdAt,
       content: communityComments.content,
+      status: communityComments.status,
+      reviewNote: communityComments.reviewNote,
       authorId: communityComments.authorId,
       authorName: users.name,
       authorGrade: users.grade,
@@ -44,7 +64,7 @@ export default defineEventHandler(async (event) => {
     .innerJoin(users, eq(users.id, communityComments.authorId))
     .leftJoin(communityProfiles, eq(communityProfiles.userId, communityComments.authorId))
     .leftJoin(communityTitles, eq(communityTitles.id, communityProfiles.equippedTitleId))
-    .where(eq(communityComments.postId, postId))
+    .where(and(eq(communityComments.postId, postId), visibility))
     .orderBy(asc(communityComments.id))
     .limit(200)
 
@@ -54,6 +74,8 @@ export default defineEventHandler(async (event) => {
       id: row.id,
       createdAt: row.createdAt,
       content: row.content,
+      status: row.status,
+      reviewNote: row.reviewNote,
       author: {
         id: row.authorId,
         ...buildCommunityIdentity(

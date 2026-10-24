@@ -11,6 +11,7 @@ import {
 } from '~~/server/services/securityService'
 import { getClientIP } from '~~/server/utils/ip-utils'
 import { createApiError } from '~~/server/utils/apiError'
+import { evaluateCommunityResonance } from '~~/server/utils/communityResonance'
 
 export default defineEventHandler(async (event) => {
   // 检查用户认证
@@ -148,6 +149,11 @@ export default defineEventHandler(async (event) => {
           // 发送通知失败不影响主流程
         })
       }
+
+      // 相互点赞成就：达到阈值时自动授予称号并通知双方
+      await evaluateCommunityResonance(user.id).catch((error) => {
+        console.error('[community] 共鸣称号评估失败:', error)
+      })
 
       const protectedTriggered = recordSongVote(body.songId, clientIP, user.id)
       recordUserVoteActivity(user.id, song.title)

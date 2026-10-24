@@ -161,6 +161,33 @@
         <p class="text-[10px] text-text-disabled">{{ t.titleHint }}</p>
       </div>
 
+      <!-- 共鸣记录（仅本人可见） -->
+      <div v-if="resonanceList.length" class="space-y-3">
+        <h3 class="text-[10px] font-black text-text-disabled uppercase tracking-[0.18em]">
+          {{ t.resonanceSection }}
+        </h3>
+        <p class="text-[10px] text-text-disabled">{{ t.resonancePrivateHint }}</p>
+        <div
+          v-for="record in resonanceList"
+          :key="record.id"
+          class="rounded-2xl border border-primary-20 bg-primary-hover-5 px-4 py-3 space-y-2"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm font-black text-primary">{{ record.titleName }}</span>
+            <span class="text-[10px] text-text-disabled">{{ formatDate(record.createdAt) }}</span>
+          </div>
+          <p class="text-xs text-text-secondary">
+            {{ t.resonancePartner }} {{ record.partner?.displayName || '—' }} ·
+            {{ t.resonanceMutual(record.mutualCount) }}
+          </p>
+          <div v-if="record.songs?.length" class="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
+            <p v-for="song in record.songs" :key="song.id" class="text-[10px] text-text-tertiary truncate">
+              《{{ song.title }}》- {{ song.artist }}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- 违规与禁言 -->
       <div class="space-y-2">
         <h3 class="text-[10px] font-black text-text-disabled uppercase tracking-[0.18em]">
@@ -243,6 +270,11 @@ const privacy = reactive({ showFavorite: true, showLikedSongs: true })
 const equippedTitleId = ref<string>('')
 const initial = ref({ favoriteSongId: null as number | null, showFavorite: true, showLikedSongs: true, equippedTitleId: '' })
 const saving = ref(false)
+
+const resonanceList = computed<AnyRecord[]>(() => {
+  const list = data.value?.resonance
+  return Array.isArray(list) ? list : []
+})
 
 const titleOptions = computed(() => {
   const options = [{ label: t.value.titleNone, value: '' }]

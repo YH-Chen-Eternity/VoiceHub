@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { getRouterParam, readBody } from 'h3'
 import { eq } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
@@ -10,6 +11,10 @@ import {
 } from '~~/server/utils/community'
 import { createApiError } from '~~/server/utils/apiError'
 import { moderateCommunityText } from '~~/server/utils/communityModeration'
+import {
+  isCommunityModerationServiceConfigured,
+  moderateCommunityPostWithService
+} from '~~/server/utils/communityModerationService'
 
 function cleanText(input: unknown): string {
   return String(input ?? '')
@@ -28,17 +33,29 @@ export default defineEventHandler(async (event) => {
   }
 
   const postRow = await db
-    .select({ id: communityPosts.id, status: communityPosts.status, authorId: communityPosts.authorId })
+    .select({
+      id: communityPosts.id,
+      status: communityPosts.status,
+      authorId: communityPosts.authorId,
+      deletedAt: communityPosts.deletedAt
+    })
     .from(communityPosts)
     .where(eq(communityPosts.id, postId))
     .limit(1)
   const post = postRow[0]
-  if (!post) throw createApiError(404, 'COMMUNITY_POST_NOT_FOUND', '帖子不存在')
+  if (!post || post.deletedAt) throw createApiError(404, 'COMMUNITY_POST_NOT_FOUND', '帖子不存在')
   if (post.status !== 'APPROVED') {
     throw createApiError(403, 'COMMUNITY_POST_NOT_PUBLIC', '帖子尚未公开，暂时不能评论')
   }
 
   const body = await readBody(event)
+  if (
+    (Array.isArray(body?.imageIds) && body.imageIds.length > 0) ||
+    (Array.isArray(body?.images) && body.images.length > 0)
+  ) {
+    throw createApiError(400, 'COMMUNITY_COMMENT_IMAGES_UNSUPPORTED', '评论不支持图片')
+  }
+
   const content = cleanText(body?.content)
   if (!content) throw createApiError(400, 'COMMUNITY_COMMENT_REQUIRED', '评论内容不能为空')
   if (content.length > settings.maxCommentLength) {
@@ -47,17 +64,46 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const moderation = await moderateCommunityText(content, settings)
-  if (moderation.hit && settings.moderationHitAction === 'BLOCK') {
+  let status = 'PENDING'
+  let moderationLabel: string | null = null
+  let moderationDetail: string | null = null
+
+  if (settings.moderationEnabled && isCommunityModerationServiceConfigured()) {
+    const result = await moderateCommunityPostWithService({
+      postId: `comment-${user.id}-${Date.now()}-${randomUUID().slice(0, 8)}`,
+      text: content,
+      imageUrls: [],
+      settings
+    })
+    status = result.postStatus
+    moderationLabel = result.label
+    moderationDetail = result.detail
+  } else {
+    const moderation = await moderateCommunityText(content, settings)
+    if (moderation.hit) {
+      moderationLabel = moderation.labels.join(',') || 'RISK'
+      moderationDetail = moderation.detail
+      if (settings.moderationHitAction === 'BLOCK') status = 'BLOCKED'
+    }
+  }
+
+  if (status === 'BLOCKED') {
     throw createApiError(400, 'COMMUNITY_COMMENT_BLOCKED', '评论未通过安全审核')
   }
 
   const [comment] = await db
     .insert(communityComments)
-    .values({ postId, authorId: user.id, content })
+    .values({
+      postId,
+      authorId: user.id,
+      content,
+      status,
+      moderationLabel,
+      moderationDetail
+    })
     .returning({ id: communityComments.id, createdAt: communityComments.createdAt })
 
-  if (post.authorId !== user.id) {
+  if (status === 'APPROVED' && post.authorId !== user.id) {
     await db.insert(notifications).values({
       userId: post.authorId,
       type: 'COMMUNITY_COMMENT',
@@ -68,5 +114,10 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  return { success: true, comment }
+  return {
+    success: true,
+    status,
+    message: status === 'APPROVED' ? '评论成功' : '评论已提交，审核通过后会显示',
+    comment
+  }
 })

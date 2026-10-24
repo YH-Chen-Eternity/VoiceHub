@@ -92,6 +92,22 @@ Modified by YH-Chen on 2026-10-17
               <LazyAdminCommunityReview />
             </div>
 
+            <!-- 审核：回声社区评论 -->
+            <div
+              v-if="activeTab === 'community-comment-review' && permissions.canAccessPage('community-comment-review')"
+              class="animate-in fade-in slide-in-from-bottom-4 duration-500"
+            >
+              <LazyAdminCommunityCommentReview />
+            </div>
+
+            <!-- 回声社区：归档记录 -->
+            <div
+              v-if="activeTab === 'community-archive' && permissions.canAccessPage('community-archive')"
+              class="animate-in fade-in slide-in-from-bottom-4 duration-500"
+            >
+              <LazyAdminCommunityArchive />
+            </div>
+
             <!-- 内容管理：公告栏编辑 -->
             <div
               v-if="activeTab === 'announcement' && permissions.canAccessPage('announcement')"

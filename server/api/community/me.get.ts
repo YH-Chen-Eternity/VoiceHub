@@ -1,4 +1,4 @@
-import { and, count, eq } from 'drizzle-orm'
+import { and, count, eq, isNull } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import {
   communityComments,
@@ -18,6 +18,7 @@ import {
   resolveCommunityBanState,
   toPublicCommunitySettings
 } from '~~/server/utils/community'
+import { listUserResonance } from '~~/server/utils/communityResonance'
 
 export default defineEventHandler(async (event) => {
   const user = requireCommunityUser(event)
@@ -66,11 +67,25 @@ export default defineEventHandler(async (event) => {
   const postCount = await db
     .select({ value: count() })
     .from(communityPosts)
-    .where(and(eq(communityPosts.authorId, user.id), eq(communityPosts.status, 'APPROVED')))
+    .where(
+      and(
+        eq(communityPosts.authorId, user.id),
+        eq(communityPosts.status, 'APPROVED'),
+        isNull(communityPosts.deletedAt)
+      )
+    )
   const commentCount = await db
     .select({ value: count() })
     .from(communityComments)
-    .where(eq(communityComments.authorId, user.id))
+    .where(
+      and(
+        eq(communityComments.authorId, user.id),
+        eq(communityComments.status, 'APPROVED'),
+        isNull(communityComments.deletedAt)
+      )
+    )
+
+  const resonance = await listUserResonance(user.id)
 
   return {
     success: true,
@@ -90,6 +105,7 @@ export default defineEventHandler(async (event) => {
     },
     favoriteSong,
     titles,
+    resonance,
     ban: resolveCommunityBanState(profile),
     stats: {
       posts: Number(postCount[0]?.value || 0),

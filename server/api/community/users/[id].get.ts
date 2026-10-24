@@ -1,5 +1,5 @@
 import { getRouterParam } from 'h3'
-import { and, count, desc, eq } from 'drizzle-orm'
+import { and, count, desc, eq, isNull } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import {
   communityComments,
@@ -99,11 +99,23 @@ export default defineEventHandler(async (event) => {
   const postCountRows = await db
     .select({ value: count() })
     .from(communityPosts)
-    .where(and(eq(communityPosts.authorId, userId), eq(communityPosts.status, 'APPROVED')))
+    .where(
+      and(
+        eq(communityPosts.authorId, userId),
+        eq(communityPosts.status, 'APPROVED'),
+        isNull(communityPosts.deletedAt)
+      )
+    )
   const commentCountRows = await db
     .select({ value: count() })
     .from(communityComments)
-    .where(eq(communityComments.authorId, userId))
+    .where(
+      and(
+        eq(communityComments.authorId, userId),
+        eq(communityComments.status, 'APPROVED'),
+        isNull(communityComments.deletedAt)
+      )
+    )
 
   return {
     success: true,

@@ -158,7 +158,6 @@
             </button>
           </template>
           <button
-            v-if="isCommunityAdmin"
             type="button"
             class="inline-flex items-center gap-1.5 rounded-lg border border-border-secondary px-3 py-1.5 text-xs font-bold text-text-tertiary transition-all hover:border-error-30 hover:text-error disabled:opacity-50"
             :disabled="busyId === post.id"
@@ -176,6 +175,9 @@
       :message="confirm.message"
       :type="confirm.type"
       :loading="confirm.loading"
+      :show-input="confirm.action === 'delete'"
+      :input-required="false"
+      :input-placeholder="t.deleteReasonPlaceholder"
       @confirm="runConfirm"
       @cancel="confirm.show = false"
     />
@@ -199,12 +201,10 @@ import ConfirmDialog from '~/components/UI/ConfirmDialog.vue'
 import CustomSelect from '~/components/UI/Common/CustomSelect.vue'
 import { useLocale } from '~/utils/locale'
 import { useToast } from '~/composables/useToast'
-import { usePermissions } from '~/composables/usePermissions'
 
 const { community: communityLocale } = useLocale()
 const t = computed(() => communityLocale.value?.admin || {})
 const { showToast } = useToast()
-const { isCommunityAdmin } = usePermissions()
 
 const STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'BLOCKED']
 
@@ -334,7 +334,7 @@ const askDelete = (post) => {
   })
 }
 
-const runConfirm = async () => {
+const runConfirm = async (reason) => {
   if (!confirm.target) return
   confirm.loading = true
   try {
@@ -345,7 +345,10 @@ const runConfirm = async () => {
       })
       showToast(t.value.rejectSuccess, 'success')
     } else {
-      await $fetch(`/api/admin/community/posts/${confirm.target.id}`, { method: 'DELETE' })
+      await $fetch(`/api/community/posts/${confirm.target.id}`, {
+        method: 'DELETE',
+        body: { reason: String(reason || '').trim() }
+      })
       showToast(t.value.deleteSuccess, 'success')
     }
     confirm.show = false

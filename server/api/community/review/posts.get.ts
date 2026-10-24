@@ -1,5 +1,5 @@
 import { getQuery } from 'h3'
-import { count, eq, inArray } from 'drizzle-orm'
+import { count, eq, inArray, isNull, and } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import { communityBoards, communityPosts } from '~/drizzle/schema'
 import {
@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
   const statsRows = await db
     .select({ status: communityPosts.status, value: count() })
     .from(communityPosts)
-    .where(boardFilter)
+    .where(and(isNull(communityPosts.deletedAt), boardFilter))
     .groupBy(communityPosts.status)
 
   const stats: Record<string, number> = { PENDING: 0, APPROVED: 0, REJECTED: 0, BLOCKED: 0 }

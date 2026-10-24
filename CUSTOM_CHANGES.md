@@ -384,8 +384,8 @@ GET  /api/admin/replay-requests
   收藏歌曲 / 点赞歌曲受本人隐私开关控制。
 - 「附上一首歌」复用既有 `Song` 与 `Vote`：帖子内点赞直接调用 `/api/songs/vote`，
   点赞数与歌曲列表一致，不新增投票表。
-- 图片：PNG/JPEG/WebP/GIF，单张 ≤2MB，每日 30 张；是否允许发图由后台开关控制，
-  关闭后上传接口与带图发帖同时拒绝。
+- 图片：PNG/JPEG/WebP/GIF，单帖最多 9 张、单张超 3MB 自动压缩（浏览器优先，服务端 sharp 兜底），
+  每日 30 张；是否允许发图由后台开关控制，关闭后上传接口与带图发帖同时拒绝。
 - 阿里云内容安全（Green 2022-03-02）文本/图片审核为辅助标记：未配置密钥或接口异常时
   只转人工，绝不自动放行；命中策略可选「转人工审核」或「直接拦截」。
   图片审核需配置 `COMMUNITY_PUBLIC_ORIGIN`，否则只走人工。
@@ -448,3 +448,57 @@ GET  /api/admin/replay-requests
   - 配置展示：`server/api/admin/community/settings.get.ts`、`app/components/Admin/CommunitySettings.vue`
 
 **上线前注意**：独立服务不在本次变更中部署到生产；启用前需先部署服务并设置上述环境变量，按 VoiceHub 既有流程重建容器（`docker compose up -d`），不要使用 `docker restart`。
+
+### 10.8 撤回/删除归档、评论审核、图片压缩与共鸣称号（2026-10-24）
+
+**数据模型**（迁移 `20261024040756_community_archive_resonance.sql`）
+
+- `CommunityPost` / `CommunityComment` 新增 `deletedAt`、`deletedBy`、`deleteType`（`WITHDRAW`/`DELETE`）、
+  `deleteReason`、`purgeAt`；`purgeAt = 删除时间 + 30 天`。
+- `CommunityComment` 新增 `status`、`moderationLabel`、`moderationDetail`、`reviewNote`、`reviewedBy`、`reviewedAt`。
+  迁移会把存量评论标记为 `APPROVED`，避免升级后历史评论全部消失。
+- 新表 `CommunityResonance`（`userId + threshold` 唯一），记录首位共鸣伙伴、称号、达成时的相互点赞数与歌曲快照。
+- `CommunitySettings.maxImages` 默认值由 3 调整为 9。
+
+**撤回/删除与归档清理**
+
+- `DELETE /api/community/posts/:id`、`DELETE /api/community/comments/:id`：
+  作者本人为撤回（`WITHDRAW`），管理员/审帖员为删除（`DELETE`，受板块范围限制），重复操作返回 409。
+- 非作者操作会向作者写入站内通知，包含操作人身份、原因、操作时间与待删除时间。
+- `server/plugins/community-archive-purge.ts` 每 6 小时清理一次过期数据；
+  `GET /api/admin/community/archive` 读取时也会先清理。图片仅在不再被帖子/公告引用时物理删除。
+- 信息流、帖子详情、评论列表、用户统计均过滤已删除内容；审帖员可看到未删除但未通过审核的评论。
+
+**评论审核**
+
+- 评论与帖子使用相同的 `PENDING / APPROVED / BLOCKED / REJECTED` 状态和独立审核服务接入；
+  驳回同样累计违规并触发禁言。
+- `GET /api/community/review/comments`、`POST /api/community/review/comments/:id` 提供评论审核队列。
+- `POST /api/community/posts/:id/comments` 显式拒绝 `imageIds` / `images`，评论不支持图片。
+
+**图片**
+
+- 帖子上限 9 张；浏览器端 `app/utils/communityImage.ts` 用 Canvas 压缩超过 3MB 的静态图，
+  服务端 `server/utils/communityImage.ts` 使用 `sharp` 兜底（GIF 保留动画）。
+- 新增依赖 `sharp`；原始文件上限 15MB，压缩后仍超过 3MB 返回明确错误。
+
+**共鸣称号**
+
+- 投票成功后触发 `evaluateCommunityResonance`，按阈值 50 / 200 查找首位达成伙伴；
+  `CommunityResonance` 的唯一索引保证每个用户每个阈值只与第一位伙伴绑定。
+- 双方都会获得称号并自动佩戴；已有称号时仅在低档「共鸣」可升级为高档称号。
+- 达成时写入站内消息并发送邮件模板 `community.resonance.awarded`，包含伙伴与共同点赞歌曲；
+  账号页「回声社区」只向本人展示共鸣记录，公开个人页仍只展示称号。
+
+**管理后台与前端**
+
+- 新增「社区评论审核」「社区归档记录」菜单与权限（`ADMIN` / `SUPER_ADMIN` / `REVIEWER`）。
+- 归档页分「归档帖子 / 归档评论」，帖子下展示全部评论（含已归档评论）及操作人、时间、待删除时间。
+- 信息流与详情页为作者显示「撤回」，为管理员/审帖员显示「删除」；评论同样支持。
+- 多语言（`zh-CN` / `en-US`）与移动端布局同步更新。
+
+**验证**
+
+- `pnpm build` 构建成功；`pnpm exec drizzle-kit check` 通过。
+- `nuxt typecheck` 新增文件无报错（仓库仍存在上游既有类型报错）。
+- 本机无可用 PostgreSQL/Docker，未执行真实数据库端到端；未部署生产。

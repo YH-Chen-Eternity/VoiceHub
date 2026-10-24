@@ -78,9 +78,10 @@ export default defineEventHandler(async (event) => {
   if (imageIds.length > 0 && !settings.allowImages) {
     throw createApiError(400, 'COMMUNITY_IMAGES_DISABLED', '当前不允许发布图片')
   }
-  if (imageIds.length > settings.maxImages) {
-    throw createApiError(400, 'COMMUNITY_TOO_MANY_IMAGES', `最多只能上传 ${settings.maxImages} 张图片`, {
-      params: [settings.maxImages]
+  const maxImages = Math.min(settings.maxImages, 9)
+  if (imageIds.length > maxImages) {
+    throw createApiError(400, 'COMMUNITY_TOO_MANY_IMAGES', `最多只能上传 ${maxImages} 张图片`, {
+      params: [maxImages]
     })
   }
   if (imageIds.length > 0) {

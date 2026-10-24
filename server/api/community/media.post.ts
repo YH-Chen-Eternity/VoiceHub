@@ -8,9 +8,12 @@ import {
   requireCommunityUser
 } from '~~/server/utils/community'
 import { createApiError } from '~~/server/utils/apiError'
+import {
+  COMMUNITY_IMAGE_MAX_UPLOAD_BYTES,
+  normalizeCommunityImage
+} from '~~/server/utils/communityImage'
 
 const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
-const MAX_BYTES = 2 * 1024 * 1024
 const DAILY_LIMIT = 30
 
 export default defineEventHandler(async (event) => {
@@ -40,17 +43,23 @@ export default defineEventHandler(async (event) => {
   if (!ALLOWED_MIME.includes(mime)) {
     throw createApiError(400, 'MEDIA_TYPE_UNSUPPORTED', '仅支持 PNG / JPEG / WebP / GIF 格式')
   }
-  if (file.data.length > MAX_BYTES) {
-    throw createApiError(400, 'MEDIA_TOO_LARGE', '图片不能超过 2MB，请先压缩')
+  if (file.data.length > COMMUNITY_IMAGE_MAX_UPLOAD_BYTES) {
+    throw createApiError(400, 'MEDIA_TOO_LARGE', '图片原始文件不能超过 15MB')
   }
+
+  const normalized = await normalizeCommunityImage({
+    data: file.data,
+    mimeType: mime,
+    filename: file.filename || 'community-upload'
+  })
 
   const [row] = await db
     .insert(mediaAssets)
     .values({
-      filename: file.filename || 'community-upload',
-      mimeType: mime,
-      byteSize: file.data.length,
-      data: file.data.toString('base64'),
+      filename: normalized.filename,
+      mimeType: normalized.mimeType,
+      byteSize: normalized.data.length,
+      data: normalized.data.toString('base64'),
       uploadedBy: user.id
     })
     .returning({ id: mediaAssets.id })
@@ -59,5 +68,11 @@ export default defineEventHandler(async (event) => {
     throw createApiError(500, 'MEDIA_SAVE_FAILED', '图片保存失败，请稍后重试')
   }
 
-  return { success: true, id: row.id, url: `/api/media/${row.id}` }
+  return {
+    success: true,
+    id: row.id,
+    url: `/api/media/${row.id}`,
+    byteSize: normalized.data.length,
+    compressed: normalized.compressed
+  }
 })

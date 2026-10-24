@@ -58,7 +58,7 @@
               <button
                 class="flex-[2] px-6 py-4 text-text-primary text-xs font-black rounded-2xl shadow-lg transition-all active:scale-95 uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 :class="confirmBtnClasses"
-                :disabled="loading || (showInput && !inputValue)"
+                :disabled="loading || (showInput && inputRequired && !inputValue)"
                 @click="handleConfirm"
               >
                 <Icon v-if="loading" name="loader" :size="16" class="animate-spin" />
@@ -122,6 +122,10 @@ const props = defineProps({
   inputPlaceholder: {
     type: String,
     default: ''
+  },
+  inputRequired: {
+    type: Boolean,
+    default: true
   }
 })
 

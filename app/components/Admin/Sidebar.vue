@@ -147,6 +147,8 @@ import {
   Activity,
   ShieldAlert,
   MessageSquare,
+  MessagesSquare,
+  Archive,
   LayoutGrid,
   Award,
   Settings
@@ -209,6 +211,11 @@ const menuGroups = computed(() => [
         icon: MessageSquare,
         label: locale.value.menu?.communityReview || '社区帖子审核',
         id: 'community-review'
+      },
+      {
+        icon: MessagesSquare,
+        label: locale.value.menu?.communityCommentReview || '社区评论审核',
+        id: 'community-comment-review'
       }
     ]
   },
@@ -218,6 +225,7 @@ const menuGroups = computed(() => [
       { icon: LayoutGrid, label: locale.value.menu?.communityBoards || '社区板块', id: 'community-boards' },
       { icon: Award, label: locale.value.menu?.communityTitles || '社区称号', id: 'community-titles' },
       { icon: Users, label: locale.value.menu?.communityUsers || '社区用户', id: 'community-users' },
+      { icon: Archive, label: locale.value.menu?.communityArchive || '社区归档记录', id: 'community-archive' },
       {
         icon: Settings,
         label: locale.value.menu?.communitySettings || '社区配置',

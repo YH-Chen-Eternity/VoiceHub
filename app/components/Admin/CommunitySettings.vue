@@ -58,6 +58,7 @@
       <section class="rounded-2xl border border-border-secondary-50 bg-bg-secondary-30 p-4 md:p-5">
         <h3 class="text-sm font-black text-text-primary">{{ t.allowImagesLabel }}</h3>
         <div class="mt-4 grid gap-4 sm:grid-cols-2">
+          <p class="text-[10px] text-text-tertiary sm:col-span-2">{{ t.imagePolicyHint }}</p>
           <label class="flex items-center justify-between gap-3 rounded-xl border border-border-secondary bg-bg-primary-40 p-3">
             <span class="min-w-0">
               <span class="block text-xs font-bold text-text-primary">{{ t.allowImagesLabel }}</span>
@@ -318,7 +319,7 @@ const { showToast } = useToast()
 const form = reactive({
   enabled: false,
   allowImages: false,
-  maxImages: 3,
+  maxImages: 9,
   maxContentLength: 1000,
   maxCommentLength: 300,
   moderationEnabled: false,

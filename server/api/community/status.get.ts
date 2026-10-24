@@ -1,5 +1,6 @@
 import {
   getCommunitySettings,
+  getReviewableBoardIds,
   isCommunityAdmin,
   isCommunityReviewer,
   requireCommunityUser,
@@ -12,6 +13,7 @@ export default defineEventHandler(async (event) => {
   const user = requireCommunityUser(event)
   const settings = await getCommunitySettings()
   const profile = await ensureCommunityProfile(user.id)
+  const reviewBoardIds = await getReviewableBoardIds(user)
 
   return {
     success: true,
@@ -20,6 +22,7 @@ export default defineEventHandler(async (event) => {
       id: user.id,
       canReview: isCommunityReviewer(user),
       isCommunityAdmin: isCommunityAdmin(user),
+      reviewBoardIds,
       ban: resolveCommunityBanState(profile),
       violationCount: profile.violationCount
     }

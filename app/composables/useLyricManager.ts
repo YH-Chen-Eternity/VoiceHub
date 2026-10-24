@@ -121,7 +121,7 @@ export const useLyricManager = () => {
           format = 'ttml'
           console.log('[LyricManager] 使用 TTML 格式')
         }
-      } catch (e) {
+      } catch (e: any) {
         console.warn('[LyricManager] TTML 解析失败，回退', e)
       }
     }
@@ -136,7 +136,7 @@ export const useLyricManager = () => {
             format = 'qrc'
             console.log('[LyricManager] 使用 QRC 格式')
           }
-        } catch (e) {
+        } catch (e: any) {
           console.warn('[LyricManager] QRC 解析失败', e)
         }
       }

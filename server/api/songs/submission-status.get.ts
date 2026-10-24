@@ -138,7 +138,7 @@ export default defineEventHandler(async (event) => {
       limitType === 'monthly' && effectiveLimit ? Math.max(0, effectiveLimit - monthlyUsed) : null
 
     return status
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取投稿状态失败:', error)
     throw createApiError(500, 'SONG_FETCH_STATUS_FAILED', '获取投稿状态失败')
   }

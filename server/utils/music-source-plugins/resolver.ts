@@ -196,7 +196,7 @@ export async function resolvePlugins(track: PluginTrack, quality: string, exclud
       const proxy = preferProxy || Object.keys(media.headers || {}).length > 0 || media.url.startsWith('http:')
       const url = proxy ? `/api/music-source-plugins/media?ticket=${seal({ ...media, pluginId: row.id, catalog: track.catalog, userId }, 'media', 30 * 60 * 1000)}` : media.url
       return { success: true, url, source: resolverId, pluginId: row.id, attempted, quality: media.quality, playbackMode: proxy ? 'proxy' : 'direct', more: false }
-    } catch (error) {
+    } catch (error: any) {
       // 沙箱并发饱和（503）属容量问题，不计入熔断，否则高峰期会把健康插件集体拉黑 30 秒
       if ((error as any)?.statusCode === 503) continue
       const old = failures.get(resolverId)

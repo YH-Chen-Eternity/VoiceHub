@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
       const info = await getTxSongPlayableInfo(resolvedSongmid)
       resolvedSongId = info.songId || ''
       resolvedSongmid = info.songmid || resolvedSongmid
-    } catch (e) {
+    } catch (e: any) {
       console.warn('[tx.lyric] 无法解析 songId，将回退到 SDK 接口:', e)
     }
   }
@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
           }
         }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.warn('[tx.lyric] 原生 QRC 接口失败，回退到 SDK 接口:', e)
     }
   }
@@ -67,7 +67,7 @@ export default defineEventHandler(async (event) => {
         trans: data.trans || ''
       }
     }
-  } catch (sdkErr) {
+  } catch (sdkErr: any) {
     console.warn('[tx.lyric] SDK 接口失败，回退到旧接口:', sdkErr)
   }
 

@@ -75,7 +75,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: '测试通知发送成功'
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('发送 MeoW 测试通知失败:', error)
 
     if (error.statusCode) {

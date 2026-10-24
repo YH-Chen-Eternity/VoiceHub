@@ -81,7 +81,7 @@ export default defineEventHandler(async (event) => {
     try {
       const info = await getTxSongPlayableInfo(musicId)
       topid = String(info.songId || '').trim()
-    } catch (error) {
+    } catch (error: any) {
       console.error('[QQ评论] 解析歌曲 ID 失败:', error instanceof Error ? error.message : error)
       throw createApiError(
         502,
@@ -124,7 +124,7 @@ export default defineEventHandler(async (event) => {
     response = (await txRequest(TX_MUSICU_URL, requestBody, {
       signal: AbortSignal.timeout(8000)
     })) as QqCommentResponse
-  } catch (error) {
+  } catch (error: any) {
     console.warn('[QQ评论] 直连接口请求失败，尝试签名接口:', error)
   }
 
@@ -133,7 +133,7 @@ export default defineEventHandler(async (event) => {
       response = (await txSignedRequest(requestBody, {
         signal: AbortSignal.timeout(8000)
       })) as QqCommentResponse
-    } catch (error) {
+    } catch (error: any) {
       console.error('[QQ评论] 签名接口请求失败:', error instanceof Error ? error.message : error)
       throw createApiError(
         502,

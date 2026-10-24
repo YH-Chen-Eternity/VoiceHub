@@ -20,7 +20,7 @@ const persistenceUtils = {
       } else {
         sessionStorage.removeItem(SELECTED_SEMESTER_KEY)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn('保存选中学期失败:', error)
     }
   },
@@ -29,7 +29,7 @@ const persistenceUtils = {
   getSelectedSemester: (): string | null => {
     try {
       return sessionStorage.getItem(SELECTED_SEMESTER_KEY)
-    } catch (error) {
+    } catch (error: any) {
       console.warn('获取选中学期失败:', error)
       return null
     }
@@ -39,7 +39,7 @@ const persistenceUtils = {
   saveAvailableSemesters: (semesters: string[]) => {
     try {
       sessionStorage.setItem(AVAILABLE_SEMESTERS_KEY, JSON.stringify(semesters))
-    } catch (error) {
+    } catch (error: any) {
       console.warn('保存可用学期列表失败:', error)
     }
   },
@@ -49,7 +49,7 @@ const persistenceUtils = {
     try {
       const stored = sessionStorage.getItem(AVAILABLE_SEMESTERS_KEY)
       return stored ? JSON.parse(stored) : []
-    } catch (error) {
+    } catch (error: any) {
       console.warn('获取可用学期列表失败:', error)
       return []
     }
@@ -60,7 +60,7 @@ const persistenceUtils = {
     try {
       sessionStorage.removeItem(SELECTED_SEMESTER_KEY)
       sessionStorage.removeItem(AVAILABLE_SEMESTERS_KEY)
-    } catch (error) {
+    } catch (error: any) {
       console.warn('清除持久化数据失败:', error)
     }
   }

@@ -33,7 +33,7 @@ export async function reconcileSongDurationOnSubmit(
       )
     }
     return decision
-  } catch (error) {
+  } catch (error: any) {
     // 外部接口异常时保留原值，不因为后台问题影响用户投稿
     console.error(`[投稿时长] #${songId} 处理失败:`, error)
     return { outcome: 'nocheck', durationSeconds: storedDurationSeconds }
@@ -65,7 +65,7 @@ export async function backfillMissingSongDurations(rows: SongDurationBackfillRow
             return
           }
           await db.update(songs).set({ durationSeconds: duration }).where(eq(songs.id, row.id))
-        } catch (error) {
+        } catch (error: any) {
           console.warn(`[${label}] 歌曲 #${row.id} 时长补齐失败:`, error)
         }
       })

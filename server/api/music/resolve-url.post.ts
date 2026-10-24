@@ -239,7 +239,7 @@ export default defineEventHandler(async (event) => {
         authUsed: Boolean(activeCookie),
         authDiagnostic: getQqCookieDiagnostic(activeCookie)
       }
-    } catch (error) {
+    } catch (error: any) {
       // 登录态过期是解析失败的常见原因，续期成功后重试一轮
       if (!activeCookie) throw error
       const refreshResult = await refreshQqCredential({ cookie: activeCookie })

@@ -102,7 +102,7 @@ export default defineEventHandler(async (event) => {
         .where(baseCondition)
         .limit(1)
     ])
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取通知明细失败:', error)
     throw createApiError(
       500,

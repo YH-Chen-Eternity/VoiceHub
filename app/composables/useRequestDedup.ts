@@ -54,7 +54,7 @@ export const useRequestDedup = () => {
     if (pendingRequest) {
       try {
         return await pendingRequest.promise
-      } catch (error) {
+      } catch (error: any) {
         // 如果请求失败，移除pending状态
         pendingRequests.delete(requestKey)
         throw error
@@ -75,7 +75,7 @@ export const useRequestDedup = () => {
       pendingRequests.delete(requestKey)
 
       return data
-    } catch (error) {
+    } catch (error: any) {
       // 请求失败时移除pending状态
       pendingRequests.delete(requestKey)
       throw error

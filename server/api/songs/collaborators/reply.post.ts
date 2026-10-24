@@ -69,7 +69,7 @@ export default defineEventHandler(async (event) => {
     }
 
     return { success: true }
-  } catch (error) {
+  } catch (error: any) {
     console.error('处理联合投稿邀请失败:', error)
     if (error.statusCode) throw error
     throw createApiError(500, 'SONG_INVITATION_FAILED', '处理邀请失败')

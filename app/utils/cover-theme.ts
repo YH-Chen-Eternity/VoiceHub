@@ -65,7 +65,7 @@ export const extractCoverTheme = (
       accent: toCssTriple(themeColor.color),
       lyricColor: toCssTriple(resolveReadableCoverColor(core, themeColor.color, surfaceIsDark))
     }
-  } catch (error) {
+  } catch (error: any) {
     // 封面尺寸过小 / 画布被污染等，回退到各使用处的 CSS 静态兜底色
     console.warn('[coverTheme] 封面取色失败:', error)
     return null

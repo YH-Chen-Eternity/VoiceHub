@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
     }
     userId = decoded.userId
     preAuthPayload = decoded
-  } catch (e) {
+  } catch (e: any) {
     deleteCookie(event, 'pre-auth-token')
     throw createApiError(401, 'AUTH_SESSION_EXPIRED', '会话已失效，请重新登录')
   }
@@ -125,7 +125,7 @@ export default defineEventHandler(async (event) => {
       },
       clientIP
     )
-  } catch (error) {
+  } catch (error: any) {
     await delStoreIfValue(stateKey, storedValue)
     throw error
   }

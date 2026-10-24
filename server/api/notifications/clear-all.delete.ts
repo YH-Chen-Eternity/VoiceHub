@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       count: retainedNotifications.length + deletedNotifications.length
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('清空通知失败:', error)
     throw createApiError(500, SERVER_ERROR_CODES.NOTIFICATION_CLEAR_FAILED, '清空通知失败')
   }

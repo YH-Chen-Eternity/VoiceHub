@@ -92,7 +92,7 @@ export async function createAuthSession(event: H3Event, user: SessionUser, login
       ...metadata,
       loginMethod
     })
-  } catch (error) {
+  } catch (error: any) {
     if (!isAuthSessionStorageError(error)) throw error
     console.error('[Auth] auth_sessions 表不可用，拒绝签发无法撤销的登录令牌:', error)
     throw createApiError(

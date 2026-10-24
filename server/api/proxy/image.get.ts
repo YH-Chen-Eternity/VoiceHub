@@ -29,9 +29,9 @@ class ImageFetchTimeoutError extends Error {
 }
 
 // 内网/保留地址判定复用插件网络层的 ipaddr.js unicast 实现（同一份 IP 名单）
-const isBlockedAddress = (address) => !publicAddress(address)
+const isBlockedAddress = (address: string) => !publicAddress(address)
 
-const validateUrl = async (url) => {
+const validateUrl = async (url: URL) => {
   if (url.username || url.password) {
     throw createError({ statusCode: 400, message: '图片URL不能包含用户名或密码' })
   }
@@ -62,7 +62,7 @@ const validateUrl = async (url) => {
   }
 }
 
-const getReferer = (hostname) => {
+const getReferer = (hostname: string) => {
   const h = hostname.toLowerCase()
   if (h === 'hdslb.com' || h.endsWith('.hdslb.com')) return 'https://www.bilibili.com/'
   if (
@@ -79,7 +79,7 @@ const getReferer = (hostname) => {
 
 // 连接时 DNS 校验：作为 http/https 请求的自定义 lookup，确保实际连接的 IP 与校验的 IP 一致，
 // 彻底关闭 DNS 重绑定（DNS Rebinding）窗口
-const secureLookup = (hostname, options, callback) => {
+const secureLookup = (hostname: string, options: any, callback: (...args: any[]) => void) => {
   dnsLookup(hostname, options, (err, address, family) => {
     if (err) {
       callback(err)
@@ -97,8 +97,8 @@ const secureLookup = (hostname, options, callback) => {
 }
 
 // 发起单次请求（不自动跟随重定向），连接层使用 secureLookup 校验 IP
-const requestOnce = (targetUrl, headers, timeoutMs) => {
-  return new Promise((resolve, reject) => {
+const requestOnce = (targetUrl: string, headers: Record<string, string>, timeoutMs: number) => {
+  return new Promise<import('http').IncomingMessage>((resolve, reject) => {
     const url = new URL(targetUrl)
     const client = url.protocol === 'https:' ? https : http
     const req = client.request(
@@ -114,7 +114,7 @@ const requestOnce = (targetUrl, headers, timeoutMs) => {
   })
 }
 
-const fetchImage = async (imageUrl, deadlineAt) => {
+const fetchImage = async (imageUrl: string, deadlineAt: number) => {
   let currentUrl = imageUrl
 
   for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect++) {
@@ -194,13 +194,13 @@ const fetchImage = async (imageUrl, deadlineAt) => {
   throw new Error('重定向次数过多')
 }
 
-const retryFetchImage = async (imageUrl, deadlineAt, maxRetries = 2) => {
+const retryFetchImage = async (imageUrl: string, deadlineAt: number, maxRetries = 2) => {
   const hasDeadline = Number.isFinite(deadlineAt)
   let lastError
   for (let i = 0; i <= maxRetries; i++) {
     try {
       return await fetchImage(imageUrl, deadlineAt)
-    } catch (err) {
+    } catch (err: any) {
       lastError = err
       // 校验层面错误（400/403）重试无意义，直接中断
       if (
@@ -255,7 +255,7 @@ export default defineEventHandler(async (event) => {
     setHeader(event, 'Access-Control-Allow-Origin', '*')
 
     return new Uint8Array(buffer)
-  } catch (error) {
+  } catch (error: any) {
     if (error && typeof error === 'object' && 'statusCode' in error) {
       console.warn(`图片代理已拒绝 [${error.statusCode}]`, imageUrl, error.message)
       throw error

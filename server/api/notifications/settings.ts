@@ -76,7 +76,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       data: settings
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('获取通知设置失败:', err)
     throw createError({
       statusCode: 500,

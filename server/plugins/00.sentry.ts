@@ -151,7 +151,7 @@ export default defineNitroPlugin((nitroApp) => {
         const instanceInfo = await getInstanceIdInfo()
         instanceId = instanceInfo.instanceId
         instanceIdPersisted = instanceInfo.persisted
-      } catch (error) {
+      } catch (error: any) {
         console.warn('[Sentry] Failed to resolve instance ID for server tagging:', error)
       }
 

@@ -81,7 +81,7 @@ export const useProgressEvents = () => {
               data.subMessage !== undefined ? data.subMessage : undefined
             )
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error('处理进度事件时出错:', err)
         }
       }
@@ -97,7 +97,7 @@ export const useProgressEvents = () => {
       eventSource.addEventListener('close', () => {
         disconnect()
       })
-    } catch (err) {
+    } catch (err: any) {
       console.error('创建EventSource时出错:', err)
       setError('无法连接到进度更新服务')
     }
@@ -128,7 +128,7 @@ export const useProgressEvents = () => {
       const data = await response.json()
       progressId.value = data.id
       return data.id
-    } catch (err) {
+    } catch (err: any) {
       console.error('获取进度ID时出错:', err)
       return null
     }

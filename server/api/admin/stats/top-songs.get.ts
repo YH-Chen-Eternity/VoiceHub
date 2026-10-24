@@ -70,7 +70,7 @@ export default defineEventHandler(async (event) => {
     }))
 
     return formattedData
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取热门歌曲排行失败:', error)
     throw createError({
       statusCode: 500,

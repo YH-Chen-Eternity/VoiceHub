@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
     }
 
     await revokeOtherAuthSessions(user.id, event.context.authSessionId || null)
-  } catch (error) {
+  } catch (error: any) {
     if (!isAuthSessionStorageError(error)) throw error
     throw createApiError(
       503,

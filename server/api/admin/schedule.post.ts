@@ -178,7 +178,7 @@ export default defineEventHandler(async (event) => {
           artist: song.artist,
           playDate: transactionResult.schedule.playDate
         })
-      } catch (notificationError) {
+      } catch (notificationError: any) {
         notificationSent = false
         console.error('排期已创建，但发送歌曲入选通知失败:', notificationError)
       }
@@ -193,7 +193,7 @@ export default defineEventHandler(async (event) => {
             artist: song.artist,
             playDate: transactionResult.schedule.playDate
           }, transactionResult.schedule.id)
-        } catch (error) {
+        } catch (error: any) {
           console.error(`发送重播安排通知给用户 ${replayUserId} 失败:`, error)
         }
       }

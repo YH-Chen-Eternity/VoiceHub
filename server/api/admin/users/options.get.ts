@@ -93,7 +93,7 @@ export default defineEventHandler(async (event) => {
       treeUsers,
       archivedCount
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取用户筛选选项失败:', error)
     throw createError({
       statusCode: 500,

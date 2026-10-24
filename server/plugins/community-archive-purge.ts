@@ -16,7 +16,7 @@ export default defineNitroPlugin(() => {
       if (result.posts || result.comments) {
         console.info(`[community] 归档清理完成：帖子 ${result.posts} 条，评论 ${result.comments} 条`)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[community] 归档清理失败:', error)
     } finally {
       running = false

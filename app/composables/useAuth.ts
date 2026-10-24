@@ -156,7 +156,7 @@ export const useAuth = () => {
 
     try {
       await refreshUser()
-    } catch (error) {
+    } catch (error: any) {
       console.warn(refreshFailureMessage, error)
     }
   }
@@ -192,7 +192,7 @@ export const useAuth = () => {
   const logout = async (redirect = true) => {
     try {
       await $fetch('/api/auth/logout', { method: 'POST' })
-    } catch (error) {
+    } catch (error: any) {
       // 忽略登出错误
     }
 
@@ -202,7 +202,7 @@ export const useAuth = () => {
     try {
       const { resetUserFilters } = useUserFilters()
       resetUserFilters()
-    } catch (e) {
+    } catch (e: any) {
       // ignore
     }
 

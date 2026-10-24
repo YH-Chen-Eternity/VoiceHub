@@ -89,7 +89,7 @@ export default defineEventHandler(async (event) => {
 
     // 获取每个API Key的权限
     const apiKeyIds = apiKeysList.map((key) => key.id).filter((id) => id != null)
-    let permissions = []
+    let permissions: any[] = []
     if (apiKeyIds.length > 0) {
       try {
         permissions = await db
@@ -104,7 +104,7 @@ export default defineEventHandler(async (event) => {
         if (!Array.isArray(permissions)) {
           permissions = []
         }
-      } catch (permError) {
+      } catch (permError: any) {
         console.error('获取权限数据失败:', permError)
         permissions = []
       }
@@ -135,13 +135,13 @@ export default defineEventHandler(async (event) => {
           }
         }
       }
-    } catch (mapError) {
+    } catch (mapError: any) {
       console.error('组织权限数据失败:', mapError)
       // permissionsMap已经初始化为空对象，继续执行
     }
 
     // 组合结果
-    let result = []
+    let result: any[] = []
     try {
       if (Array.isArray(apiKeysList)) {
         result = apiKeysList
@@ -166,14 +166,14 @@ export default defineEventHandler(async (event) => {
                     ? 'expired'
                     : 'active'
               }
-            } catch (keyError) {
+            } catch (keyError: any) {
               console.error('处理API Key数据失败:', keyError)
               return null
             }
           })
           .filter(Boolean) // 过滤掉null值
       }
-    } catch (resultError) {
+    } catch (resultError: any) {
       console.error('组合结果失败:', resultError)
       result = []
     }

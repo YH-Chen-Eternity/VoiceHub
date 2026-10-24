@@ -149,7 +149,7 @@ export default defineEventHandler(async (event) => {
             count: activeUsersList.length,
             users: activeUsersList
           }
-        } catch (error) {
+        } catch (error: any) {
           return {
             count: 0,
             users: []
@@ -165,7 +165,7 @@ export default defineEventHandler(async (event) => {
             .from(songs)
             .where(gte(songs.createdAt, today))
           return todayCountResult[0].count
-        } catch (error) {
+        } catch (error: any) {
           return 0
         }
       })(),
@@ -205,7 +205,7 @@ export default defineEventHandler(async (event) => {
               count,
               label: `${hour}:00-${parseInt(hour) + 1}:00`
             }))
-        } catch (error) {
+        } catch (error: any) {
           return []
         }
       })()
@@ -221,7 +221,7 @@ export default defineEventHandler(async (event) => {
     }
 
     return result
-  } catch (error) {
+  } catch (error: any) {
     throw createError({
       statusCode: 500,
       message: '获取实时统计数据失败'

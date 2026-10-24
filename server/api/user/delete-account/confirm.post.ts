@@ -80,7 +80,7 @@ export default defineEventHandler(async (event) => {
         scheduledAt: scheduled.toLocaleString('zh-CN', { hour12: false })
       })
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('发送注销受理邮件失败:', error)
   }
 

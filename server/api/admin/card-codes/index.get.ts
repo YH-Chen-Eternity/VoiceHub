@@ -33,8 +33,8 @@ export default defineEventHandler(async (event) => {
       )
     }
 
-    let queryBuilder = db.select().from(cardCodes)
-    let countQueryBuilder = db.select({ count: count() }).from(cardCodes)
+    let queryBuilder = db.select().from(cardCodes).$dynamic()
+    let countQueryBuilder = db.select({ count: count() }).from(cardCodes).$dynamic()
     if (conditions.length > 0) {
       queryBuilder = queryBuilder.where(and(...conditions))
       countQueryBuilder = countQueryBuilder.where(and(...conditions))
@@ -67,7 +67,7 @@ export default defineEventHandler(async (event) => {
       },
       stats
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('获取点歌券列表失败', err)
     throw createError({ statusCode: 500, message: '获取点歌券列表失败' })
   }

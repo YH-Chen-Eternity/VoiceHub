@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
       accepted,
       expected
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取播出时段失败:', error)
     throw createError({
       statusCode: 500,

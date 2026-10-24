@@ -19,7 +19,7 @@ const domParser: QRCParserFn = (xmlStr) => {
     }
 
     return doc.documentElement.getAttribute('LyricContent') || ''
-  } catch (e) {
+  } catch (e: any) {
     console.error('[QRC Parser] Fatal Error:', e)
     // 回退到正则解析
     return regexParser(xmlStr)

@@ -204,7 +204,7 @@ async function getIPBlockInfo(ip: string): Promise<IPBlockInfo | null> {
     }
     ipBlacklist.set(ip, blockInfo)
     return blockInfo
-  } catch (error) {
+  } catch (error: any) {
     handleRedisStateUnavailable(error)
     return null
   }
@@ -250,7 +250,7 @@ async function blockIP(ip: string, reason: string): Promise<void> {
       }),
       SECURITY_CONFIG.IP_BLOCK_DURATION_MINUTES * 60
     )
-  } catch (error) {
+  } catch (error: any) {
     handleRedisStateUnavailable(error)
   }
 
@@ -294,7 +294,7 @@ export async function recordLoginFailure(username: string, ip: string): Promise<
   // 用户名维度：仅作为验证码阈值依据（跨 IP 累计），不参与封锁判定
   try {
     await incrStore(failKey, 30 * 60)
-  } catch (error) {
+  } catch (error: any) {
     handleRedisStateUnavailable(error)
     incrementFallbackFailureCount(failKey)
   }
@@ -303,7 +303,7 @@ export async function recordLoginFailure(username: string, ip: string): Promise<
   let ipAttempts: number
   try {
     ipAttempts = Math.max(await incrStore(ipFailKey, 30 * 60), getFallbackFailureCount(ipFailKey))
-  } catch (error) {
+  } catch (error: any) {
     handleRedisStateUnavailable(error)
     ipAttempts = incrementFallbackFailureCount(ipFailKey)
   }
@@ -323,7 +323,7 @@ export async function recordLoginSuccess(username: string, ip: string): Promise<
   try {
     // 只清用户名维度的失败计数；IP 维度计数保留，避免用自有账号成功登录来重置限流
     await delStore(failKey)
-  } catch (error) {
+  } catch (error: any) {
     handleRedisStateUnavailable(error)
   }
   fallbackLoginFailures.delete(failKey)
@@ -450,14 +450,14 @@ async function triggerSecurityAlert(ip: string, attemptedAccounts: string[]): Pr
             console.log(`向超级管理员 ${admin.name} 发送Meow推送警报失败`)
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`向超级管理员 ${admin.name} 发送安全警报失败:`, error)
       }
     }
 
     // 重置该IP的监控记录，避免重复警报
     ipMonitor.delete(ip)
-  } catch (error) {
+  } catch (error: any) {
     console.error('触发安全警报时发生错误:', error)
   }
 }
@@ -489,7 +489,7 @@ async function triggerAccountIpSwitchAlert(username: string, ips: string[]): Pro
         }
       } catch {}
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('触发账号IP切换警报时发生错误:', error)
   }
 }
@@ -603,7 +603,7 @@ async function triggerSongVoteBurstAlert(
         }
       } catch {}
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('触发歌曲投票激增警报时发生错误:', error)
   }
 }
@@ -682,7 +682,7 @@ ${topSongs}
         }
       } catch {}
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('发送异常投票汇总通知失败:', error)
   } finally {
     // 清空队列和定时器
@@ -740,7 +740,7 @@ async function triggerVoteAnomalyAlert(
 
     // 启动聚合定时器
     anomalyAggregationTimer = setTimeout(flushAnomalyAggregation, ANOMALY_AGGREGATION_WINDOW_MS)
-  } catch (error) {
+  } catch (error: any) {
     console.error('触发投票异常警报时发生错误:', error)
   }
 }
@@ -764,7 +764,7 @@ async function readFailureCount(key: string): Promise<number> {
     const val = await getStore(key)
     const count = val ? parseInt(val, 10) : 0
     return Math.max(Number.isFinite(count) ? count : 0, getFallbackFailureCount(key))
-  } catch (error) {
+  } catch (error: any) {
     handleRedisStateUnavailable(error)
     return getFallbackFailureCount(key)
   }
@@ -820,7 +820,7 @@ export async function resolveCaptchaSettings(): Promise<CaptchaSettings> {
       turnstileSecretKey: settings.turnstileSecretKey || '',
       esaScenes: settings.esaCaptchaScenes
     }
-  } catch (error) {
+  } catch (error: any) {
     console.warn('读取验证码配置失败，已暂时禁用:', error)
     return { ...CAPTCHA_SETTINGS_DEFAULTS }
   }

@@ -26,7 +26,7 @@ export async function checkDatabaseHealth() {
       message: responseTime < 1000 ? 'Database is healthy' : 'Database is responding slowly',
       responseTime
     }
-  } catch (error) {
+  } catch (error: any) {
     return {
       status: 'error',
       message: error instanceof Error ? error.message : 'Unknown database error',
@@ -46,7 +46,7 @@ export async function retryDatabaseOperation<T>(
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await operation()
-    } catch (error) {
+    } catch (error: any) {
       lastError = error instanceof Error ? error : new Error('Unknown error')
 
       if (attempt === maxRetries) {
@@ -93,7 +93,7 @@ export async function getConnectionPoolStatus() {
           ).toFixed(2)
         : '0'
     }
-  } catch (error) {
+  } catch (error: any) {
     throw new Error(
       `Failed to get connection pool status: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
@@ -133,7 +133,7 @@ export async function getDatabaseMetrics() {
           ? ((stat.blocks_hit / (stat.blocks_hit + stat.blocks_read)) * 100).toFixed(2)
           : '0'
     }
-  } catch (error) {
+  } catch (error: any) {
     throw new Error(
       `Failed to get database metrics: ${error instanceof Error ? error.message : 'Unknown error'}`
     )

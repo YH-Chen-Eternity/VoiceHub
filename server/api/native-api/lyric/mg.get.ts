@@ -264,7 +264,7 @@ export default defineEventHandler(async (event) => {
               data: { lrc, trans: '', yrc: '', ttml: '' }
             }
           }
-        } catch (mrcErr) {
+        } catch (mrcErr: any) {
           console.warn('[mg.lyric] mrc 歌词解析失败，回退 lrc:', mrcErr)
         }
       }

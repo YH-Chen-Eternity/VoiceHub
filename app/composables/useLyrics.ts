@@ -179,7 +179,7 @@ export const useLyrics = () => {
       window.HarmonyOS.postMessage(
         JSON.stringify({ method: 'updateLyrics', parameters: { lyrics } })
       )
-    } catch (e) {
+    } catch (e: any) {
       console.error('[useLyrics] 通知鸿蒙侧失败:', e)
     }
   }

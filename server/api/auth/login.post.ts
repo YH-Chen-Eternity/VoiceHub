@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
     // 数据库连接检查 - 使用简单的查询测试连接
     try {
       await db.select().from(users).limit(1)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Database connection error:', error)
       throw createApiError(503, 'AUTH_DATABASE_UNAVAILABLE', '数据库服务暂时不可用')
     }

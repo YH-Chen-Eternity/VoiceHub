@@ -59,7 +59,7 @@ export default defineNitroPlugin((nitroApp) => {
       if (enabled && code.trim() && Array.isArray(html.head)) {
         html.head.push(code)
       }
-    } catch (error) {
+    } catch (error: any) {
       // 注入失败不影响页面渲染
       console.error('[StatisticsCode] 注入统计代码失败:', error)
     }

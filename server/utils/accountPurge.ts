@@ -113,7 +113,7 @@ export async function purgeExpiredDeletions(options: { force?: boolean } = {}): 
             username: row.username,
             deletedAt: new Date().toLocaleString('zh-CN', { hour12: false })
           })
-        } catch (error) {
+        } catch (error: any) {
           console.error(`[账号清理] #${row.id} 发送注销完成邮件失败:`, error)
         }
       }
@@ -128,7 +128,7 @@ export async function purgeExpiredDeletions(options: { force?: boolean } = {}): 
 
       await db.delete(users).where(eq(users.id, row.id))
       purged += 1
-    } catch (error) {
+    } catch (error: any) {
       // 外键拦住（例如点歌券使用日志 RESTRICT）→ 退化为匿名化，保证个人信息一定被清掉
       console.error(`[账号清理] #${row.id} 删除失败，退化为匿名化:`, error)
       try {
@@ -147,7 +147,7 @@ export async function purgeExpiredDeletions(options: { force?: boolean } = {}): 
           })
           .where(eq(users.id, row.id))
         anonymized += 1
-      } catch (inner) {
+      } catch (inner: any) {
         console.error(`[账号清理] #${row.id} 匿名化也失败:`, inner)
       }
     }

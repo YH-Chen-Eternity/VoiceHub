@@ -84,7 +84,7 @@ export default defineEventHandler(async (event) => {
         '账号信息需要更新',
         `管理员要求您更新${items.join('和')}，请在进入站点后按页面提示完成更新。`
       )
-    } catch (error) {
+    } catch (error: any) {
       console.warn('发送强制更新通知失败:', error)
     }
   }

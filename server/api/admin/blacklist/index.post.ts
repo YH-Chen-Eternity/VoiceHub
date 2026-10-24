@@ -82,7 +82,7 @@ export default defineEventHandler(async (event) => {
       message: '黑名单项添加成功',
       item: blacklistItem[0]
     }
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode) {
       throw error
     }

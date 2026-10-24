@@ -60,7 +60,7 @@ export default defineEventHandler(async (event) => {
             createdBy: user.id
           })
           console.log(`歌曲已添加到黑名单`)
-        } catch (error) {
+        } catch (error: any) {
           // 如果黑名单中已存在相同歌曲，忽略错误继续执行
           console.log(`黑名单添加失败，可能已存在: ${error.message}`)
         }
@@ -84,7 +84,7 @@ export default defineEventHandler(async (event) => {
             })
             .where(eq(requestTimes.id, song.hitRequestId))
           console.log(`已减少投稿时段 ${song.hitRequestId} 的接纳数量`)
-        } catch (error) {
+        } catch (error: any) {
           console.error(`减少投稿时段接纳数量失败: ${error.message}`)
         }
       }
@@ -130,7 +130,7 @@ export default defineEventHandler(async (event) => {
         notificationSent
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('驳回歌曲失败:', error)
 
     // 如果是我们抛出的错误，直接重新抛出

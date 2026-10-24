@@ -72,7 +72,7 @@ export default defineEventHandler(async (event) => {
               reason: `歌曲驳回: ${reason}`,
               createdBy: user.id
             })
-          } catch (error) {
+          } catch (error: any) {
             console.log(`黑名单添加失败，可能已存在: ${error.message}`)
           }
         }
@@ -98,7 +98,7 @@ export default defineEventHandler(async (event) => {
               accepted: sql`GREATEST(0, accepted - ${count})`
             })
             .where(eq(requestTimes.id, hitRequestId))
-        } catch (error) {
+        } catch (error: any) {
           console.error(`减少投稿时段 ${hitRequestId} 接纳数量失败: ${error.message}`)
         }
       }
@@ -131,7 +131,7 @@ export default defineEventHandler(async (event) => {
         notificationSent: songsToNotify.length
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('批量驳回歌曲失败:', error)
 
     // 如果是我们抛出的错误，直接重新抛出

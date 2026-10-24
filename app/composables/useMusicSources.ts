@@ -55,7 +55,7 @@ const checkServerLocationGlobal = async () => {
           `[useMusicSources] 服务器位置检测: ${globalIsServerInChina.value ? '中国' : '海外'}`
         )
       }
-    } catch (e) {
+    } catch (e: any) {
       // 失败时保持未知状态（null），进入冷却期，避免把一次瞬时失败永久判定为海外
       locationCheckFailAt = Date.now() + LOCATION_CHECK_RETRY_TTL
       console.warn('[useMusicSources] 服务器位置检测失败，稍后重试:', e)
@@ -373,7 +373,7 @@ const emitLyricProgress = (cacheKey: string, stage: LyricProgressStage, data: Ly
   for (const callback of subscribers) {
     try {
       callback(payload)
-    } catch (error) {
+    } catch (error: any) {
       console.warn('[getLyrics] 歌词进度回调失败:', error)
     }
   }
@@ -759,7 +759,7 @@ export const useMusicSources = () => {
                   return
                 }
               }
-            } catch (e) {
+            } catch (e: any) {
               console.warn('[getLyrics] 原生歌词接口失败:', e)
             }
           }
@@ -794,7 +794,7 @@ export const useMusicSources = () => {
                 emitProgress('qm')
               }
             }
-          } catch (e) {
+          } catch (e: any) {
             console.warn('[getLyrics] vkeys 获取失败:', e)
           }
         }
@@ -821,7 +821,7 @@ export const useMusicSources = () => {
                 emitProgress('official')
               }
             }
-          } catch (e) {
+          } catch (e: any) {
             console.warn('[getLyrics] 咪咕歌词获取失败:', e)
           }
         }
@@ -860,7 +860,7 @@ export const useMusicSources = () => {
               hasResult = true
               emitProgress('official')
             }
-          } catch (e) {
+          } catch (e: any) {
             console.warn('[getLyrics] 插件音源歌词获取失败:', e)
           }
         }
@@ -1286,7 +1286,7 @@ export const useMusicSources = () => {
               error: undefined
             }
           }
-        } catch (e) {
+        } catch (e: any) {
           console.warn('[searchSongs] Native Music 搜索失败，回退到其他音源:', e)
         }
       } else if (!shouldUseNativeFirst) {
@@ -1773,7 +1773,7 @@ export const useMusicSources = () => {
 
       // 从响应中提取封面URL
       return response.songs?.[0]?.al?.picUrl || ''
-    } catch (error) {
+    } catch (error: any) {
       console.error('[getSongPicUrl] 获取封面失败:', error)
       return ''
     }
@@ -1842,7 +1842,7 @@ export const useMusicSources = () => {
         if (storedCookie) {
           cookie = storedCookie
         }
-      } catch (e) {
+      } catch (e: any) {
         // Ignore localStorage errors
       }
     }
@@ -1989,7 +1989,7 @@ export const useMusicSources = () => {
               if (miguResponse?.success && miguResponse?.url) {
                 url = miguResponse.url
               }
-            } catch (miguErr) {
+            } catch (miguErr: any) {
               console.warn('[getSongUrl] 咪咕播放链接获取失败:', miguErr)
             }
           } else if (source.id === 'netease-gdstudio') {
@@ -2097,7 +2097,7 @@ export const useMusicSources = () => {
                 const { useAudioQuality } = await import('./useAudioQuality')
                 const { getQuality } = useAudioQuality()
                 neteaseQuality = Number(getQuality('netease'))
-              } catch (error) {
+              } catch (error: any) {
                 // 无法获取音质设置，使用默认音质
               }
             }
@@ -2406,7 +2406,7 @@ export const useMusicSources = () => {
               timeout: neteaseSource.timeout || 8000
             })
             console.log(`[transformNeteaseResponse] 批量获取详情成功`)
-          } catch (error) {
+          } catch (error: any) {
             console.warn(
               '[transformNeteaseResponse] 批量获取详情失败，将使用搜索结果的基本信息:',
               error

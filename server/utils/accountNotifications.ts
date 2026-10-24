@@ -53,7 +53,7 @@ export async function sendAccountEmail(
     const smtp = SmtpService.getInstance()
     await smtp.initializeSmtpConfig()
     return await smtp.renderAndSend(email, templateKey, { username, ...data })
-  } catch (error) {
+  } catch (error: any) {
     console.error(`[通知邮件] ${templateKey} 发送失败:`, error)
     return false
   }

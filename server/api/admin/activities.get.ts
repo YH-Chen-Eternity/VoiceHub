@@ -84,7 +84,7 @@ export default defineEventHandler(async (event) => {
       activities: sortedActivities,
       total: sortedActivities.length
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取活动记录失败:', error)
     throw createError({
       statusCode: 500,

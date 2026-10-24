@@ -24,8 +24,6 @@ export default defineEventHandler(async (event) => {
   const startDate = query.startDate as string
   const endDate = query.endDate as string
   const ipAddress = query.ipAddress as string
-  const sortBy = (query.sortBy as string) || 'createdAt'
-  const sortOrder = (query.sortOrder as string) || 'desc'
 
   const offset = (page - 1) * limit
 
@@ -37,23 +35,17 @@ export default defineEventHandler(async (event) => {
       method: method?.toUpperCase(),
       statusCode,
       ipAddress,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
       page,
-      limit,
-      sortBy,
-      sortOrder
+      limit
     })
 
     // 获取统计信息
     const stats = await ApiLogService.getStats({
       apiKeyId,
-      endpoint,
-      method: method?.toUpperCase(),
-      statusCode,
-      ipAddress,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined
+      startDate: startDate || undefined,
+      endDate: endDate || undefined
     })
 
     return {
@@ -61,7 +53,7 @@ export default defineEventHandler(async (event) => {
       pagination: result.pagination,
       stats: stats.basic
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取 API 访问日志失败:', error)
     throw createError({
       statusCode: 500,

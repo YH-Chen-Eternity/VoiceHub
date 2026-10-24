@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
       initialized,
       message: initialized ? 'SMTP配置已重载' : 'SMTP未启用或配置不完整，已清空当前SMTP实例'
     }
-  } catch (error) {
+  } catch (error: any) {
     return {
       success: false,
       message: 'SMTP配置重载失败',

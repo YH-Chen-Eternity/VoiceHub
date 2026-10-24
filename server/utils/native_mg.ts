@@ -138,7 +138,7 @@ async function searchMobile(str: string, page: number, limit: number) {
 export async function searchMiguSongs(str: string, page: number, limit: number) {
   try {
     return await searchPC(str, page, limit)
-  } catch (err) {
+  } catch (err: any) {
     console.warn('[native_mg] 咪咕网页 v5 接口请求失败，回退到移动端接口:', err)
     return await searchMobile(str, page, limit)
   }

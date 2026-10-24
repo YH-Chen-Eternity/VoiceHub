@@ -222,7 +222,7 @@ async function handleUserLoginOrBind(
     try {
       const payload = JWTEnhanced.verifyToken(authToken)
       currentUser = payload
-    } catch (e) {
+    } catch (e: any) {
       // Token 无效或已过期，忽略
     }
   }

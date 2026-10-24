@@ -69,7 +69,7 @@ export class DatabaseManager {
       }
 
       return result
-    } catch (error) {
+    } catch (error: any) {
       const latency = Date.now() - startTime
       const result = {
         status: false,
@@ -120,7 +120,7 @@ export class DatabaseManager {
           Number.parseInt(String(connectionRow?.active_connections ?? '0'), 10) || 0,
         serverless: true // Neon Database 是无服务器架构
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[DatabaseManager] Failed to get basic metrics:', error)
       throw new Error(
         `Failed to retrieve basic metrics: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -156,7 +156,7 @@ export class DatabaseManager {
 
         const connRow = connectionStats[0] as { active_connections?: number | string } | undefined
         activeConnections = Number.parseInt(String(connRow?.active_connections ?? '0'), 10) || 0
-      } catch (metricsError) {
+      } catch (metricsError: any) {
         console.warn('Failed to get active connection count:', metricsError)
       }
 
@@ -168,7 +168,7 @@ export class DatabaseManager {
         autoSuspend: true, // 支持自动暂停
         error: null
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to get connection status:', error)
       return {
         connected: false,
@@ -208,7 +208,7 @@ export class DatabaseManager {
       // postgres-js returns count in the result array object properties
       const deleteResult = result as { count?: number | string }
       return Number.parseInt(String(deleteResult.count ?? '0'), 10) || 0
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to cleanup expired sessions:', error)
       throw new Error('Failed to cleanup expired sessions')
     }

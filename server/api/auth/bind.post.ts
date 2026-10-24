@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
   let payload
   try {
     payload = verifyBindingToken(bindingToken)
-  } catch (e) {
+  } catch (e: any) {
     deleteCookie(event, 'binding-token')
     throw createApiError(400, 'AUTH_INVALID_BINDING_TOKEN', '无效的绑定令牌')
   }

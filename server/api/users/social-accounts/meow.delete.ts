@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: 'MeoW 账号解绑成功'
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('解绑 MeoW 账号失败:', error)
 
     if (error.statusCode) {

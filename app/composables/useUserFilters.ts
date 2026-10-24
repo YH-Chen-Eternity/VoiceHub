@@ -39,7 +39,7 @@ export const useUserFilters = () => {
         }
         optionsLoaded.value = true
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('获取轻量级选项失败', e)
     }
   }

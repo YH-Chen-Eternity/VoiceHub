@@ -81,7 +81,7 @@ export default defineEventHandler(async (event) => {
     } else {
       throw createApiError(400, 'AUTH_VERIFICATION_FAILED', '验证失败')
     }
-  } catch (error) {
+  } catch (error: any) {
     // 透传已携带错误码的业务错误，避免被重新包装后丢失 code 通道。
     if (error && typeof error === 'object' && 'statusCode' in error) throw error
     console.error('WebAuthn 验证失败:', error)

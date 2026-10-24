@@ -157,7 +157,7 @@ async function collectTableStats() {
       totalTables: list.length,
       totalRows: list.reduce((sum, item) => sum + item.rows, 0)
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('[SystemBoard] 读取表规模失败:', error)
     return { list: [], totalTables: 0, totalRows: 0 }
   }
@@ -220,7 +220,7 @@ async function collectEffectiveSettings() {
       requestTimeTotal: requestTimeRows.length,
       requestTimeEnabled: countEnabled(requestTimeRows)
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('[SystemBoard] 读取生效配置失败:', error)
     return null
   }
@@ -309,7 +309,7 @@ export async function getBoardEvents(
         })
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('[SystemBoard] 读取 API 错误日志失败:', error)
   }
 
@@ -349,7 +349,7 @@ export async function getBoardEvents(
         })
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('[SystemBoard] 读取口令审计失败:', error)
   }
 

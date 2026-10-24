@@ -104,7 +104,7 @@ export default defineEventHandler(async (event) => {
       data: settings,
       message: '通知设置保存成功'
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('更新通知设置失败:', err)
     throw createError({
       statusCode: 500,

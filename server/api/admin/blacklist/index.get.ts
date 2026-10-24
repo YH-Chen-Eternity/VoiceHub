@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
     // 构建查询条件
     const whereConditions = []
     if (type) {
-      whereConditions.push(eq(songBlacklists.type, type))
+      whereConditions.push(eq(songBlacklists.type, type as (typeof songBlacklists.type.enumValues)[number]))
     }
     if (search) {
       whereConditions.push(ilike(songBlacklists.value, `%${search}%`))
@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
 
     // 获取总数
     const totalResult = await db.select({ count: count() }).from(songBlacklists).where(whereClause)
-    const total = totalResult[0].count
+    const total = totalResult[0]!.count
 
     // 获取黑名单列表
     const blacklist = await db
@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
         pages: Math.ceil(total / limit)
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取黑名单失败:', error)
     throw createError({
       statusCode: 500,

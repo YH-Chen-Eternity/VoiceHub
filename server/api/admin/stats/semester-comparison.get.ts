@@ -59,7 +59,7 @@ export default defineEventHandler(async (event) => {
     )
 
     return semesterStats
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取学期对比数据失败:', error)
     throw createError({
       statusCode: 500,

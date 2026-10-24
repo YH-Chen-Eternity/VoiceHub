@@ -485,7 +485,7 @@ export default defineEventHandler(async (event) => {
           sortBy: fallbackSortBy,
           sortOrder: fallbackSortOrder
         })
-      } catch (fallbackError) {
+      } catch (fallbackError: any) {
         console.error('[Songs API] 基础歌曲查询也失败:', fallbackError)
       }
     }

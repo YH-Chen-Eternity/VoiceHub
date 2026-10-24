@@ -55,7 +55,7 @@ export async function verifyAdminAuth(event: any): Promise<AuthResult> {
     let decoded: any
     try {
       decoded = JWTEnhanced.verifyToken(token)
-    } catch (jwtError) {
+    } catch (jwtError: any) {
       console.error('JWT验证失败:', jwtError)
       return {
         success: false,
@@ -128,7 +128,7 @@ export async function verifyAdminAuth(event: any): Promise<AuthResult> {
       message: '认证成功',
       user: user
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('权限验证过程中出错:', error)
     return {
       success: false,
@@ -197,7 +197,7 @@ export async function verifyUserAuth(event: any): Promise<AuthResult> {
     let decoded: any
     try {
       decoded = JWTEnhanced.verifyToken(token)
-    } catch (jwtError) {
+    } catch (jwtError: any) {
       console.error('JWT验证失败:', jwtError)
       return {
         success: false,
@@ -262,7 +262,7 @@ export async function verifyUserAuth(event: any): Promise<AuthResult> {
       message: '认证成功',
       user: user
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('权限验证过程中出错:', error)
     return {
       success: false,

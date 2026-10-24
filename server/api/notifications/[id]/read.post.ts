@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
       .where(eq(notifications.id, id))
       .limit(1)
       .then((result) => result[0])
-  } catch (error) {
+  } catch (error: any) {
     console.error('查询待标记通知失败:', error)
     throw createApiError(500, SERVER_ERROR_CODES.NOTIFICATION_MARK_READ_FAILED, '标记通知失败')
   }
@@ -65,7 +65,7 @@ export default defineEventHandler(async (event) => {
       ...data,
       sender: serializeNotificationSender({ senderId, senderName, senderUsername })
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('标记通知失败:', error)
     if ((error as { statusCode?: number })?.statusCode === 404) throw error
     throw createApiError(500, SERVER_ERROR_CODES.NOTIFICATION_MARK_READ_FAILED, '标记通知失败')

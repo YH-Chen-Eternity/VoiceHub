@@ -460,7 +460,7 @@ export default defineEventHandler(async (event) => {
       try {
         const fallbackSemester = String(getQuery(event).semester || '').trim()
         return await loadBasicSchedules(client, fallbackSemester, authenticatedUser, authenticatedIsAdmin)
-      } catch (fallbackError) {
+      } catch (fallbackError: any) {
         console.error('基础排期兜底查询失败:', fallbackError)
       }
     }

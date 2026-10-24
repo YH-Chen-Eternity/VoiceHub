@@ -85,7 +85,7 @@ export default defineEventHandler(async (event) => {
       limit,
       source: 'wy'
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error(err)
     throw createError({ statusCode: 500, message: 'Internal Server Error' })
   }

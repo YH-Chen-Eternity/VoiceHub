@@ -27,7 +27,7 @@ export default defineNitroPlugin((nitroApp) => {
       if (!isAstrbotPullMode(settings?.astrbotPushMode)) {
         await flushAstrbotGroupOutbox()
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AstrBot] 群事件冲刷失败:', error)
     } finally {
       running = false

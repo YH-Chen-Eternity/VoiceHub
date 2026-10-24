@@ -140,7 +140,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       song: songWithRequester
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Add song error:', error)
 
     if (error.statusCode) {

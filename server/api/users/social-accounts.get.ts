@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
     }
 
     return socialAccounts
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取社交账号信息失败:', error)
 
     if (error.statusCode) {

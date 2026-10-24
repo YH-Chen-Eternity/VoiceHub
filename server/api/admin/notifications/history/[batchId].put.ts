@@ -142,7 +142,7 @@ export default defineEventHandler(async (event) => {
           recipientCount: recipientUserIds.length
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       if (typeof error === 'object' && error && 'statusCode' in error) throw error
       console.error('重新发送重要通知失败:', error)
       throw createApiError(
@@ -160,7 +160,7 @@ export default defineEventHandler(async (event) => {
       .set({ title, message: content, important: false })
       .where(baseCondition)
       .returning({ id: notifications.id })
-  } catch (error) {
+  } catch (error: any) {
     console.error('修改通知失败:', error)
     throw createApiError(
       500,

@@ -101,7 +101,7 @@ export async function recordPasswordAudit(
       userAgent: getRequestHeader(event, 'user-agent') || null,
       failureReason: failureReason || null
     })
-  } catch (error) {
+  } catch (error: any) {
     // 审计失败不应覆盖密码操作结果，但必须保留服务端告警便于补偿。
     console.error('[PasswordAudit] 写入密码审计日志失败:', error)
   }

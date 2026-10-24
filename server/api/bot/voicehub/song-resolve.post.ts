@@ -211,7 +211,7 @@ export default defineEventHandler(async (event) => {
     try {
       const raw = await fetchSongRaw(platform, songId)
       candidates = normalizeAstrbotSongCandidates(platform, raw)
-    } catch (error) {
+    } catch (error: any) {
       // 上游失败降级到关键词兜底，第三方抖动不应让机器人回复 500
       console.warn('[astrbot-song-resolve] 详情获取失败，走关键词兜底:', error instanceof Error ? error.message : error)
     }

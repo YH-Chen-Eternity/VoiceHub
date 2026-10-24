@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
       .orderBy(asc(users.id))
 
     return usersList
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取用户列表失败:', error)
     throw createError({
       statusCode: 500,

@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
       await sendEmailVerificationCode(currentUser.id, currentUser.email, currentUser.name, clientIP)
 
       return { success: true, message: '验证码已重新发送' }
-    } catch (emailError) {
+    } catch (emailError: any) {
       console.error('发送邮箱验证码失败:', emailError)
       throw createApiError(500, 'USER_CODE_SEND_FAILED', '发送验证码失败，请稍后重试')
     }

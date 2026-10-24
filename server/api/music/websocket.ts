@@ -39,7 +39,7 @@ export function broadcastMusicState(state: MusicState) {
       }
 
       connection.write(`data: ${message}\n\n`)
-    } catch (error) {
+    } catch (error: any) {
       // 忽略常见的连接错误，避免日志污染
       if (error.code !== 'ECONNRESET' && error.code !== 'EPIPE' && error.code !== 'ENOTFOUND') {
         console.error(`Failed to send music state to connection ${id}:`, error.message)
@@ -69,7 +69,7 @@ export function broadcastPlaylistUpdate(playlist: any[]) {
       }
 
       connection.write(`data: ${message}\n\n`)
-    } catch (error) {
+    } catch (error: any) {
       if (error.code !== 'ECONNRESET' && error.code !== 'EPIPE' && error.code !== 'ENOTFOUND') {
         console.error(`Failed to send playlist update to connection ${id}:`, error.message)
       }
@@ -97,7 +97,7 @@ export function broadcastSongChange(songInfo: any) {
       }
 
       connection.write(`data: ${message}\n\n`)
-    } catch (error) {
+    } catch (error: any) {
       if (error.code !== 'ECONNRESET' && error.code !== 'EPIPE' && error.code !== 'ENOTFOUND') {
         console.error(`Failed to send song change to connection ${id}:`, error.message)
       }
@@ -146,7 +146,7 @@ export default defineEventHandler(async (event) => {
       } else {
         console.warn('音乐 SSE 连接会话已失效，降级为匿名连接')
       }
-    } catch (error) {
+    } catch (error: any) {
       if (error && typeof error === 'object' && 'statusCode' in error) {
         throw error
       }
@@ -232,7 +232,7 @@ export default defineEventHandler(async (event) => {
           data: { timestamp: Date.now() }
         })}\n\n`
       )
-    } catch (error) {
+    } catch (error: any) {
       // 忽略常见的连接错误
       if (error.code !== 'ECONNRESET' && error.code !== 'EPIPE') {
         console.error(`Heartbeat failed for connection ${connectionId}:`, error.message)

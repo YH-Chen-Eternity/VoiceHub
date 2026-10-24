@@ -85,7 +85,7 @@ export default defineEventHandler(async (event) => {
     const sortedUsers = userStats.sort((a, b) => b.activityScore - a.activityScore).slice(0, limit)
 
     return sortedUsers
-  } catch (error) {
+  } catch (error: any) {
     // 返回空数组而不是抛出错误，避免前端显示错误
     return []
   }

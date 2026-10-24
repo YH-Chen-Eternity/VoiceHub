@@ -153,7 +153,7 @@ export default defineEventHandler(async (event) => {
     ;({ passwordChangedAt } = await updateUserPassword(binding.userId, password, {
       auditContext: { action: auditAction, ...getPasswordAuditContext(event) }
     }))
-  } catch (error) {
+  } catch (error: any) {
     // 改密执行失败必须落审计，否则只有频控/策略类拒绝可见，写入故障无痕迹
     await recordPasswordAudit(event, binding.userId, auditAction, false, '密码写入失败')
     throw error

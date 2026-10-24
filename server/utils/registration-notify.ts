@@ -46,7 +46,7 @@ export async function notifyRegistration(
         })
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('注册通知发送失败:', error)
   }
 }

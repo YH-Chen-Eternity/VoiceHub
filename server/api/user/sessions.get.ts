@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
       where: and(eq(authSessions.userId, user.id), isNull(authSessions.revokedAt)),
       orderBy: desc(authSessions.lastActiveAt)
     })
-  } catch (error) {
+  } catch (error: any) {
     if (!isAuthSessionStorageError(error)) throw error
     throw createApiError(
       503,

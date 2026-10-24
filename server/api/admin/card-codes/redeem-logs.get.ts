@@ -87,7 +87,7 @@ export default defineEventHandler(async (event) => {
       .leftJoin(users, eq(cardCodeRedeemLogs.redeemedBy, users.id))
       .leftJoin(cardCodes, eq(cardCodeRedeemLogs.cardCodeId, cardCodes.id))
       .leftJoin(songs, eq(cardCodeRedeemLogs.songId, songs.id))
-      
+      .$dynamic()
     if (conditions.length > 0) {
       queryBuilder = queryBuilder.where(and(...conditions))
     }
@@ -119,7 +119,7 @@ export default defineEventHandler(async (event) => {
         }
       }))
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('获取点歌券兑换日志失败', err)
     throw createError({ statusCode: 500, message: '获取点歌券兑换日志失败' })
   }

@@ -125,7 +125,7 @@ export async function sendBatchAstrbotNotifications(userIds: number[], title: st
       const result = await postAstrbotNotification(chunk, title, content, false)
       success += result.sent
       failed += result.failed
-    } catch (error) {
+    } catch (error: any) {
       failed += chunk.length
       console.error('批量发送 AstrBot 通知失败:', error)
     }

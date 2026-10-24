@@ -356,7 +356,7 @@ export default defineEventHandler(async (event) => {
     }
 
     return result
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取统计数据失败:', error)
     throw createError({
       statusCode: 500,

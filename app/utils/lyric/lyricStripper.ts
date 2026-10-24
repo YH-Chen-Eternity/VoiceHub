@@ -363,7 +363,7 @@ export function stripLyricMetadata(
         if (p.trim()) {
           regexes.push(new RegExp(p, 'i')) // 忽略大小写
         }
-      } catch (e) {
+      } catch (e: any) {
         console.warn(`[LyricStripper] 无效的正则表达式: ${p}`, e)
       }
     })
@@ -374,7 +374,7 @@ export function stripLyricMetadata(
     options.softMatchRegexes.forEach((p) => {
       try {
         if (p.trim()) softRegexes.push(new RegExp(p, 'i'))
-      } catch (e) {
+      } catch (e: any) {
         console.warn(`[LyricStripper] 无效的正则表达式: ${p}`, e)
       }
     })

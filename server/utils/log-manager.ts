@@ -55,7 +55,7 @@ export class LogManager {
       if (this.logStream) {
         this.logStream.write(logLine)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Log Manager] 写入日志失败:', error)
     }
   }
@@ -80,7 +80,7 @@ export class LogManager {
       await this.cleanupOldLogs()
 
       console.log('[Log Manager] 日志轮转完成')
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Log Manager] 日志轮转失败:', error)
     }
   }
@@ -116,7 +116,7 @@ export class LogManager {
       await this.cleanupDatabaseLogs()
 
       console.log('[Log Manager] 日志归档完成')
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Log Manager] 日志归档失败:', error)
     }
   }
@@ -184,7 +184,7 @@ export class LogManager {
         oldestLog: oldestResult[0]?.createdAt || null,
         newestLog: newestResult[0]?.createdAt || null
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Log Manager] 获取日志统计失败:', error)
       return {
         currentLogFile: this.currentLogFile,
@@ -251,7 +251,7 @@ export class LogManager {
       this.scheduleLogArchive()
 
       console.log('[Log Manager] 日志管理器初始化完成')
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Log Manager] 初始化失败:', error)
     }
   }
@@ -317,7 +317,7 @@ export class LogManager {
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Log Manager] 清理过期日志失败:', error)
     }
   }
@@ -333,7 +333,7 @@ export class LogManager {
       const result = await db.delete(apiLogs).where(lt(apiLogs.createdAt, cutoffDate))
 
       console.log(`[Log Manager] 清理数据库日志记录: ${result.rowCount || 0} 条`)
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Log Manager] 清理数据库日志失败:', error)
     }
   }

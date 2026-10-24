@@ -97,7 +97,7 @@ export default defineEventHandler(async (event) => {
         const { sendAccountEmail, formatMailTime } = await import('~~/server/utils/accountNotifications')
         await sendAccountEmail(targetId, 'account.password.adminReset', { time: formatMailTime() })
       }
-    } catch (mailError) {
+    } catch (mailError: any) {
       console.error('发送管理员重置密码通知失败:', mailError)
     }
 
@@ -105,7 +105,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: '密码重置成功'
     }
-  } catch (error) {
+  } catch (error: any) {
     await recordPasswordAudit(
       event,
       id,

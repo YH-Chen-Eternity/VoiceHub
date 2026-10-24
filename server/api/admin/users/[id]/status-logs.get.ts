@@ -108,7 +108,7 @@ export default defineEventHandler(async (event) => {
         hasPrevPage
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取用户状态变更日志失败:', error)
 
     if (error.statusCode) {

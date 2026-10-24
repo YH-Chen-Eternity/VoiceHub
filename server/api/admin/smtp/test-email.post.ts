@@ -110,7 +110,7 @@ export default defineEventHandler(async (event) => {
       smtpService.smtpConfig = originalConfig
       smtpService.transporter = originalTransporter
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('发送测试邮件失败:', error)
     return {
       success: false,

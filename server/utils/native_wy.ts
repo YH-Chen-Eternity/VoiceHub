@@ -116,7 +116,7 @@ const postEapi = async (domain: string, form: { params: string }, maxAttempts: n
       }
 
       return await response.json()
-    } catch (error) {
+    } catch (error: any) {
       lastError = error
       if (attempt < maxAttempts) {
         await new Promise((resolve) => setTimeout(resolve, attempt * 200))

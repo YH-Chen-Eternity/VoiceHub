@@ -72,7 +72,7 @@ export default defineEventHandler(async (event) => {
       if (note !== undefined) newValues.note = note
 
       const res = await tx.update(cardCodes).set(newValues).where(eq(cardCodes.id, id)).returning()
-      const newRow = res[0]
+      const newRow = res[0]!
 
       if (status === 'REDEEMED' && current.status !== status) {
         await tx.insert(cardCodeRedeemLogs).values({

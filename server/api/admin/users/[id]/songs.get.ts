@@ -258,7 +258,7 @@ export default defineEventHandler(async (event) => {
         }
       }))
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取用户歌曲信息失败:', error)
 
     if (error.statusCode) {

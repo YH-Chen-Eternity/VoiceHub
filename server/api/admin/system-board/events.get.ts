@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
   try {
     const { list, truncated } = await getBoardEvents(resolveBoardEventsQuery(getQuery(event)))
     return { success: true, data: { events: list, truncated, runtimeMeta: getRuntimeEventsMeta() } }
-  } catch (error) {
+  } catch (error: any) {
     console.error('[SystemBoard] 读取系统看板事件失败:', error)
     throw createApiError(500, SERVER_ERROR_CODES.SYSTEM_BOARD_FAILED, '系统看板事件读取失败')
   }

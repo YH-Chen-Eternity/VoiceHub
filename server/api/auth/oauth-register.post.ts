@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   // 数据库连接检查（在读取配置前执行，DB 故障时返回明确的 503）
   try {
     await db.select().from(users).limit(1)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database connection error:', error)
     throw createApiError(503, SERVER_ERROR_CODES.AUTH_DATABASE_UNAVAILABLE, '数据库服务暂时不可用')
   }
@@ -70,7 +70,7 @@ export default defineEventHandler(async (event) => {
   let payload
   try {
     payload = verifyBindingToken(bindingToken)
-  } catch (e) {
+  } catch (e: any) {
     deleteCookie(event, 'binding-token')
     throw createApiError(400, SERVER_ERROR_CODES.AUTH_INVALID_REGISTER_TOKEN, '无效的注册令牌')
   }

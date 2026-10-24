@@ -265,7 +265,7 @@ export const parseState = (
             return null
           }
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error('Failed to parse OAuth state URLs', e)
         return null
       }

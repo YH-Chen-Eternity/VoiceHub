@@ -203,7 +203,7 @@ export async function searchSongs(
 
   try {
     return normalizeAstrbotSongCandidates(source, await fetchSource(source, normalizedKeyword, safePage))
-  } catch (error) {
+  } catch (error: any) {
     console.warn('[astrbot-song] 音源搜索失败，按空候选降级:', error instanceof Error ? error.message : error)
     return []
   }

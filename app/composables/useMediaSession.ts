@@ -77,7 +77,7 @@ export const useMediaSession = () => {
             ]
           : []
       })
-    } catch (error) {
+    } catch (error: any) {
       console.warn('设置媒体元数据失败:', error)
     }
   }
@@ -89,7 +89,7 @@ export const useMediaSession = () => {
     try {
       navigator.mediaSession.playbackState = state
       isActive.value = state !== 'none'
-    } catch (error) {
+    } catch (error: any) {
       console.warn('设置播放状态失败:', error)
     }
   }
@@ -104,7 +104,7 @@ export const useMediaSession = () => {
         playbackRate: Math.max(0, playbackRate),
         position: Math.max(0, Math.min(position, duration))
       })
-    } catch (error) {
+    } catch (error: any) {
       console.warn('设置位置状态失败:', error)
     }
   }
@@ -145,7 +145,7 @@ export const useMediaSession = () => {
       if (callbacks.value.onNextTrack) {
         navigator.mediaSession.setActionHandler('nexttrack', callbacks.value.onNextTrack)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn('设置动作处理器失败:', error)
     }
   }
@@ -169,7 +169,7 @@ export const useMediaSession = () => {
       actions.forEach((action) => {
         navigator.mediaSession.setActionHandler(action, null)
       })
-    } catch (error) {
+    } catch (error: any) {
       console.warn('清除动作处理器失败:', error)
     }
   }
@@ -202,7 +202,7 @@ export const useMediaSession = () => {
       setPlaybackState('none')
       isActive.value = false
       currentSong.value = null
-    } catch (error) {
+    } catch (error: any) {
       console.warn('清理 Media Session 失败:', error)
     }
   }

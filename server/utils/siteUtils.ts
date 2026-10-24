@@ -7,7 +7,7 @@ export async function getSiteTitle(): Promise<string> {
   try {
     const settings = await getSystemSettingsCached()
     return settings?.siteTitle || process.env.NUXT_PUBLIC_SITE_TITLE || 'VoiceHub'
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取站点标题失败:', error)
     return 'VoiceHub'
   }

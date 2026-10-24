@@ -9,7 +9,7 @@ export default defineEventHandler(async () => {
     let documents = []
     try { const value = JSON.parse(settings[0]?.documents || '[]'); documents = Array.isArray(value) ? value : [] } catch {}
     return { updatedDate: settings[0]?.updatedDate || '', documents: documents.map(({ name, slug, content }) => ({ name, slug, content })) }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取条款文档失败:', error)
     throw createApiError(500, SERVER_ERROR_CODES.AUTH_SYSTEM_ERROR, '获取条款文档失败')
   }

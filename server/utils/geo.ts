@@ -42,7 +42,7 @@ export const getServerLocation = async (): Promise<GeoLocation> => {
     }
 
     throw new Error('IP API failed')
-  } catch (error) {
+  } catch (error: any) {
     console.warn(
       '[Geo] Failed to detect server location, defaulting to non-China (conservative strategy):',
       error

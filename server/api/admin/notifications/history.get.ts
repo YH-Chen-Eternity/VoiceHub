@@ -162,7 +162,7 @@ export default defineEventHandler(async (event) => {
         totalPages: Math.max(1, Math.ceil(total / limit))
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取通知历史失败:', error)
     throw createApiError(
       500,

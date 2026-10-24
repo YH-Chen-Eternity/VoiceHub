@@ -156,7 +156,7 @@ export async function checkDistributedRateLimit(
     if (redisModule.isRedisConfigured()) {
       throw new Error('Redis 分布式限流服务当前不可用')
     }
-  } catch (error) {
+  } catch (error: any) {
     const now = Date.now()
     if (now - lastRedisErrorLogTime >= REDIS_ERROR_LOG_INTERVAL_MS) {
       console.error('[RateLimit] Redis 限流失败，已回退到内存限流', error)

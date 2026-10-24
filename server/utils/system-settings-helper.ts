@@ -12,7 +12,7 @@ export async function getSystemSettingsCached(): Promise<SystemSettings | null> 
   try {
     const [settings] = await db.select().from(systemSettings).limit(1)
     return settings ?? null
-  } catch (error) {
+  } catch (error: any) {
     console.warn('[SystemSettings] 读取系统设置失败:', error)
     return null
   }

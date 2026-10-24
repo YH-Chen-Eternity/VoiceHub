@@ -184,7 +184,7 @@ export default defineEventHandler(async (event) => {
         operatorId: operatorId || null
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取状态变更日志失败:', error)
 
     if (error.statusCode) {

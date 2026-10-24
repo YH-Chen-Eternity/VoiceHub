@@ -59,7 +59,7 @@ export const txSignedRequest = async (body: any, options: { signal?: AbortSignal
       signal: withTxTimeout(options.signal)
     })
     return response
-  } catch (error) {
+  } catch (error: any) {
     console.error('TX Signed Request Error:', error)
     throw error
   }
@@ -206,7 +206,7 @@ export const getTxSongPlayableInfo = async (
   let result: any
   try {
     result = await txRequest(TX_MUSICU_URL, createTxSongDetailBody(normalized))
-  } catch (error) {
+  } catch (error: any) {
     if (normalized.idType === 'mid') {
       const value = {
         ...normalized,
@@ -267,7 +267,7 @@ export const txRequest = async (
       signal: withTxTimeout(options.signal)
     })
     return response
-  } catch (error) {
+  } catch (error: any) {
     console.error('TX Request Error:', error)
     throw error
   }

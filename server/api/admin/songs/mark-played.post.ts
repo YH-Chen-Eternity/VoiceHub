@@ -173,7 +173,7 @@ export default defineEventHandler(async (event) => {
         for (const song of played) {
           await enqueueAstrbotGroupEvent('songPlayed', '歌曲已播放', `《${song.title}》- ${song.artist} 已播放`)
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('发送群聊已播放通知失败:', err)
       }
     })())

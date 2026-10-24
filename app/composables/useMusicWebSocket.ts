@@ -65,7 +65,7 @@ export function useMusicWebSocket() {
         try {
           const message = JSON.parse(event.data)
           handleMessage(message)
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to parse WebSocket message:', error)
         }
       }
@@ -78,7 +78,7 @@ export function useMusicWebSocket() {
         // 自动重连
         scheduleReconnect()
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create WebSocket connection:', error)
       scheduleReconnect()
     }
@@ -155,7 +155,7 @@ export function useMusicWebSocket() {
           data: state
         }
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to send music state update:', error)
     }
   }
@@ -170,7 +170,7 @@ export function useMusicWebSocket() {
           data: songInfo
         }
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to send song change:', error)
     }
   }
@@ -190,7 +190,7 @@ export function useMusicWebSocket() {
           }
         }
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to send position update:', error)
     }
   }

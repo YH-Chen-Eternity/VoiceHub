@@ -14,7 +14,7 @@ import { recordRuntimeEvent } from '~~/server/utils/system-event-buffer'
 async function reportSystemError(source: string, detail: string) {
   try {
     await enqueueAstrbotGroupEvent('systemError', 'VoiceHub 系统异常', `${source}：${detail}`)
-  } catch (error) {
+  } catch (error: any) {
     console.error('上报系统异常到群聊失败:', error)
   }
 }
@@ -61,7 +61,7 @@ export default defineNitroPlugin(async (nitroApp) => {
           // 连接由库自动管理
           await new Promise((resolve) => setTimeout(resolve, 2000)) // 等待2秒
           console.log('Database reconnection successful')
-        } catch (reconnectError) {
+        } catch (reconnectError: any) {
           console.error('Database reconnection failed:', reconnectError)
 
           // 如果重连失败，等待更长时间后再次尝试
@@ -70,7 +70,7 @@ export default defineNitroPlugin(async (nitroApp) => {
               // Note: Drizzle doesn't have explicit connect/disconnect methods
               await new Promise((resolve) => setTimeout(resolve, 5000)) // 等待5秒
               console.log('Database delayed reconnection successful')
-            } catch (delayedReconnectError) {
+            } catch (delayedReconnectError: any) {
               console.error('Database delayed reconnection failed:', delayedReconnectError)
             }
           }, 10000) // 10秒后重试
@@ -112,7 +112,7 @@ export default defineNitroPlugin(async (nitroApp) => {
         dbHealthy = true
         recordRuntimeEvent('info', 'healthcheck', JSON.stringify({ code: 'dbHealthRecovered' }))
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Health check failed:', error)
       if (dbHealthy) {
         dbHealthy = false
@@ -124,7 +124,7 @@ export default defineNitroPlugin(async (nitroApp) => {
         // Note: Drizzle doesn't have explicit connect/disconnect methods
         await new Promise((resolve) => setTimeout(resolve, 1000))
         console.log('Health check reconnection successful')
-      } catch (reconnectError) {
+      } catch (reconnectError: any) {
         console.error('Health check reconnection failed:', reconnectError)
       }
     }

@@ -169,7 +169,7 @@ export const useBackgroundRenderer = () => {
           hasRenderError.value = false
           await refreshCoverTheme()
         }
-      } catch (error) {
+      } catch (error: any) {
         if (currentCoverUrl.value === cover) {
           hasRenderError.value = true
         }
@@ -204,7 +204,7 @@ export const useBackgroundRenderer = () => {
 
       isInitialized.value = true
       await applyRendererState()
-    } catch (error) {
+    } catch (error: any) {
       hasRenderError.value = true
       console.error('背景渲染器初始化失败:', error)
       dispose()
@@ -271,7 +271,7 @@ export const useBackgroundRenderer = () => {
       try {
         renderer.pause()
         renderer.dispose()
-      } catch (error) {
+      } catch (error: any) {
         console.error('清理背景渲染器失败:', error)
       }
     }

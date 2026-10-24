@@ -18,7 +18,7 @@ async function notifyApproved(name: string | null, email: string | null) {
       await smtpService.renderAndSend(email, 'register-approved', {
         title: '注册审核已通过', message
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error('审核通过邮件发送失败:', error)
     }
   }
@@ -33,7 +33,7 @@ async function notifyRejected(name: string | null, email: string | null, reason:
       await smtpService.renderAndSend(email, 'register-rejected', {
         title: '注册申请未通过审核', message
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error('审核拒绝邮件发送失败:', error)
     }
   }

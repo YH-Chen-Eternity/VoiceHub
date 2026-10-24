@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     let poolStatus = null
     try {
       poolStatus = await databaseManager.getConnectionPoolStatus()
-    } catch (poolError) {
+    } catch (poolError: any) {
       console.warn('[System Status] Failed to get database pool status:', poolError)
     }
 
@@ -61,7 +61,7 @@ export default defineEventHandler(async (event) => {
       },
       system: systemInfo
     }
-  } catch (error) {
+  } catch (error: any) {
     // 细节只进服务端日志，响应不暴露内部错误（2026-10-23 安全加固）
     console.error('[System Status] 获取系统状态失败:', error)
 

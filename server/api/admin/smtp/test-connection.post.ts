@@ -99,7 +99,7 @@ export default defineEventHandler(async (event) => {
       smtpService.smtpConfig = originalConfig
       smtpService.transporter = originalTransporter
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('测试SMTP连接失败:', error)
     return {
       success: false,

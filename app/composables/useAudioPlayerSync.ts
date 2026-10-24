@@ -252,7 +252,7 @@ export const useAudioPlayerSync = () => {
       if (isHarmonyOS() && window.voiceHubPlayer && window.voiceHubPlayer.getPlayState) {
         try {
           wasPlaying = window.voiceHubPlayer.getPlayState()
-        } catch (e) {
+        } catch (e: any) {
           console.warn('无法获取鸿蒙侧播放状态，使用Web端状态')
         }
       }
@@ -310,7 +310,7 @@ export const useAudioPlayerSync = () => {
           window.$showNotification(audioPlayerLocale.value.previousFailed, 'error')
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('播放上一首歌曲失败:', error)
       if (window.$showNotification) {
         window.$showNotification(audioPlayerLocale.value.previousFailed, 'error')
@@ -355,7 +355,7 @@ export const useAudioPlayerSync = () => {
       } else {
         return { success: false, error: data.message || `API错误: ${data.code}` }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('获取音乐链接失败:', error)
       return { success: false, error: error.message || '网络错误' }
     }
@@ -379,7 +379,7 @@ export const useAudioPlayerSync = () => {
       if (isHarmonyOS() && window.voiceHubPlayer && window.voiceHubPlayer.getPlayState) {
         try {
           wasPlaying = window.voiceHubPlayer.getPlayState()
-        } catch (e) {
+        } catch (e: any) {
           console.warn('无法获取鸿蒙侧播放状态，使用Web端状态')
         }
       }
@@ -437,7 +437,7 @@ export const useAudioPlayerSync = () => {
           window.$showNotification(audioPlayerLocale.value.nextFailed, 'error')
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('播放下一首歌曲失败:', error)
       if (window.$showNotification) {
         window.$showNotification(audioPlayerLocale.value.nextFailed, 'error')

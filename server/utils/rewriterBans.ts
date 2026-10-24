@@ -32,7 +32,7 @@ async function callRewriter<T>(
       headers: { 'x-attack-token': token },
       timeout: 5000
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('[permanent-bans] 调用边缘安全层失败:', path, error)
     throw createApiError(502, 'REWRITER_UNAVAILABLE', '边缘安全层暂不可用，请稍后重试')
   }

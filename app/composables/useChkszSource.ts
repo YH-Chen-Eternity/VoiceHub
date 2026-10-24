@@ -60,7 +60,7 @@ export function useChkszSource() {
             } else {
               localStorage.removeItem(STORAGE_KEY)
             }
-          } catch (error) {
+          } catch (error: any) {
             console.error('[chksz] Failed to save apikey:', error)
           }
         },
@@ -161,7 +161,7 @@ export function useChkszSource() {
           chkszUrlCache.set(cacheKey, { url: finalUrl, expireAt: Date.now() + CHKSZ_CACHE_TTL })
           return finalUrl
         }
-      } catch (error) {
+      } catch (error: any) {
         console.warn('[chksz] 获取播放链接失败:', error)
       }
       return null

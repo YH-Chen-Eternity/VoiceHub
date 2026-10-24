@@ -100,7 +100,7 @@ async function resetAutoIncrementSequences() {
       } else {
         results.push({ table: table.name, success: false, message: 'Sequence not found' })
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn(`重置 ${table.name} 表序列失败: ${error.message}`)
       results.push({ table: table.name, success: false, error: error.message })
     }
@@ -126,8 +126,8 @@ export default defineEventHandler(async (event) => {
         tablesCleared: 0,
         recordsDeleted: 0,
         sequencesReset: 0,
-        errors: [],
-        preservedData: []
+        errors: [] as any[],
+        preservedData: [] as string[]
       }
     }
 
@@ -264,7 +264,7 @@ export default defineEventHandler(async (event) => {
       // 重置自增序列
       const sequenceResults = await resetAutoIncrementSequences()
       resetResults.details.sequencesReset = sequenceResults.filter((r) => r.success).length
-    } catch (error) {
+    } catch (error: any) {
       console.error('重置数据库失败:', error)
       throw createError({
         statusCode: 500,
@@ -273,7 +273,7 @@ export default defineEventHandler(async (event) => {
     }
 
     return resetResults
-  } catch (error) {
+  } catch (error: any) {
     throw createError({
       statusCode: error.statusCode || 500,
       message: error.message || '服务器内部错误'

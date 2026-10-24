@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
         const data = JSON.parse(cred.providerUsername)
         transports = data.transports
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('解析 WebAuthn 凭证数据失败:', e)
     }
     return {

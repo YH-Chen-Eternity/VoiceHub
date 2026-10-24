@@ -48,7 +48,7 @@ export async function writeAdminAuditRecord(context: AdminAuditContext, payload:
       ip: context.ip,
       userAgent: context.userAgent
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('[admin-audit] 写入审计失败:', payload.action, error)
   }
 }

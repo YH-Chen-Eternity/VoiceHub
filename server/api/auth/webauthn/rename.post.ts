@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
       .where(eq(userIdentities.id, id))
 
     return { success: true }
-  } catch (e) {
+  } catch (e: any) {
     console.error('更新设备名称失败:', e)
     throw createApiError(500, 'AUTH_UPDATE_FAILED', '更新失败')
   }

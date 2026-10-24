@@ -114,7 +114,7 @@ export default defineEventHandler(async (event) => {
       if (activeMonthResult.length > 0) {
         activeMonth = Number(activeMonthResult[0].month)
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('[YearReview] Failed to get active month:', e)
     }
 
@@ -156,7 +156,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       data: resultData
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching year review:', error)
     throw createApiError(500, 'USER_YEAR_REVIEW_FETCH_FAILED', '获取年度总结失败')
   }

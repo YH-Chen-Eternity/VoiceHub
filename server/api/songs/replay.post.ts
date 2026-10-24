@@ -146,7 +146,7 @@ export default defineEventHandler(async (event) => {
             }))
           )
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error('公开留言待审核通知失败:', e)
       }
     }

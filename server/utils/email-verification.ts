@@ -97,7 +97,7 @@ export async function storeEmailCode(email: string, code: string): Promise<void>
     if (dailyCount === 1) {
       await client.expire(dailyKey, Math.ceil(EMAIL_CODE_DAILY_WINDOW_MS / 1000))
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('[EmailCode] Redis 写入失败，已回退内存存储:', error)
   }
 }
@@ -109,7 +109,7 @@ export async function isEmailCodeCooldownActive(email: string): Promise<boolean>
     if (client) {
       return Boolean(await client.exists(cooldownRedisKey(email)))
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('[EmailCode] Redis 读取失败，已回退内存判断:', error)
   }
   const entry = emailCodes.get(normalizeEmail(email))
@@ -125,7 +125,7 @@ export async function isEmailCodeDailyLimitReached(email: string): Promise<boole
       const count = await client.get(dailyRedisKey(email))
       return Number(count || 0) >= EMAIL_CODE_DAILY_LIMIT
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('[EmailCode] Redis 读取失败，已回退内存判断:', error)
   }
   const normalized = normalizeEmail(email)
@@ -150,7 +150,7 @@ export async function verifyEmailCode(email: string, code: string): Promise<bool
         return Number(result[0]) === 1
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('[EmailCode] Redis 校验失败，已回退内存校验:', error)
   }
 

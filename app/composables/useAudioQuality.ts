@@ -64,7 +64,7 @@ const persistNeteaseVipFlag = (profile: any) => {
     } else {
       localStorage.removeItem('netease_vip')
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('[audioQuality] Failed to persist netease_vip:', error)
   }
 }
@@ -147,7 +147,7 @@ export function useAudioQuality() {
       (newValue) => {
         try {
           localStorage.setItem('audioQuality', JSON.stringify(newValue))
-        } catch (error) {
+        } catch (error: any) {
           console.error('[audioQuality] Failed to save quality settings:', error)
         }
       },

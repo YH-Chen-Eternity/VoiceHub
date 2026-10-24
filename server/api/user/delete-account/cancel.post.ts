@@ -51,7 +51,7 @@ export async function cancelAccountDeletion(userId: number, reason = '用户主�
         reason,
         cancelledAt: now.toLocaleString('zh-CN', { hour12: false })
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error('发送注销撤销邮件失败:', error)
     }
   }

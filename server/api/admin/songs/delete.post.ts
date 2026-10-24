@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
             })
             .where(eq(requestTimes.id, song.hitRequestId))
           console.log(`已减少投稿时段 ${song.hitRequestId} 的接纳数量`)
-        } catch (error) {
+        } catch (error: any) {
           console.error(`减少投稿时段接纳数量失败: ${error.message}`)
         }
       }

@@ -222,7 +222,7 @@ export default defineEventHandler(async (event) => {
       if (authSession) {
         await touchAuthSession(authSession.id, Boolean(newToken))
       }
-    } catch (sessionError) {
+    } catch (sessionError: any) {
       console.error('[Auth] 会话存储处理失败:', sessionError)
       if (isAuthSessionStorageError(sessionError)) {
         // 登出必须允许清除 Cookie，即使会话表当前不可用。
@@ -278,7 +278,7 @@ export default defineEventHandler(async (event) => {
     let requirePasswordChange = false
     try {
       requirePasswordChange = await resolveRequirePasswordChange(user)
-    } catch (error) {
+    } catch (error: any) {
       // 配置依赖故障时放行核心请求，避免缓存或数据库抖动造成全站重定向雪崩。
       console.error('[Auth] 读取强制改密策略失败，按放行策略降级:', error)
     }

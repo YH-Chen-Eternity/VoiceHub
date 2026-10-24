@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const id = parseInt(getRouterParam(event, 'id'))
+  const id = parseInt(getRouterParam(event, 'id') || '')
   if (!id) {
     throw createError({
       statusCode: 400,
@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // 更新黑名单项
-    const updateData = {}
+    const updateData: { isActive?: boolean; reason?: string | null } = {}
     if (typeof isActive === 'boolean') {
       updateData.isActive = isActive
     }
@@ -59,7 +59,7 @@ export default defineEventHandler(async (event) => {
       message: '黑名单项更新成功',
       item: updatedItem[0]
     }
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode) {
       throw error
     }

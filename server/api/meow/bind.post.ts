@@ -203,7 +203,7 @@ export default defineEventHandler(async (event) => {
           message: '验证码已发送到您的 MeoW，请查收并输入验证码完成绑定',
           requiresVerification: true
         }
-      } catch (error) {
+      } catch (error: any) {
         // 清除验证码
         await delStoreIfValue(stateKey, storedValue)
 

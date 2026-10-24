@@ -72,7 +72,7 @@ export default defineEventHandler(async (event) => {
     }
 
     return { success: true }
-  } catch (error) {
+  } catch (error: any) {
     if (typeof error === 'object' && error && 'statusCode' in error) throw error
     console.error('删除通知失败:', error)
     throw createApiError(500, SERVER_ERROR_CODES.NOTIFICATION_DELETE_FAILED, '删除通知失败')

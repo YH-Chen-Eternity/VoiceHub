@@ -95,7 +95,8 @@ const getDatabaseConfig = () => {
   }
 };
 
-const client = postgres(connectionString, getDatabaseConfig());
+// postgres 类型声明未覆盖 connection 中的 statement_timeout 字符串形式，运行时按启动参数原样透传
+const client = postgres(connectionString, getDatabaseConfig() as any);
 
 // 创建Drizzle数据库实例
 export const db = drizzle(client, { schema });
@@ -115,7 +116,7 @@ export async function testConnection() {
     await client`SELECT 1`;
     console.log('✅ Database connection successful');
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Database connection failed:', error);
     return false;
   }
@@ -123,7 +124,7 @@ export async function testConnection() {
 
 // 获取数据库连接状态
 export function getConnectionStatus() {
-  const isConnected = !client.ended;
+  const isConnected = !(client as any).ended;
 
   return {
     isConnected,
@@ -150,12 +151,12 @@ function resetIdleTimer() {
   if (process.env.NODE_ENV === 'production') {
     idleTimer = setTimeout(async () => {
       try {
-        if (!client.ended) {
+        if (!(client as any).ended) {
           const dbType = isNeonDatabase ? 'Neon' : 'PostgreSQL';
           console.log(`🔄 Auto-closing idle ${dbType} database connections${isNeonDatabase ? ' for Serverless optimization' : ''}`);
           await client.end({ timeout: isNeonDatabase ? 5 : 10 });
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Error during auto-close:', error);
       }
     }, IDLE_TIMEOUT);
@@ -173,7 +174,7 @@ export function withAutoReconnect<T extends any[], R>(
       return await operation(...args);
     } catch (error: any) {
       // 如果连接已关闭，记录信息
-      if (error?.code === 'CONNECTION_ENDED' || client.ended) {
+      if (error?.code === 'CONNECTION_ENDED' || (client as any).ended) {
         const dbType = isNeonDatabase ? 'Neon' : 'PostgreSQL';
         console.log(`🔄 ${dbType} database connection ended${isNeonDatabase ? ', Neon will auto-reconnect on next query' : ', will reconnect on next query'}`);
       }
@@ -190,11 +191,11 @@ export async function closeConnection() {
       idleTimer = null;
     }
     
-    if (!client.ended) {
+    if (!(client as any).ended) {
       await client.end({ timeout: 10 });
       console.log('✅ Database connection closed gracefully');
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error closing database connection:', error);
   }
 }

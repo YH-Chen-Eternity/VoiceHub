@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
         )
       )
       .returning({ id: notifications.id })
-  } catch (error) {
+  } catch (error: any) {
     console.error('删除通知失败:', error)
     throw createApiError(
       500,

@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: '邮箱已解绑'
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('解绑邮箱失败:', error)
 
     throw createApiError(500, 'USER_EMAIL_UNBIND_FAILED', '解绑邮箱失败')

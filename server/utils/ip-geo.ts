@@ -101,7 +101,7 @@ async function fetchBatch(ips: string[]): Promise<Map<string, IpLocation | null>
         const isChina = String(item.countryCode || '').toUpperCase() === 'CN'
         result.set(ip, { country, region, city, isChina, label: buildLabel(country, region, city, isChina) })
       })
-    } catch (error) {
+    } catch (error: any) {
       console.warn('[geoip] 批量归属地查询失败:', error instanceof Error ? error.message : error)
       chunk.forEach((ip) => result.set(ip, null))
     }

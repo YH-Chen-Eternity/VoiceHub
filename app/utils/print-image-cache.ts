@@ -72,7 +72,7 @@ const fetchImageViaProxy = async (url: string): Promise<Blob> => {
   for (let attempt = 0; ; attempt++) {
     try {
       return await fetchImageBlob(url, true)
-    } catch (error) {
+    } catch (error: any) {
       if ((error as { status?: number })?.status !== 429 || attempt >= 2) throw error
       await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)))
     }
@@ -93,13 +93,13 @@ const fetchAsDataUrl = async (url: string): Promise<string | null> => {
     let blob: Blob
     try {
       blob = directFirst ? await fetchImageBlob(url, false) : await fetchImageViaProxy(url)
-    } catch (error) {
+    } catch (error: any) {
       if (directFirst) throw error
       // 代理拒绝内网解析时，交给浏览器按用户网络环境直连
       blob = await fetchImageBlob(url, false)
     }
     return await blobToDataUrl(blob)
-  } catch (error) {
+  } catch (error: any) {
     console.warn('图片下载失败:', url, error)
     return null
   }

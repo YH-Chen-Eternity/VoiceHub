@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
       }
 
       return requestTime
-    } catch (error) {
+    } catch (error: any) {
       console.error('获取投稿开放时段失败:', error)
       throw createError({
         statusCode: 500,
@@ -172,7 +172,7 @@ export default defineEventHandler(async (event) => {
       return {
         message: '投稿开放时段已成功删除'
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('删除投稿开放时段失败:', error)
       throw createError({
         statusCode: 500,

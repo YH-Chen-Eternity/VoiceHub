@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
       }
 
       return playTime
-    } catch (error) {
+    } catch (error: any) {
       console.error('获取播出时段失败:', error)
       throw createError({
         statusCode: 500,
@@ -224,7 +224,7 @@ export default defineEventHandler(async (event) => {
         message: '播出时段已成功删除',
         affected: { songs: songsCount, schedules: schedulesCount }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('删除播出时段失败:', error)
       throw createError({
         statusCode: 500,

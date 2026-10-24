@@ -143,7 +143,7 @@ export default defineNuxtPlugin((nuxtApp) => {
         Sentry.setTag('instance_id', instanceId)
         Sentry.setContext('instance', { instanceId })
       }
-    } catch (error) {
+    } catch (error: any) {
       setTelemetryStorageValue('false')
       console.warn('[Sentry] Failed to initialize client telemetry:', error)
     } finally {

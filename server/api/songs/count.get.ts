@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
     return {
       count: totalCount
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取歌曲数量失败:', error)
     throw createApiError(500, 'SONG_FETCH_COUNT_FAILED', '获取歌曲数量失败')
   }

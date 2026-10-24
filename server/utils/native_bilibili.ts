@@ -132,7 +132,7 @@ export async function searchBilibiliVideos(keyword: string, page = 1, pageSize =
 
         const pages = videoInfoResp.data?.pages || []
         return biConvertSong(song, pages)
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Failed to fetch video info for ${song.bvid}:`, error)
         return biConvertSong(song)
       }

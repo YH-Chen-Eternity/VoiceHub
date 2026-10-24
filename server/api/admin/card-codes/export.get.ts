@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
       }
       rows = await db.select().from(cardCodes).where(inArray(cardCodes.id, ids)).orderBy(desc(cardCodes.createdAt))
     } else {
-      let qb = db.select().from(cardCodes)
+      let qb = db.select().from(cardCodes).$dynamic()
       if (conditions.length) qb = qb.where(and(...conditions))
       rows = await qb.orderBy(desc(cardCodes.createdAt))
     }

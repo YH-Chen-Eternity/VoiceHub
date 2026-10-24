@@ -73,7 +73,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: 'MeoW 账号绑定成功'
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('绑定 MeoW 账号失败:', error)
 
     if (error.statusCode) {

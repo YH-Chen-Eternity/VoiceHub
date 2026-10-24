@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
         sender: serializeNotificationSender({ senderId, senderName, senderUsername })
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取重要通知失败:', error)
     throw createApiError(500, SERVER_ERROR_CODES.NOTIFICATION_FETCH_FAILED, '获取重要通知失败')
   }

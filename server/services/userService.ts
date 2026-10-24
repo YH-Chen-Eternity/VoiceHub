@@ -77,7 +77,7 @@ export async function updateUserPassword(
         userAgent: options.auditContext.userAgent,
         failureReason: null
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error('[PasswordAudit] 写入密码审计日志失败:', error)
     }
   }

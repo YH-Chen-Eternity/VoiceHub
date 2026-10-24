@@ -68,7 +68,7 @@ export default defineEventHandler(async (event) => {
         name: maskName(u.name)
       }))
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('搜索用户失败:', error)
     throw createError({
       statusCode: 500,

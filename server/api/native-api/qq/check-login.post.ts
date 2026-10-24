@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
       try {
         const avatar = await getQqUserAvatar({ uin, size: 140 })
         avatarUrl = avatar?.avatarUrl || ''
-      } catch (avatarError) {
+      } catch (avatarError: any) {
         console.warn('[qq/check-login] 获取 QQ 头像失败:', avatarError)
       }
     }

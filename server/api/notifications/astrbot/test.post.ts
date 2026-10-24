@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
     const result = await postAstrbotNotification([target.umo], 'VoiceHub 测试通知', '机器人测试消息。')
     if (result.sent !== 1) throw new Error('目标会话发送失败')
     return { success: true }
-  } catch (error) {
+  } catch (error: any) {
     console.warn('[AstrBot] 用户测试推送失败:', error)
     throw createApiError(502, SERVER_ERROR_CODES.ASTRBOT_TEST_FAILED, '机器人测试推送失败')
   }

@@ -49,7 +49,7 @@ export function useSyncedTime() {
         
         console.log(`[TimeSync] 时间同步完成，与服务器时间相差 ${timeOffset}ms`)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[TimeSync] 时间同步失败，将使用本地时间:', error)
       hasSynced = true // 避免反复重试
     }

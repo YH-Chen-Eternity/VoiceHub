@@ -119,7 +119,7 @@ export class JWTEnhanced {
     try {
       const decoded = jwt.decode(token) as JWTPayload
       return decoded && decoded.userId ? decoded : null
-    } catch (error) {
+    } catch (error: any) {
       return null
     }
   }
@@ -200,7 +200,7 @@ export class JWTEnhanced {
         valid: true,
         payload
       }
-    } catch (error) {
+    } catch (error: any) {
       return {
         valid: false
       }

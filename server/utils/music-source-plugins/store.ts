@@ -175,7 +175,7 @@ export async function refreshPlugin(id: string, prepared?: PreparedPlugin): Prom
       await storeArtifact(artifact)
       await db.update(plugins).set({ activeRevision: artifact.revision, activeHash: artifact.hash, lastError: null, updatedAt: getServerDate() }).where(and(eq(plugins.id, id), eq(plugins.desiredRevision, artifact.revision), isNull(plugins.deletedAt)))
       return artifact
-    } catch (error) {
+    } catch (error: any) {
       const code = String((error as any)?.data?.code || (error as any)?.statusMessage || 'PLUGIN_LOAD_FAILED')
       console.error(`[插件音源] 插件 ${id} 第 ${row.desiredRevision} 版加载失败 ${code}:`, (error as Error)?.message || error)
       await db.update(plugins).set({ lastError: code }).where(and(eq(plugins.id, id), eq(plugins.desiredRevision, row.desiredRevision)))

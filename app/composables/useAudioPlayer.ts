@@ -173,7 +173,7 @@ export function useAudioPlayer() {
               window.$showNotification(msg, 'warning')
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           const msg = `《${nextSong.title}》获取播放链接失败，已自动跳过`
           console.warn(msg, error)
           if (window.$showNotification) {
@@ -260,7 +260,7 @@ export function useAudioPlayer() {
           } else {
             console.warn(`跳过第${prevIndex + 1}首歌曲：无法获取播放链接，可能是付费内容`)
           }
-        } catch (error) {
+        } catch (error: any) {
           console.warn(`跳过第${prevIndex + 1}首歌曲：获取播放URL失败`, error)
         }
       } else {
@@ -342,7 +342,7 @@ export function useAudioPlayer() {
           duration: song.duration || undefined,
           priority: useLyricSettings().lyricPriority.value
         }).catch(() => {})
-      } catch (error) {
+      } catch (error: any) {
         console.warn('[AudioPlayer] 歌词预载失败:', error)
       }
     }
@@ -395,7 +395,7 @@ export function useAudioPlayer() {
         nextSong.musicUrl = url
         console.log(`成功预加载下一首歌曲: ${nextSong.title}`)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn(`预加载下一首歌曲《${nextSong.title}》失败:`, error)
       // 注意：这里不显示错误通知，失败会在真正尝试播放时处理并提示
     } finally {

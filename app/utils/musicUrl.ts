@@ -67,7 +67,7 @@ const resolveTencentMid = async (musicId: string | number): Promise<string> => {
         txMidResolveCache.set(raw, mid)
         return mid
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn('[musicUrl] QQ songId 解析 MID 失败，按原始 ID 继续:', error)
     }
     return raw
@@ -212,7 +212,7 @@ const fetchXinghaiMiguUrl = async (
         xinghaiUrlCache.set(cacheKey, { url, expireAt: Date.now() + XINGHAI_CACHE_TTL })
         return url
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn('[musicUrl] 星海音源获取咪咕播放链接失败:', error)
     }
     return null
@@ -360,7 +360,7 @@ export async function getMusicUrlResult(
     try {
       const result = await resolvePluginUrl(platform, musicId, quality, options)
       if (result?.url) return acceptResult(result.url, result.source)
-    } catch (error) { console.warn('[musicUrl] 插件解析阶段失败', error) }
+    } catch (error: any) { console.warn('[musicUrl] 插件解析阶段失败', error) }
     return null
   }
 
@@ -705,7 +705,7 @@ export async function getMusicUrlResult(
           source: 'migu'
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[musicUrl] 咪咕播放链接获取失败:', error)
     }
 

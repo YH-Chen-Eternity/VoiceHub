@@ -66,7 +66,7 @@ export default defineEventHandler(async (event) => {
           set: { adapter: target.platform, umo: target.umo, boundAt: getServerDate() } })
       return { success: true, username: account.username }
     })
-  } catch (error) {
+  } catch (error: any) {
     // 用户唯一约束兜底阻止不同账号并发抢占同一会话；错误码在 cause 上。
     if (isUniqueViolation(error)) {
       throw createApiError(409, SERVER_ERROR_CODES.ASTRBOT_UMO_BOUND, '此会话已绑定其他账号')

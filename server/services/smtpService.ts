@@ -489,7 +489,7 @@ export class SmtpService {
       // 验证SMTP连接
       await this.transporter.verify()
       return true
-    } catch (error) {
+    } catch (error: any) {
       console.error('初始化SMTP配置失败:', error instanceof Error ? error.message : '未知错误')
       this.smtpConfig = null
       this.transporter = null
@@ -569,7 +569,7 @@ export class SmtpService {
           const result = await this.transporter!.sendMail(retryMailOptions)
           console.log(`重试发送成功: ${result.messageId}`)
           return true
-        } catch (retryError) {
+        } catch (retryError: any) {
           console.error('重试发送失败:', retryError)
           throw error // 如果重试也失败，抛出原始错误
         }
@@ -609,7 +609,7 @@ export class SmtpService {
         subject = custom.subject
         html = custom.html
       }
-    } catch (e) {
+    } catch (e: any) {
       // 忽略读取失败，走内置
     }
 
@@ -679,7 +679,7 @@ export class SmtpService {
         return await this.sendMail(to, fallbackSubject, fallbackHtml, undefined, ipAddress)
       }
       return await this.sendMail(to, subject, html, undefined, ipAddress)
-    } catch (error) {
+    } catch (error: any) {
       console.error('渲染并发送邮件失败:', error)
       return false
     }
@@ -695,7 +695,7 @@ export class SmtpService {
         if (!initialized) {
           return { success: false, message: 'SMTP配置无效或未启用' }
         }
-      } catch (error) {
+      } catch (error: any) {
         return {
           success: false,
           message: '初始化SMTP配置失败',
@@ -707,7 +707,7 @@ export class SmtpService {
     try {
       await this.transporter!.verify()
       return { success: true, message: 'SMTP连接测试成功' }
-    } catch (error) {
+    } catch (error: any) {
       return {
         success: false,
         message: 'SMTP连接测试失败',
@@ -740,7 +740,7 @@ export class SmtpService {
         success,
         message: success ? '测试邮件发送成功' : '测试邮件发送失败'
       }
-    } catch (error) {
+    } catch (error: any) {
       return {
         success: false,
         message: '测试邮件发送失败',
@@ -929,7 +929,7 @@ export async function sendEmailNotificationToUser(
       },
       ipAddress
     )
-  } catch (error) {
+  } catch (error: any) {
     console.error('发送邮件通知失败:', error)
     return false
   }

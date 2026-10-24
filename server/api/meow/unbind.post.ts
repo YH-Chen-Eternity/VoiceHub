@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: 'MeoW 账号已成功解绑'
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('MeoW 解绑失败:', error)
 
     if (error.statusCode) {

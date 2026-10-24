@@ -117,7 +117,7 @@ export default defineEventHandler(async (event) => {
         changedBy: user.name
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('更新用户状态失败:', error)
 
     if (error.statusCode) {

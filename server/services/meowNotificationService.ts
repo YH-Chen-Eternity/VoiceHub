@@ -40,7 +40,7 @@ async function sendMeowNotification(
       console.error('MeoW 通知发送失败:', response.status, response.statusText)
       return false
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('发送 MeoW 通知时出错:', error)
     return false
   }
@@ -119,7 +119,7 @@ export async function sendMeowNotificationToUser(
 
     // 发送 MeoW 通知
     return await sendMeowNotification(user.meowNickname, fullTitle, enhancedMessage, url)
-  } catch (error) {
+  } catch (error: any) {
     console.error('发送用户 MeoW 通知失败:', error)
     return false
   }

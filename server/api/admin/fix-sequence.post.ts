@@ -83,7 +83,7 @@ async function fixTableSequence(table: string, dbTableName: string) {
         sequenceName: sequenceName
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     return {
       success: false,
       table: table,
@@ -146,7 +146,7 @@ export default defineEventHandler(async (event) => {
 
     // 如果没有指定表名或指定为'all'，则修复所有表
     if (!table || table === 'all') {
-      const results = []
+      const results: any[] = []
       let hasError = false
       let fixedCount = 0
       let skippedCount = 0
@@ -154,7 +154,7 @@ export default defineEventHandler(async (event) => {
 
       for (const tableName of supportedTables) {
         try {
-          const result = await fixTableSequence(tableName, tableNameMap[tableName])
+          const result: any = await fixTableSequence(tableName, tableNameMap[tableName]!)
           results.push(result)
 
           if (result.success) {
@@ -167,7 +167,7 @@ export default defineEventHandler(async (event) => {
             hasError = true
             errorCount++
           }
-        } catch (error) {
+        } catch (error: any) {
           const errorResult = {
             success: false,
             table: tableName,
@@ -199,11 +199,11 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    const dbTableName = tableNameMap[table]
+    const dbTableName = tableNameMap[table]!
 
     // 使用辅助函数修复单个表
     return await fixTableSequence(table, dbTableName)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Fix sequence error:', error)
     return {
       success: false,

@@ -116,7 +116,7 @@ export const useAudioPlayerControl = () => {
         await playPromise
       }
       return true
-    } catch (error) {
+    } catch (error: any) {
       // 检查是否是自动播放被阻止的错误
       if (error.name === 'NotAllowedError') {
         console.warn('[AudioPlayerControl] ⚠️ 自动播放被浏览器阻止，需要用户交互')
@@ -142,7 +142,7 @@ export const useAudioPlayerControl = () => {
     try {
       audioPlayer.value.pause()
       return true
-    } catch (error) {
+    } catch (error: any) {
       console.error('暂停失败:', error)
       return false
     }
@@ -161,7 +161,7 @@ export const useAudioPlayerControl = () => {
       resetState()
 
       return true
-    } catch (error) {
+    } catch (error: any) {
       console.error('停止失败:', error)
       return false
     }
@@ -181,7 +181,7 @@ export const useAudioPlayerControl = () => {
         progress.value = (targetTime / duration.value) * 100
       }
       return true
-    } catch (error) {
+    } catch (error: any) {
       console.error('跳转失败:', error)
       return false
     }
@@ -197,7 +197,7 @@ export const useAudioPlayerControl = () => {
     // 2. 如果暂停则播放
     try {
       await audioPlayer.value.play()
-    } catch (e) {
+    } catch (e: any) {
       console.warn('Play failed:', e)
     }
 
@@ -338,7 +338,7 @@ export const useAudioPlayerControl = () => {
         try {
           await lyricsPromise
           // 歌词加载完成
-        } catch (lyricsError) {
+        } catch (lyricsError: any) {
           console.warn('歌词加载失败，但继续播放音频:', lyricsError)
         }
       }
@@ -453,20 +453,20 @@ export const useAudioPlayerControl = () => {
             await nextTick()
             await seek(currentTimeBackup)
           }
-        } catch (playError) {
+        } catch (playError: any) {
           console.warn('恢复播放失败，可能需要用户手动播放:', playError)
         }
       }
 
       return true
-    } catch (error) {
+    } catch (error: any) {
       console.error('切换音质失败:', error)
 
       // 如果切换失败，尝试恢复之前的播放状态
       if (wasPlaying && !audioPlayer.value.error) {
         try {
           await play()
-        } catch (playError) {
+        } catch (playError: any) {
           console.error('恢复播放失败:', playError)
         }
       }
@@ -490,7 +490,7 @@ export const useAudioPlayerControl = () => {
       const { getMusicUrl: coreGetMusicUrl } = await import('~/utils/musicUrl')
       const url = await coreGetMusicUrl(platform, musicId, playUrl ?? undefined, options)
       return url
-    } catch (error) {
+    } catch (error: any) {
       console.error('获取音乐URL错误:', error)
       if (error instanceof TypeError && (error as any).message?.includes('fetch')) {
         throw new Error('网络连接失败，请检查网络连接')
@@ -861,7 +861,7 @@ export const useAudioPlayerControl = () => {
       })
 
       return true
-    } catch (error) {
+    } catch (error: any) {
       isSyncingFromGlobal.value = false
       return false
     }

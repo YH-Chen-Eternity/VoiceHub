@@ -64,7 +64,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: '用户删除成功'
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('删除用户失败:', error)
 
     if (error.statusCode) {

@@ -1419,7 +1419,7 @@ export default defineEventHandler(async (event) => {
       try {
         const { setTelemetryEnabledCache } = await import('~~/server/utils/telemetry')
         setTelemetryEnabledCache(updateData.telemetryEnabled)
-      } catch (telemetryError) {
+      } catch (telemetryError: any) {
         console.warn('[Telemetry] 遥测开关缓存更新失败:', telemetryError)
       }
     }
@@ -1429,12 +1429,12 @@ export default defineEventHandler(async (event) => {
       // 强制刷新：早退检查会导致修改授权码后单例仍持有旧凭据
       await SmtpService.getInstance().initializeSmtpConfig(true)
       console.log('[SMTP] SMTP配置已重新加载（更新系统设置）')
-    } catch (smtpError) {
+    } catch (smtpError: any) {
       console.warn('[SMTP] SMTP配置重载失败:', smtpError)
     }
 
     return maskSystemSettingsSecrets(settings)
-  } catch (error) {
+  } catch (error: any) {
     console.error('更新系统设置失败:', error)
 
     if (error.statusCode) {

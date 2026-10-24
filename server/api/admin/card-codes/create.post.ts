@@ -101,7 +101,7 @@ export default defineEventHandler(async (event) => {
 
     const inserts = insertCodes.map((c: string) => ({
       code: c,
-      status: 'AVAILABLE',
+      status: 'AVAILABLE' as const,
       note: typeof body.note === 'string' ? body.note.trim() || null : null
     }))
     const res = await db.insert(cardCodes).values(inserts).returning()

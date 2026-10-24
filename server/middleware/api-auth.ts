@@ -80,7 +80,7 @@ async function logApiAccess(
       responseBody: responseBody ? truncateResponseBody(responseBody) : undefined,
       errorMessage
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('[API Auth Middleware] 记录API访问日志失败:', error)
   }
 }
@@ -306,7 +306,7 @@ export default defineEventHandler(async (event) => {
         getHeader(event, 'user-agent') || 'Unknown'
       )
       console.log('[API Auth Middleware] API访问日志记录完成')
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[API Auth Middleware] 记录API访问日志失败:`, error)
     }
 

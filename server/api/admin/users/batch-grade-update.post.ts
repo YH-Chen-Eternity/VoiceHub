@@ -145,7 +145,7 @@ export default defineEventHandler(async (event) => {
           .returning({ id: users.id })
 
         updated = updateResult.length
-      } catch (error) {
+      } catch (error: any) {
         console.error('批量更新失败:', error)
         failed += validExistingUserIds.length
         validExistingUserIds.forEach((id) => {
@@ -158,7 +158,7 @@ export default defineEventHandler(async (event) => {
     try {
       // 这里可以添加操作日志记录
       // 由于不修改数据库结构，暂时跳过日志记录
-    } catch (logError) {
+    } catch (logError: any) {
       console.error('记录操作日志失败:', logError)
       // 日志记录失败不影响主要操作
     }
@@ -177,7 +177,7 @@ export default defineEventHandler(async (event) => {
         accountStatus: accountStatusFilter || null
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('批量年级更新API错误:', error)
 
     if (error.statusCode) {

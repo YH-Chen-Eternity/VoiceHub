@@ -60,7 +60,7 @@ export default defineEventHandler(async (event) => {
       recentActiveUsers,
       recentActiveUserPercentage: totalUsers > 0 ? (recentActiveUsers / totalUsers) * 100 : 0
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取用户参与度数据失败:', error)
     throw createError({
       statusCode: 500,

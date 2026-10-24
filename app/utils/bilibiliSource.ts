@@ -53,7 +53,7 @@ export async function getBilibiliTrackUrl(id: string, cid?: string) {
       params
     })
     return data
-  } catch (error) {
+  } catch (error: any) {
     console.error('Bilibili track url error:', error)
     throw error
   }
@@ -65,7 +65,7 @@ export async function searchBilibili(keyword: string) {
       params: { keyword }
     })
     return data || []
-  } catch (error) {
+  } catch (error: any) {
     console.error('Bilibili search error:', error)
     return []
   }

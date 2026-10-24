@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       count: updatedNotifications.length
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('标记所有通知失败:', error)
     throw createApiError(
       500,

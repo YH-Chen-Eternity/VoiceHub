@@ -209,7 +209,7 @@ export default defineEventHandler(async (event) => {
         })
 
         updateResults.push(updatedUser)
-      } catch (error) {
+      } catch (error: any) {
         console.error(`处理用户 ${update.userId} 更新时出错:`, error)
         errors.push({
           userId: update.userId,
@@ -239,7 +239,7 @@ export default defineEventHandler(async (event) => {
     }
 
     return response
-  } catch (error) {
+  } catch (error: any) {
     console.error('批量更新用户失败:', error)
 
     // 如果是已知错误，直接抛出

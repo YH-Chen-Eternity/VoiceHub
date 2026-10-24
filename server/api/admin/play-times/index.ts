@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
       .orderBy(desc(playTimes.enabled), asc(playTimes.startTime))
 
     return playTimesResult
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取播出时段失败:', error)
     throw createError({
       statusCode: 500,

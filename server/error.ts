@@ -119,7 +119,7 @@ export default async function errorHandler(
     if (!shouldPreserveMessage(error)) {
       error.unhandled = true
     }
-  } catch (handlerError) {
+  } catch (handlerError: any) {
     // 本处理器自身异常时保底：标记 unhandled 后交还链上处理器，
     // 此时 nitro 默认处理器 isSensitive 为 true，同样只输出 "Server Error"。
     console.error('[server-error] handler failed:', handlerError)

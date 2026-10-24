@@ -96,7 +96,7 @@ export async function sendEmailVerificationCode(
       },
       ipAddress
     )
-  } catch (error) {
+  } catch (error: any) {
     await delStoreIfValue(stateKey, storedValue)
     throw error
   }

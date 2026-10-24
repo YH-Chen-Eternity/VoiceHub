@@ -77,7 +77,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: '验证码发送成功'
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('发送 MeoW 验证码失败:', error)
 
     if (error.statusCode) {

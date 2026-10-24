@@ -83,7 +83,7 @@ export async function enqueueAstrbotGroupEvent(
     }, eventKey)
     if (!umos.length) return 0
     return await queueToGroups(umos, title, safeContent, eventKey, settings.throttle)
-  } catch (error) {
+  } catch (error: any) {
     console.error(`AstrBot 群事件入队失败（${eventKey}）:`, error)
     return 0
   }
@@ -235,7 +235,7 @@ export async function flushAstrbotGroupOutbox(): Promise<{ sent: number; failed:
           .returning({ id: astrbotOutbox.id })
         if (updated.length) failed++
       }
-    } catch (error) {
+    } catch (error: any) {
       const updated = await db.update(astrbotOutbox)
         .set({ umos, leasedUntil: null, claimToken: null, lastError: String(error).slice(0, 500),
           failedAt: row.attempts >= ASTRBOT_OUTBOX_MAX_ATTEMPTS ? getServerDate() : null })

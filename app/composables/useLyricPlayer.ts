@@ -115,14 +115,14 @@ export const useLyricPlayer = () => {
             if (onLineClickCallback.value) {
               onLineClickCallback.value(seconds)
             }
-          } catch (e) {
+          } catch (e: any) {
             console.warn('[useLyricPlayer] 处理 line-click 事件失败:', e)
           }
         })
       }
       isInitialized.value = true
       console.log('[useLyricPlayer] 歌词播放器初始化成功')
-    } catch (error) {
+    } catch (error: any) {
       console.error('[useLyricPlayer] 歌词播放器初始化失败:', error)
       // 如果初始化失败，创建一个简单的占位符
       createFallbackPlayer(container)
@@ -180,7 +180,7 @@ export const useLyricPlayer = () => {
 
       // 设置对齐位置
       lyricPlayer.value.setAlignPosition(resolved.alignPosition)
-    } catch (error) {
+    } catch (error: any) {
       console.error('应用歌词配置失败:', error)
     }
   }
@@ -210,7 +210,7 @@ export const useLyricPlayer = () => {
       currentLyrics.value = lyrics
       await lyricPlayer.value.setLyricLines(lyrics)
       console.log('[useLyricPlayer] 歌词数据设置成功')
-    } catch (error) {
+    } catch (error: any) {
       console.error('[useLyricPlayer] 设置歌词数据失败:', error)
     }
   }
@@ -224,7 +224,7 @@ export const useLyricPlayer = () => {
       // 确保时间是整数毫秒，符合 AMLL 要求
       const timeInMs = Math.floor(time)
       lyricPlayer.value.setCurrentTime(timeInMs)
-    } catch (error) {
+    } catch (error: any) {
       console.error('[useLyricPlayer] 更新播放时间失败:', error)
     }
   }
@@ -235,7 +235,7 @@ export const useLyricPlayer = () => {
 
     try {
       lyricPlayer.value.update(deltaTime)
-    } catch (error) {
+    } catch (error: any) {
       console.error('[useLyricPlayer] 更新歌词播放器失败:', error)
     }
   }
@@ -251,7 +251,7 @@ export const useLyricPlayer = () => {
       } else if (!playing && lyricPlayer.value.pause) {
         lyricPlayer.value.pause()
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('设置播放状态失败:', error)
     }
   }
@@ -285,7 +285,7 @@ export const useLyricPlayer = () => {
 
       currentTime.value = time
       console.log('[useLyricPlayer] 跳转到时间:', timeInMs, 'ms')
-    } catch (error) {
+    } catch (error: any) {
       console.error('跳转时间失败:', error)
     }
   }
@@ -301,7 +301,7 @@ export const useLyricPlayer = () => {
       try {
         lyricPlayer.value.dispose()
         lyricPlayer.value = null
-      } catch (error) {
+      } catch (error: any) {
         console.error('清理歌词播放器失败:', error)
       }
     }

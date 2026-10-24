@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     const removed = clearBoardRuntimeEvents()
     recordRuntimeEvent('info', 'systemBoard', JSON.stringify({ code: 'bufferCleared', count: removed }))
     return { success: true, data: { removed } }
-  } catch (error) {
+  } catch (error: any) {
     console.error('[SystemBoard] 清空运行事件缓冲失败:', error)
     throw createApiError(500, SERVER_ERROR_CODES.SYSTEM_BOARD_FAILED, '运行事件缓冲清空失败')
   }

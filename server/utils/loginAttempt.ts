@@ -24,7 +24,7 @@ export async function recordLoginAttempt(
       result: payload.result,
       detail: payload.detail ? String(payload.detail).slice(0, 500) : null
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('[login-attempt] 写入失败:', payload.result, error)
   }
 }

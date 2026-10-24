@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
         vote: false,
         schedule: false,
         notification: false
-      },
+      } as Record<string, boolean>,
       userCount: 0
     }
 
@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
     try {
       await db.execute(sql`SELECT 1`)
       status.connected = true
-    } catch (error) {
+    } catch (error: any) {
       console.error('数据库连接失败:', error)
       return { success: false, status, error: '数据库连接失败' }
     }
@@ -38,8 +38,8 @@ export default defineEventHandler(async (event) => {
             AND table_name = ${tableName}
           )
         `)
-        status.tables[tableName] = result[0]?.exists || false
-      } catch (error) {
+        status.tables[tableName] = Boolean((result as any[])[0]?.exists)
+      } catch (error: any) {
         console.error(`检查表 ${tableName} 失败:`, error)
         status.tables[tableName] = false
       }
@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
       try {
         const userCountResult = await db.select({ count: count() }).from(users)
         status.userCount = userCountResult[0]?.count || 0
-      } catch (error) {
+      } catch (error: any) {
         console.error('获取用户数量失败:', error)
       }
     }
@@ -59,7 +59,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       status
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('检查数据库状态失败:', error)
     throw createError({
       statusCode: 500,

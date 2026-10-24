@@ -172,7 +172,7 @@ export async function exportBackupData(): Promise<{ json: string; filename: stri
       backupData.data[tableName] = data
       backupData.metadata.tables.push({ name: tableName, description, recordCount: data.length })
       totalRecords += data.length
-    } catch (error) {
+    } catch (error: any) {
       console.warn(`备份表 ${tableName} 失败，已跳过:`, error)
       backupData.metadata.tables.push({ name: tableName, description: `${description} (跳过)`, recordCount: 0 })
     }

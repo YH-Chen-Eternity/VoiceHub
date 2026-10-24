@@ -239,7 +239,7 @@ const casdoorStrategy: OAuthStrategy = {
         userInfo = await $fetch(`${endpoint}/api/userinfo`, {
           headers: { Authorization: `Bearer ${accessToken}` }
         })
-      } catch (e) {
+      } catch (e: any) {
         // 尝试备用端点
         userInfo = await $fetch(`${endpoint}/api/get-account`, {
           headers: { Authorization: `Bearer ${accessToken}` }

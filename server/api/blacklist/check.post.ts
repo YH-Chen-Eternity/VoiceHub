@@ -100,7 +100,7 @@ export default defineEventHandler(async (event) => {
         artist
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('检查黑名单失败:', error)
     throw createError({
       statusCode: 500,

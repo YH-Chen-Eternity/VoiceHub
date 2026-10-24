@@ -86,13 +86,13 @@ export default defineEventHandler(async (event) => {
           source: 'qq-music-api'
         }
       }
-    } catch (sdkErr) {
+    } catch (sdkErr: any) {
       console.warn('[tx.get] qq-music-api 搜索失败，回退到原生搜索:', sdkErr)
     }
 
     try {
       result = await txSignedRequest(body)
-    } catch (signedErr) {
+    } catch (signedErr: any) {
       console.warn('[tx.get] 签名请求失败，回退到普通请求:', signedErr)
       result = await txRequest('https://u.y.qq.com/cgi-bin/musicu.fcg', body)
     }
@@ -174,7 +174,7 @@ export default defineEventHandler(async (event) => {
       limit,
       source: 'tx'
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error(err)
     throw createError({ statusCode: 500, message: 'Internal Server Error' })
   }

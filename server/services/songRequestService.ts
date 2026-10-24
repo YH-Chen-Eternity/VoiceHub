@@ -578,7 +578,7 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
                 songId: newSong.id,
                 songTitle: newSong.title
               })
-            } catch (err) {
+            } catch (err: any) {
               console.error(`邀请用户 ${collaboratorId} 失败:`, err)
             }
           }
@@ -602,7 +602,7 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
               console.log(`[投稿时长] #${song.id} 已补齐时长 ${decision.durationSeconds}s`)
             }
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error(`[投稿时长] 后台任务 #${song.id} 异常:`, err)
         }
       })()
@@ -627,7 +627,7 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
             }))
           )
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error('公开留言待审核通知失败:', e)
       }
     }
@@ -640,7 +640,7 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
           notification.songId,
           notification.songTitle
         )
-      } catch (error) {
+      } catch (error: any) {
         console.error(`发送邀请通知给用户 ${notification.userId} 失败:`, error)
       }
     }
@@ -660,7 +660,7 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
         '新的点歌投稿',
         `${displayName} 点了《${song.title}》- ${song.artist}`
       )
-    } catch (error) {
+    } catch (error: any) {
       console.error('发送群聊点歌通知失败:', error)
     }
 
@@ -698,7 +698,7 @@ async function getCurrentSemesterName() {
     }
 
     throw new Error('未设置活跃学期')
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取当前学期失败:', error)
     throw error
   }

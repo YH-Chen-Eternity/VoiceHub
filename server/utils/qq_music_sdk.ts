@@ -5,7 +5,6 @@ import {
   getLyric,
   getMusicPlay,
   getQQLoginQr,
-  getSearchByKey,
   search
 } from '@sansenjian/qq-music-api/sdk'
 import {
@@ -582,7 +581,7 @@ export const resolveQqOfficialPlayUrl = async ({
   const qualityCandidates =
     qualityOrderIndex >= 0 ? QQ_OFFICIAL_QUALITY_ORDER.slice(qualityOrderIndex) : ['320', '128', 'm4a']
   const filenames = qualityCandidates.map((key) => {
-    const fileType = QQ_PLAY_FILE_TYPE_MAP[key]
+    const fileType = QQ_PLAY_FILE_TYPE_MAP[key]!
     return `${fileType.prefix}${fileBase}${fileType.suffix}`
   })
 
@@ -607,7 +606,7 @@ export const resolveQqOfficialPlayUrl = async ({
     const parsed = parseQqOfficialPlayUrl(normalResponse, filenames, guid, cdnSip)
     url = parsed.url
     info = parsed.info
-  } catch (normalErr) {
+  } catch (normalErr: any) {
     console.warn('[qq_music_sdk] 未签名请求失败，尝试签名请求:', normalErr)
   }
 
@@ -761,7 +760,7 @@ export const checkQqLogin = async (ptqrtoken: string | number, qrsig: string) =>
 
 // 微信区扫码：本地库新链路，session cookie 与 QQ 扫码同构（tmeLoginType=1）
 export const getQqWxLoginQr = async () => {
-  const body = unwrapQqSdkResponse(await getWXLoginQr(), '获取微信登录二维码失败')
+  const body = unwrapQqSdkResponse(await (getWXLoginQr as any)(), '获取微信登录二维码失败')
   return body.response || body.data || body
 }
 
@@ -865,7 +864,7 @@ const probeQqVipLogin = async (cookieObject: Record<string, string>, cookie: str
       vipCode: reqData.code as unknown,
       isVip: vipOk ? isQqVipFromLoginBaseData(reqData.data) : false
     }
-  } catch (error) {
+  } catch (error: any) {
     console.warn('[qq_music_sdk] vip_login_base 失败:', error instanceof Error ? error.message : error)
     return { vipOk: false, vipCode: undefined as unknown, isVip: false }
   }
@@ -905,7 +904,7 @@ export const checkQqCookie = async ({ cookie }: { cookie?: string }) => {
       if (node) {
         profile = buildProfileFromNode(node, rawUin)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn('[qq_music_sdk] 主页直连失败:', error instanceof Error ? error.message : error)
     }
 
@@ -918,7 +917,7 @@ export const checkQqCookie = async ({ cookie }: { cookie?: string }) => {
           detailOk = true
           profile = buildProfileFromNode(node, rawUin)
         }
-      } catch (error) {
+      } catch (error: any) {
         console.warn('[qq_music_sdk] getUserDetail 回退失败:', error instanceof Error ? error.message : error)
       }
     }
@@ -942,7 +941,7 @@ export const checkQqCookie = async ({ cookie }: { cookie?: string }) => {
           userId: rawUin
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn('[qq_music_sdk] 歌单创建者信息兜底失败:', error instanceof Error ? error.message : error)
     }
   }
@@ -1023,7 +1022,7 @@ const SBOX: number[][] = [
 
 const _bn = (a: Buffer, b: number, c: number): number => {
   const bi = Math.floor(b/32)*4+3-Math.floor((b%32)/8)
-  return ((a[bi]>>(7-(b%8)))&1)<<c
+  return ((a[bi]!>>(7-(b%8)))&1)<<c
 }
 const _bni = (a: number, b: number, c: number): number => ((a>>(31-b))&1)<<c
 const _bnl = (a: number, b: number, c: number): number => (((a<<b)&0x80000000)>>>c)>>>0
@@ -1051,8 +1050,8 @@ const _fp = (s0: number, s1: number): Buffer => {
 const _f = (state: number, key: number[]): number => {
   const t1=(_bnl(state,31,0)|((state&0xf0000000)>>>1)|_bnl(state,4,5)|_bnl(state,3,6)|((state&0x0f000000)>>>3)|_bnl(state,8,11)|_bnl(state,7,12)|((state&0x00f00000)>>>5)|_bnl(state,12,17)|_bnl(state,11,18)|((state&0x000f0000)>>>7)|_bnl(state,16,23))>>>0
   const t2=(_bnl(state,15,0)|((state&0x0000f000)<<15)|_bnl(state,20,5)|_bnl(state,19,6)|((state&0x00000f00)<<13)|_bnl(state,24,11)|_bnl(state,23,12)|((state&0x000000f0)<<11)|_bnl(state,28,17)|_bnl(state,27,18)|((state&0x0000000f)<<9)|_bnl(state,0,23))>>>0
-  const lg=[((t1>>>24)&0xff)^key[0],((t1>>>16)&0xff)^key[1],((t1>>>8)&0xff)^key[2],((t2>>>24)&0xff)^key[3],((t2>>>16)&0xff)^key[4],((t2>>>8)&0xff)^key[5]]
-  state=((SBOX[0][_sb(lg[0]>>>2)]<<28)|(SBOX[1][_sb(((lg[0]&3)<<4)|(lg[1]>>>4))]<<24)|(SBOX[2][_sb(((lg[1]&15)<<2)|(lg[2]>>>6))]<<20)|(SBOX[3][_sb(lg[2]&63)]<<16)|(SBOX[4][_sb(lg[3]>>>2)]<<12)|(SBOX[5][_sb(((lg[3]&3)<<4)|(lg[4]>>>4))]<<8)|(SBOX[6][_sb(((lg[4]&15)<<2)|(lg[5]>>>6))]<<4)|SBOX[7][_sb(lg[5]&63)])>>>0
+  const lg=[((t1>>>24)&0xff)^key[0]!,((t1>>>16)&0xff)^key[1]!,((t1>>>8)&0xff)^key[2]!,((t2>>>24)&0xff)^key[3]!,((t2>>>16)&0xff)^key[4]!,((t2>>>8)&0xff)^key[5]!]
+  state=((SBOX[0]![_sb(lg[0]!>>>2)]!<<28)|(SBOX[1]![_sb(((lg[0]!&3)<<4)|(lg[1]!>>>4))]!<<24)|(SBOX[2]![_sb(((lg[1]!&15)<<2)|(lg[2]!>>>6))]!<<20)|(SBOX[3]![_sb(lg[2]!&63)]!<<16)|(SBOX[4]![_sb(lg[3]!>>>2)]!<<12)|(SBOX[5]![_sb(((lg[3]!&3)<<4)|(lg[4]!>>>4))]!<<8)|(SBOX[6]![_sb(((lg[4]!&15)<<2)|(lg[5]!>>>6))]!<<4)|SBOX[7]![_sb(lg[5]!&63)]!)>>>0
   return (_bnl(state,15,0)|_bnl(state,6,1)|_bnl(state,19,2)|_bnl(state,20,3)|_bnl(state,28,4)|_bnl(state,11,5)|_bnl(state,27,6)|_bnl(state,16,7)|_bnl(state,0,8)|_bnl(state,14,9)|_bnl(state,22,10)|_bnl(state,25,11)|_bnl(state,4,12)|_bnl(state,17,13)|_bnl(state,30,14)|_bnl(state,9,15)|_bnl(state,1,16)|_bnl(state,7,17)|_bnl(state,23,18)|_bnl(state,13,19)|_bnl(state,31,20)|_bnl(state,26,21)|_bnl(state,2,22)|_bnl(state,8,23)|_bnl(state,18,24)|_bnl(state,12,25)|_bnl(state,29,26)|_bnl(state,5,27)|_bnl(state,21,28)|_bnl(state,10,29)|_bnl(state,3,30)|_bnl(state,24,31))>>>0
 }
 
@@ -1063,21 +1062,21 @@ const _ks = (key: Buffer, mode: number): number[][] => {
   const pD=[62,54,46,38,30,22,14,6,61,53,45,37,29,21,13,5,60,52,44,36,28,20,12,4,27,19,11,3]
   const cp=[13,16,10,23,0,4,2,27,14,5,20,9,22,18,11,3,25,7,15,6,26,19,12,1,40,51,30,36,46,54,29,39,50,44,32,47,43,48,38,55,33,52,45,41,49,35,28,31]
   let c=0,d=0
-  for(let i=0;i<28;i++){c|=_bn(key,pC[i],31-i);d|=_bn(key,pD[i],31-i)}
+  for(let i=0;i<28;i++){c|=_bn(key,pC[i]!,31-i);d|=_bn(key,pD[i]!,31-i)}
   for(let i=0;i<16;i++){
-    c=(((c<<sh[i])|(c>>>(28-sh[i])))&0xfffffff0)>>>0
-    d=(((d<<sh[i])|(d>>>(28-sh[i])))&0xfffffff0)>>>0
+    c=(((c<<sh[i]!)|(c>>>(28-sh[i]!)))&0xfffffff0)>>>0
+    d=(((d<<sh[i]!)|(d>>>(28-sh[i]!)))&0xfffffff0)>>>0
     const t=mode===0?15-i:i
-    for(let j=0;j<24;j++)sch[t][Math.floor(j/8)]|=_bni(c,cp[j],7-(j%8))
-    for(let j=24;j<48;j++)sch[t][Math.floor(j/8)]|=_bni(d,cp[j]-27,7-(j%8))
+    for(let j=0;j<24;j++)sch[t]![Math.floor(j/8)]|=_bni(c,cp[j]!,7-(j%8))
+    for(let j=24;j<48;j++)sch[t]![Math.floor(j/8)]|=_bni(d,cp[j]!-27,7-(j%8))
   }
   return sch
 }
 
 const _desBlock = (inp: Buffer, key: number[][]): Buffer => {
   let [s0,s1]=_ip(inp)
-  for(let i=0;i<15;i++){const p=s1;s1=(_f(s1,key[i])^s0)>>>0;s0=p}
-  s0=(_f(s1,key[15])^s0)>>>0
+  for(let i=0;i<15;i++){const p=s1;s1=(_f(s1,key[i]!)^s0)>>>0;s0=p}
+  s0=(_f(s1,key[15]!)^s0)>>>0
   return _fp(s0,s1)
 }
 

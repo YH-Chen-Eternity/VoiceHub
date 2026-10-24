@@ -350,7 +350,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       song: updatedSong[0]
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Update song error:', error)
 
     // 业务错误（带 statusCode）直接透传

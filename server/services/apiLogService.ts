@@ -45,7 +45,7 @@ export class ApiLogService {
       })
 
       console.log(`[ApiLogService] API访问日志记录成功`)
-    } catch (error) {
+    } catch (error: any) {
       // 静默处理日志记录错误，避免影响主要业务流程
       console.error('[ApiLogService] API访问日志记录失败:', error)
     }
@@ -399,7 +399,7 @@ export class ApiLogService {
 
       console.log(`Cleaned up API logs older than ${daysToKeep} days`)
       return result
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to cleanup old API logs:', error)
       throw error
     }

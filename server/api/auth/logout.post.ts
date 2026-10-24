@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
         maxAge: 0,
         path: '/'
       })
-    } catch (cookieError) {
+    } catch (cookieError: any) {
       console.error('Failed to clear cookie:', cookieError)
     }
 

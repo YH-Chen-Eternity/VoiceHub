@@ -153,7 +153,7 @@ export default defineEventHandler(async (event) => {
         hasPrevPage: page > 1
       }
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('获取通知失败:', err)
     throw createApiError(500, SERVER_ERROR_CODES.NOTIFICATION_FETCH_FAILED, '获取通知失败')
   }

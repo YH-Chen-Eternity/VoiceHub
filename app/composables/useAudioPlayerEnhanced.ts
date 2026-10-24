@@ -60,7 +60,7 @@ export const useAudioPlayerEnhanced = () => {
         return { success: true, url }
       }
       return { success: false, error: '未获取到播放链接' }
-    } catch (error) {
+    } catch (error: any) {
       console.error('获取音乐链接失败:', error)
       return { success: false, error: (error as any)?.message || '网络错误' }
     }
@@ -260,7 +260,7 @@ export const useAudioPlayerEnhanced = () => {
         isRetrying.value = false
         return { handled: true, showError: true }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('处理播放错误时发生异常:', err)
       isRetrying.value = false
       return { handled: false, error: err }
@@ -320,7 +320,7 @@ export const useAudioPlayerEnhanced = () => {
 
         return { success: false, error: result.error }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('切换音质时发生错误:', error)
 
       addNotification({

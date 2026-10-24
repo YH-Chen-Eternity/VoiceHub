@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
       .orderBy(desc(requestTimes.enabled), asc(requestTimes.startTime))
 
     return requestTimesResult
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取投稿开放时段失败:', error)
     throw createError({
       statusCode: 500,

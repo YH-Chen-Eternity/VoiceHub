@@ -48,7 +48,7 @@ const executeRedisState = async <T>(
   try {
     const redis = await requireRedis()
     return await operation(redis)
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof RedisStateUnavailableError) throw error
     throw new RedisStateUnavailableError()
   }

@@ -138,7 +138,7 @@ export const isExpectedUpstreamMusicError = (text: string): boolean => {
 
 const getRequestPath = (url: unknown): string => {
   if (typeof url !== 'string' || !url) return ''
-  const withoutQuery = url.split('?')[0]
+  const withoutQuery = url.split('?')[0]!
   try {
     return new URL(withoutQuery, 'http://voicehub.invalid').pathname
   } catch {

@@ -81,7 +81,7 @@ export default defineEventHandler(async (event) => {
   let payload: AdminAuditPayload
   try {
     payload = await describeAdminAction(method, pathname, body)
-  } catch (error) {
+  } catch (error: any) {
     console.error('[admin-audit] 生成动作描述失败:', error)
     payload = { action: `${method} ${lower}`, target: null, detail: `${method} ${lower}` }
   }

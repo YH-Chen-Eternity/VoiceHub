@@ -81,7 +81,7 @@ export default defineNuxtPlugin({
             const errorData = await response.clone().json()
             const errorMessage = errorData.message || '登录失败，请检查账号密码'
             return Promise.reject(new Error(errorMessage))
-          } catch (parseError) {
+          } catch (parseError: any) {
             return Promise.reject(new Error('登录失败，请检查账号密码'))
           }
         }

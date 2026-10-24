@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const id = parseInt(getRouterParam(event, 'id'))
+  const id = parseInt(getRouterParam(event, 'id') || '')
   if (!id) {
     throw createError({
       statusCode: 400,
@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: '黑名单项删除成功'
     }
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode) {
       throw error
     }

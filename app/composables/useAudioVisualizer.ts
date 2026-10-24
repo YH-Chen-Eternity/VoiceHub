@@ -56,7 +56,7 @@ export const useAudioVisualizer = () => {
           // 先断开所有现有连接
           try {
             cachedSource.disconnect()
-          } catch (e) {
+          } catch (e: any) {
             // 可能已经断开
           }
 
@@ -65,18 +65,18 @@ export const useAudioVisualizer = () => {
           // 先断开分析器现有输出，避免重复连接导致信号叠加
           try {
             analyser.value.disconnect()
-          } catch (e) {
+          } catch (e: any) {
             // 可能尚未连接
           }
           analyser.value.connect(ctx.destination)
           isInitialized.value = true
-        } catch (e) {
+        } catch (e: any) {
           console.warn('[AudioVisualizer] 重新连接失败，可能是不支持 CORS 的音频源，跳过可视化')
           // 如果重新连接失败，尝试恢复到直接输出
           try {
             cachedSource.disconnect()
             cachedSource.connect(ctx.destination)
-          } catch (e2) {
+          } catch (e2: any) {
             console.error('[AudioVisualizer] 恢复直接输出也失败:', e2)
           }
           isInitialized.value = false
@@ -94,13 +94,13 @@ export const useAudioVisualizer = () => {
           // 先断开分析器现有输出，避免重复连接导致信号叠加
           try {
             analyser.value.disconnect()
-          } catch (e) {
+          } catch (e: any) {
             // 可能尚未连接
           }
           analyser.value.connect(ctx.destination)
 
           isInitialized.value = true
-        } catch (e) {
+        } catch (e: any) {
           console.warn('[AudioVisualizer] 创建 MediaElementSource 失败，可能是不支持 CORS 的音频源（如咪咕音乐），跳过可视化')
           // createMediaElementSource 失败时，音频元素的默认连接应该保持不变
           // 不需要额外处理
@@ -113,7 +113,7 @@ export const useAudioVisualizer = () => {
       if (ctx.state === 'suspended') {
         ctx.resume()
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('初始化音频可视化失败:', error)
     }
   }
@@ -139,7 +139,7 @@ export const useAudioVisualizer = () => {
         } else if (globalAudioContext) {
           source.value.connect(globalAudioContext.destination)
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error('清理过程出错:', e)
       }
     }

@@ -41,7 +41,7 @@ export default defineEventHandler(async () => {
       enabledPlatforms: parsePlatforms(settings.enabledPlatforms, false),
       platformOrder: parsePlatforms(settings.platformOrder, true)
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取平台配置失败:', error)
     return fallbackConfig()
   }

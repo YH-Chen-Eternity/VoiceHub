@@ -35,7 +35,7 @@ async function forwardSystemNoticeToGroups(enabled: boolean, title: string, cont
   if (!enabled) return
   try {
     await enqueueAstrbotGroupEvent('systemNotice', title, content)
-  } catch (error) {
+  } catch (error: any) {
     console.error('转发系统通知到群聊失败:', error)
   }
 }

@@ -19,6 +19,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import { announcements } from '~/drizzle/schema'
 import { createApiError } from '~~/server/utils/apiError'
+import { isSafePublicUrl } from '~~/server/utils/publicUrl'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user
@@ -37,8 +38,20 @@ export default defineEventHandler(async (event) => {
     const n = Number(body.imageId)
     patch.imageId = Number.isInteger(n) && n > 0 ? n : null
   }
-  if (body?.imageUrl !== undefined) patch.imageUrl = String(body.imageUrl || '').trim() || null
-  if (body?.linkUrl !== undefined) patch.linkUrl = String(body.linkUrl || '').trim() || null
+  if (body?.imageUrl !== undefined) {
+    const imageUrl = String(body.imageUrl || '').trim()
+    if (imageUrl && !isSafePublicUrl(imageUrl)) {
+      throw createApiError(400, 'COMMON_INVALID_PARAMS', '公告图片地址仅支持 http(s) 或站内路径')
+    }
+    patch.imageUrl = imageUrl || null
+  }
+  if (body?.linkUrl !== undefined) {
+    const linkUrl = String(body.linkUrl || '').trim()
+    if (linkUrl && !isSafePublicUrl(linkUrl)) {
+      throw createApiError(400, 'COMMON_INVALID_PARAMS', '公告链接仅支持 http(s) 或站内路径')
+    }
+    patch.linkUrl = linkUrl || null
+  }
   if (body?.displayMode !== undefined) patch.displayMode = body.displayMode === 'WRAP' ? 'WRAP' : 'SCROLL'
   if (body?.fontSize !== undefined) {
     patch.fontSize = body.fontSize === 'SMALL' ? 'SMALL' : body.fontSize === 'LARGE' ? 'LARGE' : 'MEDIUM'

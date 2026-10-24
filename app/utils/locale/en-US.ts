@@ -5760,6 +5760,8 @@ export const serverErrors = {
   AUTH_EMAIL_SERVICE_UNAVAILABLE:
     'Email service is not configured or unavailable. Please contact the administrator.',
   AUTH_DATABASE_UNAVAILABLE: 'The database service is temporarily unavailable',
+  AUTH_SITE_ORIGIN_NOT_CONFIGURED: 'The site public origin is not configured, so password reset emails cannot be sent',
+  AUTH_TOTP_CODE_ALREADY_USED: 'This one-time code has already been used. Wait for the next code',
   AUTH_NEW_PASSWORD_SAME_AS_CURRENT: 'The new password cannot be the same as the current password',
   AUTH_NEW_PASSWORD_REQUIRED: 'The new password cannot be empty',
   AUTH_REGISTER_PASSWORD_MISMATCH: 'The two passwords do not match',

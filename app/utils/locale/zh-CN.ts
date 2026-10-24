@@ -5588,6 +5588,8 @@ export const serverErrors = {
   AUTH_EMAIL_CODE_DAILY_LIMIT: '今日验证码发送次数已达上限，请明天再试',
   AUTH_EMAIL_SERVICE_UNAVAILABLE: '邮件服务未配置或不可用，请联系管理员',
   AUTH_DATABASE_UNAVAILABLE: '数据库服务暂时不可用',
+  AUTH_SITE_ORIGIN_NOT_CONFIGURED: '站点未配置外部地址，暂时无法发送重置邮件',
+  AUTH_TOTP_CODE_ALREADY_USED: '动态验证码已使用，请等待下一个验证码',
   AUTH_NEW_PASSWORD_SAME_AS_CURRENT: '新密码不能与当前密码相同',
   AUTH_NEW_PASSWORD_REQUIRED: '新密码不能为空',
   AUTH_REGISTER_PASSWORD_MISMATCH: '两次输入的密码不一致',

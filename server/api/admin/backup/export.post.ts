@@ -30,6 +30,7 @@ import {
   votes
 } from '~/drizzle/schema'
 import { inArray } from 'drizzle-orm'
+import { maskSystemSettingsSecrets } from '~~/server/api/admin/system-settings/secretMask'
 import { promises as fs } from 'fs'
 import path from 'path'
 
@@ -461,9 +462,14 @@ export default defineEventHandler(async (event) => {
       tablesToBackup.systemSettings = {
         query: async () => {
           const settings = await db.select().from(systemSettings)
-          return settings
+          // 与自动备份一致：掩码密钥，且不导出含第三方口令的备份渠道配置
+          return settings.map((row) => {
+            const rest: Record<string, any> = { ...row }
+            delete rest.autoBackupConfig
+            return maskSystemSettingsSecrets(rest)
+          })
         },
-        description: '系统设置'
+        description: '系统设置（已脱敏）'
       }
     }
 

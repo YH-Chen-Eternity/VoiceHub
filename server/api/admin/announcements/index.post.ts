@@ -19,6 +19,7 @@ import { sql } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import { announcements } from '~/drizzle/schema'
 import { createApiError } from '~~/server/utils/apiError'
+import { isSafePublicUrl } from '~~/server/utils/publicUrl'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user
@@ -40,6 +41,12 @@ export default defineEventHandler(async (event) => {
   }
   if (type === 'IMAGE' && !imageId && !imageUrl) {
     throw createApiError(400, 'ANNOUNCEMENT_IMAGE_REQUIRED', '请上传公告图片或填写图片地址')
+  }
+  if (linkUrl && !isSafePublicUrl(linkUrl)) {
+    throw createApiError(400, 'COMMON_INVALID_PARAMS', '公告链接仅支持 http(s) 或站内路径')
+  }
+  if (imageUrl && !isSafePublicUrl(imageUrl)) {
+    throw createApiError(400, 'COMMON_INVALID_PARAMS', '公告图片地址仅支持 http(s) 或站内路径')
   }
 
   const [maxRow] = await db.select({ max: sql<number>`coalesce(max(${announcements.sortOrder}), 0)` }).from(announcements)

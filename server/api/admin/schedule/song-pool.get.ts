@@ -5,7 +5,8 @@ import { inArray, count } from 'drizzle-orm'
 import { requireSongAdmin } from '~~/server/utils/requireSongAdmin'
 
 export default defineEventHandler(async (event) => {
-  requireSongAdmin(event)
+  // 放歌员只读：zz-admin-guard 已限制其只能 GET，这里允许读取备选池
+  requireSongAdmin(event, { allowBroadcaster: true })
 
   const isSuperAdmin = event.context.user?.role === 'SUPER_ADMIN'
 

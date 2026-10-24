@@ -791,6 +791,15 @@ const recordLegalConsent = async () => {
 }
 
 onMounted(async () => {
+  // 第三方登录命中 2FA 时，回调会设置 pre-auth cookie 并带参数回到登录页
+  if (!isBindMode.value && String(route.query.action || '') === '2fa') {
+    userId2FA.value = Number(route.query.userId) || 0
+    methods2FA.value = String(route.query.methods || 'totp').split(',').filter(Boolean)
+    maskedEmail2FA.value = String(route.query.email || '')
+    tempToken2FA.value = ''
+    show2FA.value = true
+  }
+
   const isApiSupported = browserSupportsWebAuthn()
   isWebAuthnSupported.value = isApiSupported
 

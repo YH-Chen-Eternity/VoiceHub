@@ -20,7 +20,9 @@ export default defineEventHandler(async (event) => {
     settings: toPublicCommunitySettings(settings),
     viewer: {
       id: user.id,
-      canReview: isCommunityReviewer(user),
+      canReview:
+        isCommunityReviewer(user) &&
+        (isCommunityAdmin(user) || (reviewBoardIds?.length ?? 0) > 0),
       isCommunityAdmin: isCommunityAdmin(user),
       reviewBoardIds,
       ban: resolveCommunityBanState(profile),

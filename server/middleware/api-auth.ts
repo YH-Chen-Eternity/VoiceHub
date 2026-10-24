@@ -246,39 +246,52 @@ export default defineEventHandler(async (event) => {
     const requiredPermission = getRequiredPermission(pathname, method)
     console.log(`[API Auth Middleware] 所需权限: ${requiredPermission}`)
 
-    if (requiredPermission) {
-      const permissionResult = await db
-        .select()
-        .from(apiKeyPermissions)
-        .where(
-          and(
-            eq(apiKeyPermissions.apiKeyId, apiKeyRecord.id),
-            eq(apiKeyPermissions.permission, requiredPermission)
-          )
-        )
-        .limit(1)
+    // 未配置映射的开放接口一律拒绝，避免新增端点默认对所有 Key 放行
+    if (!requiredPermission) {
+      await ApiLogService.logAccess({
+        apiKeyId: apiKeyRecord.id,
+        endpoint: pathname,
+        method,
+        ipAddress,
+        userAgent,
+        statusCode: HTTP_STATUS.FORBIDDEN,
+        responseTimeMs: Date.now() - startTime,
+        errorMessage: '开放接口未配置权限映射'
+      })
+      throw createError({ statusCode: HTTP_STATUS.FORBIDDEN, message: '该开放接口未配置权限映射' })
+    }
 
-      console.log(
-        `[API Auth Middleware] 权限检查结果: ${permissionResult.length > 0 ? '通过' : '失败'}`
+    const permissionResult = await db
+      .select()
+      .from(apiKeyPermissions)
+      .where(
+        and(
+          eq(apiKeyPermissions.apiKeyId, apiKeyRecord.id),
+          eq(apiKeyPermissions.permission, requiredPermission)
+        )
       )
+      .limit(1)
 
-      if (permissionResult.length === 0) {
-        console.log(`[API Auth Middleware] 缺少必需权限: ${requiredPermission}`)
-        await ApiLogService.logAccess({
-          apiKeyId: apiKeyRecord.id,
-          endpoint: pathname,
-          method,
-          ipAddress,
-          userAgent,
-          statusCode: HTTP_STATUS.FORBIDDEN,
-          responseTimeMs: Date.now() - startTime,
-          errorMessage: `${API_ERROR_MESSAGES[API_ERROR_CODES.INSUFFICIENT_PERMISSIONS]}: ${requiredPermission}`
-        })
+    console.log(
+      `[API Auth Middleware] 权限检查结果: ${permissionResult.length > 0 ? '通过' : '失败'}`
+    )
 
-        throw new Error(
-          `${API_ERROR_MESSAGES[API_ERROR_CODES.INSUFFICIENT_PERMISSIONS]}. Required: ${requiredPermission}`
-        )
-      }
+    if (permissionResult.length === 0) {
+      console.log(`[API Auth Middleware] 缺少必需权限: ${requiredPermission}`)
+      await ApiLogService.logAccess({
+        apiKeyId: apiKeyRecord.id,
+        endpoint: pathname,
+        method,
+        ipAddress,
+        userAgent,
+        statusCode: HTTP_STATUS.FORBIDDEN,
+        responseTimeMs: Date.now() - startTime,
+        errorMessage: `${API_ERROR_MESSAGES[API_ERROR_CODES.INSUFFICIENT_PERMISSIONS]}: ${requiredPermission}`
+      })
+
+      throw new Error(
+        `${API_ERROR_MESSAGES[API_ERROR_CODES.INSUFFICIENT_PERMISSIONS]}. Required: ${requiredPermission}`
+      )
     }
 
     // 使用原子操作更新API Key使用统计
@@ -340,12 +353,14 @@ export default defineEventHandler(async (event) => {
     return
   } catch (error: any) {
     const statusCode =
-      error.message.includes('expired') ||
-      error.message.includes('disabled') ||
-      error.message.includes('permissions') ||
-      error.message.includes('IP address')
-        ? HTTP_STATUS.FORBIDDEN
-        : HTTP_STATUS.UNAUTHORIZED
+      typeof error?.statusCode === 'number'
+        ? error.statusCode
+        : error.message.includes('expired') ||
+            error.message.includes('disabled') ||
+            error.message.includes('permissions') ||
+            error.message.includes('IP address')
+          ? HTTP_STATUS.FORBIDDEN
+          : HTTP_STATUS.UNAUTHORIZED
 
     return sendError(
       event,
@@ -400,7 +415,10 @@ function getRequiredPermission(pathname: string, method: string): string | null 
   return null
 }
 
-async function findValidApiKeyRecord(apiKey: string, records: Array<{ keyHash: string }>) {
+async function findValidApiKeyRecord<T extends { keyHash: string }>(
+  apiKey: string,
+  records: T[]
+): Promise<T | null> {
   for (const record of records) {
     if (await verifyApiKey(apiKey, record.keyHash)) {
       return record

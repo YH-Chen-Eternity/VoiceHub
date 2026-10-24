@@ -13,7 +13,7 @@ import ipaddress
 import socket
 import time
 from typing import Dict, List, Optional, Tuple
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
 
@@ -203,7 +203,7 @@ def _parse_content_length(headers: httpx.Headers) -> Optional[int]:
 
 
 async def preflight_image(
-    url: str, timeout_seconds: float, max_bytes: int
+    url: str, timeout_seconds: float, max_bytes: int, allow_private: bool = False
 ) -> Tuple[bool, str]:
     """下载预检：确认图片可访问、未超时、大小不超过限制。
 
@@ -216,28 +216,41 @@ async def preflight_image(
         "Accept": "image/*,*/*;q=0.8",
     }
     try:
+        current = url
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(timeout_seconds),
             follow_redirects=False,
             headers={"User-Agent": USER_AGENT},
         ) as client:
-            async with client.stream("GET", url, headers=headers) as response:
-                status = response.status_code
-                # 重定向由阿里云侧继续处理，这里只确认源站可达。
-                if 300 <= status < 400:
-                    return True, ""
-                if status >= 400:
-                    return False, "图片下载失败（HTTP %d）" % status
-                total = _parse_content_length(response.headers)
-                if total is not None and total > max_bytes:
-                    return False, "图片超过 %dMB" % (max_bytes // (1024 * 1024))
-                received = 0
-                async for chunk in response.aiter_bytes():
-                    received += len(chunk)
-                    if received > max_bytes:
+            # 逐跳校验：重定向目标同样要过协议与内网地址检查
+            for _ in range(4):
+                ok, reason = await validate_image_url_resolved(
+                    current, allow_private=allow_private
+                )
+                if not ok:
+                    return False, reason
+
+                async with client.stream("GET", current, headers=headers) as response:
+                    status = response.status_code
+                    if 300 <= status < 400:
+                        location = response.headers.get("location")
+                        if not location:
+                            return False, "图片重定向缺少地址"
+                        current = urljoin(current, location)
+                        continue
+                    if status >= 400:
+                        return False, "图片下载失败（HTTP %d）" % status
+                    total = _parse_content_length(response.headers)
+                    if total is not None and total > max_bytes:
                         return False, "图片超过 %dMB" % (max_bytes // (1024 * 1024))
-                    break  # Range 只取首块，确认可读取即可
-        return True, ""
+                    received = 0
+                    async for chunk in response.aiter_bytes():
+                        received += len(chunk)
+                        if received > max_bytes:
+                            return False, "图片超过 %dMB" % (max_bytes // (1024 * 1024))
+                        break  # Range 只取首块，确认可读取即可
+                return True, ""
+        return False, "图片重定向次数过多"
     except httpx.TimeoutException:
         return False, "图片下载超时"
     except httpx.HTTPError as exc:

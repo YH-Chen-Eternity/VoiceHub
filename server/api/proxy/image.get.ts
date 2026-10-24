@@ -6,6 +6,9 @@ import https from 'node:https'
 import { publicAddress } from '~~/server/utils/music-source-plugins/network'
 import { getServerTimestamp } from '~~/server/utils/serverTime'
 import { isServerlessRuntime } from '~~/server/utils/serverless-runtime'
+import { detectImageFormat, imageFormatToMimeType } from '~~/server/utils/imageSecurity'
+import { getClientIP } from '~~/server/utils/ip-utils'
+import { checkDistributedRateLimit } from '~~/server/utils/rateLimiter'
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 // 并发上限是进程内计数，多实例之间不共享：Serverless 下压到 4，超载立即 429 而不是各占一个实例直到平台超时
@@ -238,6 +241,16 @@ export default defineEventHandler(async (event) => {
 
   if (!imageUrl) throw createError({ statusCode: 400, message: '缺少图片URL参数' })
 
+  // 每 IP 限流：进程内并发上限在多实例下不共享，限流兜住跨实例放大
+  const rateLimit = await checkDistributedRateLimit(
+    `proxy_image:${getClientIP(event)}`,
+    12000,
+    60 * 1000
+  )
+  if (!rateLimit.isAllowed) {
+    throw createError({ statusCode: 429, message: '图片代理请求过多，请稍后重试' })
+  }
+
   if (activeImageFetches >= MAX_CONCURRENT_IMAGE_FETCHES) {
     throw createError({ statusCode: 429, message: '图片代理请求过多，请稍后重试' })
   }
@@ -248,9 +261,19 @@ export default defineEventHandler(async (event) => {
     const deadlineAt = IS_SERVERLESS
       ? getServerTimestamp() + IMAGE_FETCH_DEADLINE_MS
       : PROXY_DEADLINE_UNLIMITED
-    const { contentType, buffer } = await retryFetchImage(imageUrl, deadlineAt)
+    const { buffer } = await retryFetchImage(imageUrl, deadlineAt)
 
-    setHeader(event, 'Content-Type', contentType)
+    // 不信任上游声明的 Content-Type：只按魔数放行栅格图，杜绝 image/svg+xml 与 HTML 在本站源执行脚本
+    const format = detectImageFormat(buffer)
+    if (!format) {
+      throw createError({ statusCode: 415, message: '图片内容不合法，已拒绝代理' })
+    }
+
+    setHeader(event, 'Content-Type', imageFormatToMimeType(format))
+    setHeader(event, 'Content-Length', buffer.length)
+    setHeader(event, 'X-Content-Type-Options', 'nosniff')
+    setHeader(event, 'Content-Security-Policy', "default-src 'none'; sandbox")
+    setHeader(event, 'Content-Disposition', `inline; filename="image.${format}"`)
     setHeader(event, 'Cache-Control', 'public, max-age=3600')
     setHeader(event, 'Access-Control-Allow-Origin', '*')
 

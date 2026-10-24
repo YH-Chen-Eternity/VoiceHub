@@ -143,9 +143,13 @@ export async function moderateCommunityPostWithService(
   const timer = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
+    const headers: Record<string, string> = { 'content-type': 'application/json' }
+    const serviceToken = String(process.env.COMMUNITY_MODERATION_SERVICE_TOKEN || '').trim()
+    if (serviceToken) headers['x-moderation-token'] = serviceToken
+
     const response = await fetch(`${baseUrl}/audit`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         post_id: String(input.postId),
         text: input.text.slice(0, 2000),

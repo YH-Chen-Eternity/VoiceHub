@@ -10,6 +10,7 @@ import {
 } from '~/drizzle/schema'
 import {
   buildCommunityIdentity,
+  getReviewableBoardIds,
   isCommunityReviewer,
   requireCommunityUser
 } from '~~/server/utils/community'
@@ -25,6 +26,7 @@ export default defineEventHandler(async (event) => {
   const postRow = await db
     .select({
       id: communityPosts.id,
+      boardId: communityPosts.boardId,
       status: communityPosts.status,
       authorId: communityPosts.authorId,
       deletedAt: communityPosts.deletedAt
@@ -35,12 +37,15 @@ export default defineEventHandler(async (event) => {
   const post = postRow[0]
   if (!post || post.deletedAt) throw createApiError(404, 'COMMUNITY_POST_NOT_FOUND', '帖子不存在')
 
-  const privileged = isCommunityReviewer(user) || post.authorId === user.id
+  const scopedBoardIds = await getReviewableBoardIds(user)
+  const canReviewBoard = !scopedBoardIds || scopedBoardIds.includes(post.boardId)
+  const reviewerForBoard = canReviewBoard && isCommunityReviewer(user)
+  const privileged = reviewerForBoard || post.authorId === user.id
   if (post.status !== 'APPROVED' && !privileged) {
     throw createApiError(403, 'COMMUNITY_POST_NOT_PUBLIC', '帖子尚未公开')
   }
 
-  const visibility = isCommunityReviewer(user)
+  const visibility = reviewerForBoard
     ? isNull(communityComments.deletedAt)
     : and(
         isNull(communityComments.deletedAt),

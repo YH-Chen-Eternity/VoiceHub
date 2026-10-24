@@ -11,6 +11,8 @@ import { formatIPForEmail, getClientIP } from '~~/server/utils/ip-utils'
 import { checkDistributedRateLimit } from '~~/server/utils/rateLimiter'
 import { getServerTimestamp } from '~~/server/utils/serverTime'
 import { createApiError } from '~~/server/utils/apiError'
+import { SERVER_ERROR_CODES } from '~~/server/config/constants'
+import { getOAuthBaseConfig } from '~~/server/services/oauthConfigService'
 import { publicAddress } from '~~/server/utils/music-source-plugins/network'
 import { assertPasswordTurnstile } from '~~/server/utils/password-turnstile'
 
@@ -25,8 +27,8 @@ const isLocalOrPrivateHostname = (hostname: string) => {
   return isIP(normalized) !== 0 && !publicAddress(normalized)
 }
 
-// 重置链接的站点域名：显式配置优先，未配置时自动识别请求 Host
-const resolveSiteOrigin = (event: H3Event): string => {
+// 重置链接的站点域名：显式配置 > 管理员配置的 OAuth 回调来源 > 本地/平台路由的请求 Host
+const resolveSiteOrigin = async (event: H3Event): Promise<string> => {
   const config = useRuntimeConfig()
   if (config.public.host) {
     const protocol = config.public.host.startsWith('http')
@@ -35,6 +37,14 @@ const resolveSiteOrigin = (event: H3Event): string => {
         ? 'https://'
         : 'http://'
     return `${protocol}${config.public.host}`
+  }
+
+  // oauthRedirectUri 由管理员在后台配置，可用于推导可信站点来源
+  try {
+    const { redirectUriTemplate } = await getOAuthBaseConfig()
+    if (redirectUriTemplate) return new URL(redirectUriTemplate).origin
+  } catch {
+    // 配置缺失或非法时继续走请求 Host 兜底
   }
 
   const host = getRequestHost(event)
@@ -46,9 +56,15 @@ const resolveSiteOrigin = (event: H3Event): string => {
     }
   })()
   const platformRouted = PLATFORM_ROUTED_ENV_KEYS.some((key) => Boolean(process.env[key]))
+  // 公开域名下无法自证 Host 合法，配置缺失时拒绝发信，避免重置令牌被引导到攻击者域名
   if (!platformRouted && !isLocalOrPrivateHostname(hostname)) {
-    console.warn(
-      `[forgot-password] NUXT_PUBLIC_HOST 未配置，重置链接将使用请求 Host（${host}）；直连源站或反向代理透传客户端 Host 的部署下该值可被伪造，建议配置 NUXT_PUBLIC_HOST`
+    console.error(
+      `[forgot-password] 未配置 NUXT_PUBLIC_HOST / oauthRedirectUri，拒绝使用不可信 Host（${host}）生成重置链接`
+    )
+    throw createApiError(
+      503,
+      SERVER_ERROR_CODES.AUTH_SITE_ORIGIN_NOT_CONFIGURED,
+      '站点未配置外部地址，暂时无法发送重置邮件'
     )
   }
   return `${getRequestProtocol(event)}://${host}`
@@ -96,6 +112,9 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
+    // 来源解析提前到账号匹配前：配置缺失时所有请求统一 503，避免变成账号/邮箱匹配的枚举 oracle
+    const siteOrigin = await resolveSiteOrigin(event)
+
     const userResult = await db.select().from(users).where(eq(users.username, username)).limit(1)
     const user = userResult[0]
 
@@ -138,7 +157,7 @@ export default defineEventHandler(async (event) => {
       }
       const token = JWTEnhanced.sign(payload, { expiresIn: '15m' })
 
-      const resetLink = `${resolveSiteOrigin(event)}/reset-password?token=${token}`
+      const resetLink = `${siteOrigin}/reset-password?token=${token}`
 
       const smtp = SmtpService.getInstance()
 

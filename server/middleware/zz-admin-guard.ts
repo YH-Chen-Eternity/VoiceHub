@@ -21,6 +21,8 @@ const BROADCASTER_ALLOWED_PATTERNS = [
   /^\/api\/admin\/stats(?:\/|$)/,
   /^\/api\/admin\/activities$/,
   /^\/api\/admin\/schedule\/full$/,
+  /^\/api\/admin\/schedule\/song-pool$/,
+  /^\/api\/admin\/replay-requests(?:\/|$)/,
   /^\/api\/admin\/semesters(?:\/|$)/,
   /^\/api\/admin\/play-times(?:\/|$)/
 ]

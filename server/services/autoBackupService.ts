@@ -31,6 +31,7 @@ import { SERVER_ERROR_CODES } from '~~/server/config/constants'
 import { uploadToS3 } from '~~/server/utils/s3Client'
 import { desc, eq, lt, sql } from 'drizzle-orm'
 import { enqueueAstrbotGroupEvent } from '~~/server/services/astrbotGroupService'
+import { maskSystemSettingsSecrets } from '~~/server/api/admin/system-settings/secretMask'
 
 /** 外部服务调用超时（毫秒） */
 const UPLOAD_TIMEOUT = 120_000
@@ -149,15 +150,11 @@ export async function exportBackupData(): Promise<{ json: string; filename: stri
     systemSettings: {
       query: async () => {
         const rows = await db.select().from(systemSettings)
-        // 脱敏：移除敏感凭据字段，避免备份文件泄露密钥
-        const SENSITIVE_FIELDS = [
-          'smtpPassword', 'oauthStateSecret', 'githubClientSecret',
-          'casdoorClientSecret', 'googleClientSecret', 'customOAuthClientSecret',
-          'turnstileSecretKey', 'aggregateOAuthAppKey', 'autoBackupConfig'
-        ]
-        return rows.map(row => {
-          const entries = Object.entries(row).filter(([k]) => !SENSITIVE_FIELDS.includes(k))
-          return Object.fromEntries(entries)
+        // 脱敏：统一使用后台的密钥掩码；备份渠道配置含第三方口令，整列移除
+        return rows.map((row) => {
+          const rest: Record<string, any> = { ...row }
+          delete rest.autoBackupConfig
+          return maskSystemSettingsSecrets(rest)
         })
       },
       description: '系统设置（已脱敏）'

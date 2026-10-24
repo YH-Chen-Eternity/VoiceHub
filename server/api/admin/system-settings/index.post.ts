@@ -217,6 +217,12 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // 统计代码会原样注入全站 SSR head，等同任意脚本执行，仅超级管理员可修改
+    if (user.role !== 'SUPER_ADMIN') {
+      delete body.statisticsCode
+      delete body.statisticsCodeEnabled
+    }
+
     if (body.telemetryEnabled !== undefined) {
       if (typeof body.telemetryEnabled !== 'boolean') {
         throw createError({

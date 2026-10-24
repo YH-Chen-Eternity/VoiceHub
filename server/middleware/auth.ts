@@ -326,10 +326,10 @@ export default defineEventHandler(async (event) => {
       )
     }
 
-    // 检查管理员专用路由
+    // 检查管理员专用路由；放歌员的具体只读范围由 zz-admin-guard 限制
     if (
       pathname.startsWith('/api/admin') &&
-      !['ADMIN', 'SUPER_ADMIN', 'SONG_ADMIN'].includes(user.role)
+      !['ADMIN', 'SUPER_ADMIN', 'SONG_ADMIN', 'BROADCASTER'].includes(user.role)
     ) {
       return sendError(
         event,

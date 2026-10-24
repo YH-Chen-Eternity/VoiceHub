@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (!['ADMIN', 'SUPER_ADMIN', 'SONG_ADMIN'].includes(user.role)) {
+  if (!['ADMIN', 'SUPER_ADMIN', 'SONG_ADMIN', 'BROADCASTER'].includes(user.role)) {
     throw createError({
       statusCode: 403,
       message: '只有管理员才能管理学期'

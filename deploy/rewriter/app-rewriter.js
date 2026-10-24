@@ -89,6 +89,30 @@ const PROXY_PATH_RE = /^\/api\/(native-api|api-enhanced)\//;
 
 const buckets = new Map();
 
+// 安全判定使用解码后的路径：%61 等编码不能绕过登录限流与敏感路径识别
+function normalizePathname(raw) {
+  let out = raw;
+  for (let i = 0; i < 3; i++) {
+    let next;
+    try { next = decodeURIComponent(out); } catch { return out; }
+    if (next === out) return out;
+    out = next;
+  }
+  return out;
+}
+
+function safeEqualString(a, b) {
+  const left = Buffer.from(String(a));
+  const right = Buffer.from(String(b));
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
+// 仅接受合法主机名，避免 Host 头注入 HTML/日志
+function safeHost(value) {
+  const host = String(value || '').split(',')[0].trim().toLowerCase();
+  return /^[a-z0-9.-]+(?::\d{1,5})?$/.test(host) ? host : '';
+}
+
 function classify(pathname) {
   if (PROXY_PATH_RE.test(pathname)) return ['music', LIMIT_MUSIC];
   if (pathname.startsWith('/api/users/search')) return ['search', LIMIT_SEARCH];
@@ -362,18 +386,40 @@ function saveAttackState() {
 loadAttackState();
 setInterval(saveAttackState, 60000);
 
+// 锁定写盘改为合并延迟执行，避免高频请求把同步全量写盘变成 DoS 放大器
+let saveScheduled = false;
+function scheduleSave() {
+  if (saveScheduled) return;
+  saveScheduled = true;
+  const timer = setTimeout(() => { saveScheduled = false; saveAttackState(); }, 1000);
+  if (timer.unref) timer.unref();
+}
+
+const MAX_FP_LOCKS = 20000;
+
 function lockIp(ip, kind, ms) {
   if (!ip) return;
   const duration = Number.isFinite(ms) && ms > 0 ? ms : ATTACK_LOCK_MS;
   attackLocks.set(ip, Date.now() + duration);
-  saveAttackState();
+  scheduleSave();
   console.log('[attack-lock] ' + ip + ' ' + kind + ' → 锁定 ' + Math.round(duration / 60000) + ' 分钟');
 }
 function lockFingerprint(fp, ip) {
   if (!fp) return;
+  if (!fpLocks.has(fp) && fpLocks.size >= MAX_FP_LOCKS) {
+    const now = Date.now();
+    for (const [k, t] of fpLocks) if (t <= now) fpLocks.delete(k);
+    if (fpLocks.size >= MAX_FP_LOCKS) return;
+  }
   fpLocks.set(fp, Date.now() + ATTACK_LOCK_MS);
-  if (ip) fpByIp.set(ip, fp);
-  saveAttackState();
+  if (ip) {
+    fpByIp.set(ip, fp);
+    if (fpByIp.size > MAX_FP_LOCKS) {
+      const oldest = fpByIp.keys().next().value;
+      if (oldest) fpByIp.delete(oldest);
+    }
+  }
+  scheduleSave();
   console.log('[attack-lock] fp=' + fp + ' ip=' + ip + ' → 指纹锁定 30 分钟');
 }
 function isIpLocked(ip) {
@@ -920,7 +966,7 @@ function tsGet(){if(window.__vhModalToken)return Promise.resolve(window.__vhModa
 function withToken(init,tk){var ni=init?Object.assign({},init):{};try{var b=ni.body;if(typeof b==='string'){var j=JSON.parse(b);j.turnstileToken=tk;ni.body=JSON.stringify(j);var h=new Headers(ni.headers||{});if(!h.has('content-type'))h.set('content-type','application/json');ni.headers=h}else if(b&&typeof b==='object'&&!(b instanceof FormData)){ni.body=Object.assign({},b,{turnstileToken:tk})}else if(b instanceof FormData){b.append('turnstileToken',tk)}}catch(e){}return ni}
 var of=window.fetch;
 var unameShown=false;
-function vhEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function vhEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function showUnameModal(){
   if(unameShown||document.getElementById('vh-setup'))return;
   unameShown=true;
@@ -940,7 +986,7 @@ function showUnameModal(){
     html+='<div id="vh-email-box" style="margin:0 0 16px;padding:14px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">'
       +'<div style="font-size:12.5px;font-weight:800;margin-bottom:10px;color:#eaeaea">邮箱验证</div>'
       +'<label style="'+LBL+'">邮箱地址</label>'
-      +'<div style="display:flex;gap:8px"><input id="vh-em" value="'+vhEsc(curEmail).replace(/&quot;/g,'"')+'" placeholder="name@example.com" style="'+INP+';flex:1">'
+      +'<div style="display:flex;gap:8px"><input id="vh-em" value="'+vhEsc(curEmail)+'" placeholder="name@example.com" style="'+INP+';flex:1">'
       +'<button id="vh-em-send" type="button" style="flex:0 0 auto;padding:0 14px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#eaeaea;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap">发送验证码</button></div>'
       +'<label style="'+LBL+';margin-top:12px">邮箱验证码</label>'
       +'<input id="vh-code" inputmode="numeric" maxlength="6" placeholder="6 位验证码" style="'+INP+'">'
@@ -1345,15 +1391,24 @@ function handleBotGuard(req, res, pathname, ip) {
     return;
   }
   if (pathname === '/__bh') {
+    if (hit(ip, 'bh', 60, Date.now()).blocked) {
+      res.writeHead(429, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      res.end(JSON.stringify({ error: 'too_many_requests' }));
+      return;
+    }
     const key = botKey(req);
     const id = crypto.randomBytes(12).toString('hex');
     const secret = crypto.randomBytes(24).toString('hex');
-    bhSecrets.set(id, { secret, key, exp: Date.now() + 30 * 60 * 1000 });
-    botEvent({ event: 'session', ip: ip, fp: getCookie(req, 'vh_fp') || '', ua: String(req.headers['user-agent'] || '').slice(0, 160), key: key });
-    if (bhSecrets.size > 20000) {
+    if (bhSecrets.size >= 20000) {
       const now = Date.now();
       for (const [k, v] of bhSecrets) if (v.exp < now) bhSecrets.delete(k);
+      if (bhSecrets.size >= 20000) {
+        const oldest = bhSecrets.keys().next().value;
+        if (oldest) bhSecrets.delete(oldest);
+      }
     }
+    bhSecrets.set(id, { secret, key, exp: Date.now() + 30 * 60 * 1000 });
+    botEvent({ event: 'session', ip: ip, fp: getCookie(req, 'vh_fp') || '', ua: String(req.headers['user-agent'] || '').slice(0, 160), key: key });
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
     res.end(JSON.stringify({ id, secret, ttl: 1800 }));
     return;
@@ -1444,7 +1499,7 @@ function sendJson(res, code, obj) {
 
 function handleInternalAdmin(req, res, pathname) {
   const token = String(req.headers['x-attack-token'] || '');
-  if (!ATTACK_LOG_TOKEN || token !== ATTACK_LOG_TOKEN) {
+  if (!ATTACK_LOG_TOKEN || !safeEqualString(token, ATTACK_LOG_TOKEN)) {
     sendJson(res, 403, { success: false, message: 'forbidden' });
     return;
   }
@@ -1594,7 +1649,9 @@ async function handleRequest(req, res) {
   noteIp(ip, req);
 
   const qIdx = req.url.indexOf('?');
-  const pathname = qIdx === -1 ? req.url : req.url.slice(0, qIdx);
+  const rawPathname = qIdx === -1 ? req.url : req.url.slice(0, qIdx);
+  // 安全判定用解码后的路径；转发仍使用原始 req.url
+  const pathname = normalizePathname(rawPathname);
 
   // ---- 机器人检测端点：脚本下发 / 密钥签发 / 行为上报 ----
   if (pathname === '/__vh.js' || pathname === '/__bh' || pathname === '/__bh/report') {
@@ -1619,13 +1676,19 @@ async function handleRequest(req, res) {
 
   // ---- 设备指纹上报端点（由攻击声明页 JS 调用）----
   if (pathname === '/__fp') {
+    if (hit(ip, 'fp', 10, Date.now()).blocked) {
+      res.writeHead(429, { 'cache-control': 'no-store' });
+      res.end();
+      return;
+    }
     let body = '';
     req.on('data', (c) => { if (body.length < 2048) body += c; });
     req.on('end', () => {
       try {
         const j = JSON.parse(body || '{}');
         const fp = String(j.fp || '').replace(/[^0-9a-z]/gi, '').slice(0, 32);
-        if (fp) {
+        // 只在当前 IP 已被锁定或永久封禁时记录指纹，避免匿名请求任意制造指纹锁定
+        if (fp && (isIpLocked(ip) > 0 || isPermanentlyBanned(ip))) {
           lockFingerprint(fp, ip);
           reportAttack({ ip, kind: 'brute_force', path: pathname, count: 0, userAgent: ua, fingerprint: fp, action: 'attack_page', detail: '设备指纹采集' });
         }
@@ -1785,7 +1848,7 @@ async function handleRequest(req, res) {
       let html = Buffer.concat(chunks).toString('utf8');
       html = html.replace(/<link[^>]*rel="prefetch"[^>]*>/g, '');
       // ---- SEO 修正（让爬虫拿到正确的标题与规范链接）----
-      const vhost = String(req.headers['x-forwarded-host'] || req.headers['host'] || '').split(',')[0].trim();
+      const vhost = safeHost(req.headers['x-forwarded-host'] || req.headers['host'] || '');
       const vurl = vhost ? 'https://' + vhost + '/' : '';
       if (/<title>\s*加载中/.test(html)) {
         html = html.replace(/<title>[^<]*<\/title>/i, '<title>校园广播站点歌系统 - 在线点歌<\/title>');

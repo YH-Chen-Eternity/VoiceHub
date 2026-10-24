@@ -11,7 +11,7 @@ import {
   getPasswordAuditContext
 } from '~~/server/services/passwordSecurityService'
 import { createApiError } from '~~/server/utils/apiError'
-import { SERVER_ERROR_CODES } from '~~/server/config/constants'
+import { ROLE_RANK, SERVER_ERROR_CODES } from '~~/server/config/constants'
 import { getAdminPasswordViolation } from '~~/server/utils/admin-password-policy'
 import { validateUsernameFormat } from '~~/server/utils/username-policy'
 
@@ -92,12 +92,13 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // 3. 越级修改保护
-    // 如果目标用户是 SUPER_ADMIN，操作者必须是 SUPER_ADMIN
-    if (targetUser.role === 'SUPER_ADMIN' && user.role !== 'SUPER_ADMIN') {
+    // 3. 越级修改保护：不能修改同级或更高权限的账号
+    const actorRank = ROLE_RANK[user.role] ?? -1
+    const targetRank = ROLE_RANK[targetUser.role] ?? -1
+    if (user.role !== 'SUPER_ADMIN' && targetRank >= actorRank) {
       throw createError({
         statusCode: 403,
-        message: '权限不足：普通管理员无法修改超级管理员信息'
+        message: '权限不足：不能修改同级或更高权限的账号'
       })
     }
 

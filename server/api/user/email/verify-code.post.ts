@@ -2,7 +2,7 @@
 import { db } from '~/drizzle/db'
 import { sendAccountEmail, formatMailTime, notifyLoginSuccess, notifyLoginFailure } from '~~/server/utils/accountNotifications'
 import { users } from '~/drizzle/schema'
-import { and, eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { getServerTimestamp } from '~~/server/utils/serverTime'
 import {
   delStore,
@@ -73,12 +73,32 @@ export default defineEventHandler(async (event) => {
   }
   await delStore(attemptKey)
 
-  // 验证通过：设置邮箱为已验证
-  const updatedUsers = await db
-    .update(users)
-    .set({ emailVerified: true })
-    .where(and(eq(users.id, user.id), eq(users.email, email)))
-    .returning({ id: users.id })
+  // 验证通过：绑定新邮箱并标记已验证（bind 流程不在验证前落库）
+  const existingOwner = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(
+      sql`lower(${users.email}) = ${email} and ${users.id} <> ${user.id} and btrim(coalesce(${users.email}, '')) <> ''`
+    )
+    .limit(1)
+
+  if (existingOwner.length > 0) {
+    throw createApiError(400, 'USER_EMAIL_TAKEN', '该邮箱已被其他用户绑定')
+  }
+
+  let updatedUsers
+  try {
+    updatedUsers = await db
+      .update(users)
+      .set({ email, emailVerified: true })
+      .where(eq(users.id, user.id))
+      .returning({ id: users.id })
+  } catch (error: any) {
+    if (error?.code === '23505') {
+      throw createApiError(400, 'USER_EMAIL_TAKEN', '该邮箱已被其他用户绑定')
+    }
+    throw error
+  }
 
   if (updatedUsers.length === 0) {
     throw createApiError(409, 'USER_EMAIL_CHANGED_RESEND', '邮箱已发生变化，请重新发送验证码')

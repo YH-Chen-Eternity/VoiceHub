@@ -10,9 +10,15 @@ import {
   isIPBlocked,
   isUserBlocked,
   getUserBlockRemainingTime,
+  isPasswordLoginCaptchaRequired,
   recordLoginFailure,
-  recordLoginSuccess
+  recordLoginSuccess,
+  resolveCaptchaSettings
 } from '~~/server/services/securityService'
+import { assertPasswordTurnstile } from '~~/server/utils/password-turnstile'
+import { verifyEsaCaptchaPass } from '~~/server/utils/esa-captcha-pass'
+import { verifyAndConsumeCaptcha } from '~~/server/utils/captcha'
+import { recordLoginAttempt } from '~~/server/utils/loginAttempt'
 import { getClientIP } from '~~/server/utils/ip-utils'
 import { and } from 'drizzle-orm'
 import { getBeijingTime } from '~/utils/timeUtils'
@@ -55,18 +61,53 @@ export default defineEventHandler(async (event) => {
     throw createApiError(423, 'AUTH_IP_BLOCKED_RETRY_MINUTES', `您的IP地址已被限制访问，请在 ${remainingTime} 分钟后重试`, { params: [remainingTime] })
   }
 
+  // 与登录同口径的人机验证阈值：绑定接口不能成为绕过验证码的撞库通道
+  const captchaSettings = await resolveCaptchaSettings()
+  if (await isPasswordLoginCaptchaRequired(username, clientIp, captchaSettings)) {
+    if (captchaSettings.provider === 'turnstile') {
+      await assertPasswordTurnstile(body, clientIp)
+    } else if (captchaSettings.provider === 'esa') {
+      verifyEsaCaptchaPass(event, captchaSettings.esaScenes, 'login')
+    } else {
+      const captchaId = typeof body?.captchaId === 'string' ? body.captchaId : ''
+      const captchaInput = typeof body?.captchaInput === 'string' ? body.captchaInput : ''
+      if (!captchaId || !captchaInput) {
+        throw createApiError(400, 'AUTH_IMAGE_CAPTCHA_REQUIRED', '请完成图形验证码', {
+          captchaRequired: true,
+          captchaProvider: 'graphic'
+        })
+      }
+      if (!(await verifyAndConsumeCaptcha(captchaId, captchaInput))) {
+        throw createApiError(400, 'AUTH_CAPTCHA_FAILED_OR_EXPIRED', '验证码错误或已过期', {
+          captchaRequired: true,
+          captchaProvider: 'graphic'
+        })
+      }
+    }
+  }
+
   const user = await db.query.users.findFirst({
     where: eq(users.username, username)
   })
 
   if (!user) {
     await recordLoginFailure(username, clientIp)
+    void recordLoginAttempt(event, {
+      username,
+      result: 'no_user',
+      detail: '第三方账号绑定：用户名不存在'
+    })
     throw createApiError(401, 'AUTH_INVALID_CREDENTIALS', '用户名或密码错误')
   }
 
   const valid = !!user.password && (await bcrypt.compare(password, user.password))
   if (!valid) {
     await recordLoginFailure(username, clientIp)
+    void recordLoginAttempt(event, {
+      username,
+      result: 'wrong_password',
+      detail: '第三方账号绑定：密码错误'
+    })
     throw createApiError(401, 'AUTH_INVALID_CREDENTIALS', '用户名或密码错误')
   }
 

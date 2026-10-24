@@ -173,6 +173,8 @@ class Settings:
     log_level: str = "INFO"
     webhook_url: str = ""
     webhook_timeout_seconds: float = 3.0
+    # 可选共享令牌：配置后 /audit 必须携带 x-moderation-token
+    service_token: str = ""
 
     # 仅测试环境允许访问内网图片 URL（用于本地 mock，生产永远为 False）
     app_env: str = "production"
@@ -238,6 +240,7 @@ class Settings:
             log_level=_env_str("LOG_LEVEL", "INFO").upper(),
             webhook_url=_env_str("MODERATION_WEBHOOK_URL"),
             webhook_timeout_seconds=_env_float("MODERATION_WEBHOOK_TIMEOUT", 3.0),
+            service_token=_env_str("MODERATION_SERVICE_TOKEN").strip(),
             app_env=app_env,
             test_allow_private_image_urls=allow_private,
         )

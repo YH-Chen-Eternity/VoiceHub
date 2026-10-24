@@ -168,7 +168,16 @@ export default defineEventHandler(async (event) => {
               userFields.forEach((field) => {
                 if (record.hasOwnProperty(field)) {
                   if (field === 'role') {
-                    if (!['USER', 'SONG_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(record[field])) {
+                    if (
+                      ![
+                        'USER',
+                        'BROADCASTER',
+                        'REVIEWER',
+                        'SONG_ADMIN',
+                        'ADMIN',
+                        'SUPER_ADMIN'
+                      ].includes(record[field])
+                    ) {
                       userData[field] = 'USER'
                     } else {
                       userData[field] = record[field]

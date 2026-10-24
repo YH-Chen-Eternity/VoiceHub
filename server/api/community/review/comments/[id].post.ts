@@ -1,5 +1,5 @@
 import { getRouterParam, readBody } from 'h3'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import { communityComments, communityPosts, notifications } from '~/drizzle/schema'
 import {
@@ -89,7 +89,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const result = await db.transaction(async (tx) => {
-    await tx
+    // 条件更新：并发或重复驳回只有一次能成功，避免违规计数被放大
+    const [updated] = await tx
       .update(communityComments)
       .set({
         status: 'REJECTED',
@@ -97,7 +98,12 @@ export default defineEventHandler(async (event) => {
         reviewedAt: new Date(),
         reviewNote: note || null
       })
-      .where(eq(communityComments.id, commentId))
+      .where(and(eq(communityComments.id, commentId), eq(communityComments.status, 'PENDING')))
+      .returning({ id: communityComments.id })
+
+    if (!updated) {
+      throw createApiError(409, 'COMMUNITY_REVIEW_ALREADY_HANDLED', '该评论已审核')
+    }
     return applyCommunityViolation(tx, row.authorId)
   })
 

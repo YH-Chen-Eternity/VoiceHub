@@ -11,9 +11,22 @@ import { createAuthSession } from '~~/server/utils/auth-session'
 import { getBeijingTime } from '~/utils/timeUtils'
 import { getClientIP } from '~~/server/utils/ip-utils'
 import { createApiError } from '~~/server/utils/apiError'
+import { SERVER_ERROR_CODES } from '~~/server/config/constants'
+import { checkDistributedRateLimit } from '~~/server/utils/rateLimiter'
+import { isUserBlocked, getUserBlockRemainingTime } from '~~/server/services/securityService'
 import { recordLoginAttempt } from '~~/server/utils/loginAttempt'
 
 export default defineEventHandler(async (event) => {
+  const clientIp = getClientIP(event)
+  const rateLimit = await checkDistributedRateLimit(`webauthn_login_ip:${clientIp}`, 20, 5 * 60 * 1000)
+  if (!rateLimit.isAllowed) {
+    throw createApiError(
+      429,
+      SERVER_ERROR_CODES.AUTH_RATE_LIMITED_MINUTES,
+      '验证尝试过于频繁，请稍后重试'
+    )
+  }
+
   const body = await readBody(event)
   const challengeData = getWebAuthnChallenge(event)
 
@@ -47,6 +60,22 @@ export default defineEventHandler(async (event) => {
   // 检查用户账号状态
   if (!user || user.status !== 'active') {
     throw createApiError(403, 'AUTH_ACCOUNT_UNAVAILABLE_OR_RESTRICTED', '该账号不可用或已限制访问')
+  }
+
+  // 与密码登录同口径的风控：被临时限制的账号不能靠通行密钥绕过
+  if (isUserBlocked(user.id)) {
+    const remaining = getUserBlockRemainingTime(user.id)
+    void recordLoginAttempt(event, {
+      username: user.username,
+      result: 'account_locked',
+      detail: `通行密钥登录被风控拦截，剩余 ${remaining} 分钟`
+    })
+    throw createApiError(
+      401,
+      SERVER_ERROR_CODES.AUTH_IP_BLOCKED_RETRY_MINUTES,
+      `账户处于风险控制期，请等待 ${remaining} 分钟后重试`,
+      { params: [remaining] }
+    )
   }
 
   // 解析存储的凭证数据
@@ -132,12 +161,22 @@ export default defineEventHandler(async (event) => {
 
       return { success: true, redirect: '/' }
     } else {
+      void recordLoginAttempt(event, {
+        username: user.username,
+        result: 'wrong_password',
+        detail: '通行密钥验证失败'
+      })
       throw createApiError(400, 'AUTH_VERIFICATION_FAILED', '验证失败')
     }
   } catch (error: any) {
     // 透传已携带错误码的业务错误，避免被重新包装后丢失 code 通道。
     if (error && typeof error === 'object' && 'statusCode' in error) throw error
     console.error('WebAuthn 登录验证失败:', error)
+    void recordLoginAttempt(event, {
+      username: user?.username,
+      result: 'wrong_password',
+      detail: '通行密钥验证异常'
+    })
     const message = error instanceof Error ? error.message : '验证失败'
     throw createApiError(400, 'AUTH_VERIFICATION_FAILED', message)
   }

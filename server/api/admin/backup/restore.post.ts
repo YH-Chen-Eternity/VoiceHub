@@ -420,9 +420,14 @@ export default defineEventHandler(async (event) => {
                               // 确保角色为有效的硬编码角色
                               if (field === 'role') {
                                 if (
-                                  !['USER', 'SONG_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(
-                                    record[field]
-                                  )
+                                  ![
+                                    'USER',
+                                    'BROADCASTER',
+                                    'REVIEWER',
+                                    'SONG_ADMIN',
+                                    'ADMIN',
+                                    'SUPER_ADMIN'
+                                  ].includes(record[field])
                                 ) {
                                   userData[field] = 'USER' // 默认为普通用户
                                 } else {

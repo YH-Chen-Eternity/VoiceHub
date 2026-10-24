@@ -12,11 +12,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import platform
+import secrets
 import time
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Union
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 from config import (
@@ -226,7 +227,9 @@ async def health() -> Dict[str, Any]:
 
 
 @app.post("/audit")
-async def audit(request: AuditRequest) -> Dict[str, Any]:
+async def audit(
+    request: AuditRequest, x_moderation_token: str = Header(default="")
+) -> Dict[str, Any]:
     """提交一次图文审核并等待聚合结果。
 
     处置结果：
@@ -237,6 +240,15 @@ async def audit(request: AuditRequest) -> Dict[str, Any]:
     state = _get_state()
     if state is None:
         return _fallback_unavailable(request, "服务正在启动")
+
+    # 配置了共享令牌后，非内网调用方必须携带，避免端口误发布后白嫖审核配额
+    expected_token = str(getattr(getattr(state, "settings", None), "service_token", "") or "")
+    # 按字节比较：compare_digest 对非 ASCII 的 str 会抛 TypeError
+    if expected_token and not secrets.compare_digest(
+        x_moderation_token.encode("utf-8", "ignore"),
+        expected_token.encode("utf-8", "ignore"),
+    ):
+        raise HTTPException(status_code=401, detail="unauthorized")
 
     pipeline: AuditPipeline = state.pipeline
     client: ModerationClient = state.client

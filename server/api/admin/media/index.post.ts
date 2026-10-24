@@ -31,6 +31,12 @@ export default defineEventHandler(async (event) => {
     throw createApiError(403, 'COMMON_INSUFFICIENT_PERMISSION', '权限不足')
   }
 
+  // multipart 会整体读入内存，先按声明的长度拒绝明显超限的请求
+  const declaredLength = Number(getHeader(event, 'content-length') || 0)
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BYTES + 256 * 1024) {
+    throw createApiError(413, 'MEDIA_TOO_LARGE', '图片不能超过 2MB，请先压缩')
+  }
+
   const form = await readMultipartFormData(event)
   const file = form?.find((part) => part.name === 'file' && part.data?.length)
   if (!file) {

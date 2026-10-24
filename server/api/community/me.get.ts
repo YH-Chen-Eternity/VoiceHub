@@ -12,6 +12,7 @@ import {
   buildCommunityIdentity,
   ensureCommunityProfile,
   getCommunitySettings,
+  getReviewableBoardIds,
   isCommunityAdmin,
   isCommunityReviewer,
   requireCommunityUser,
@@ -24,6 +25,7 @@ export default defineEventHandler(async (event) => {
   const user = requireCommunityUser(event)
   const settings = await getCommunitySettings()
   const profile = await ensureCommunityProfile(user.id)
+  const reviewBoardIds = await getReviewableBoardIds(user)
 
   const userRows = await db
     .select({
@@ -112,7 +114,9 @@ export default defineEventHandler(async (event) => {
       comments: Number(commentCount[0]?.value || 0)
     },
     permissions: {
-      canReview: isCommunityReviewer(user),
+      canReview:
+        isCommunityReviewer(user) &&
+        (isCommunityAdmin(user) || (reviewBoardIds?.length ?? 0) > 0),
       isCommunityAdmin: isCommunityAdmin(user)
     }
   }

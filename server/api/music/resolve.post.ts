@@ -20,6 +20,9 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 import { createApiError } from '~~/server/utils/apiError'
+import { SERVER_ERROR_CODES } from '~~/server/config/constants'
+import { getClientIP } from '~~/server/utils/ip-utils'
+import { checkDistributedRateLimit } from '~~/server/utils/rateLimiter'
 
 /**
  * 播放直链解析（服务端 + 缓存）
@@ -109,6 +112,19 @@ async function tryMeting(platform: string, musicId: string) {
 }
 
 export default defineEventHandler(async (event) => {
+  const rateLimit = await checkDistributedRateLimit(
+    `music_resolve:${getClientIP(event)}`,
+    600,
+    60 * 1000
+  )
+  if (!rateLimit.isAllowed) {
+    throw createApiError(
+      429,
+      SERVER_ERROR_CODES.COMMON_RATE_LIMITED_SECONDS,
+      '解析请求过于频繁，请稍后重试'
+    )
+  }
+
   const body = await readBody(event).catch(() => ({}) as any)
   const platform = String(body?.platform || '').toLowerCase()
   const musicId = String(body?.musicId ?? '').trim()

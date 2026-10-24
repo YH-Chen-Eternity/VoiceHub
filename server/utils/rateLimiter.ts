@@ -81,7 +81,11 @@ const IP_SCOPED_RATE_LIMIT_PREFIXES = [
   'forgot_password_ip',
   'reset_password_ip',
   'card_code_validate_ip_hourly',
-  'plugin-media'
+  'plugin-media',
+  'proxy_image',
+  'music_resolve',
+  'music_resolve_url',
+  'music_state'
 ]
 
 const isIpScopedRateLimitKey = (key: string) =>
@@ -107,7 +111,12 @@ const IP_SCOPED_RATE_LIMIT_HARD_CAPS: Record<string, number> = {
   forgot_password_ip: 200, // 调用方 5/小时，不受影响
   reset_password_ip: 200, // 调用方 10/小时，不受影响
   card_code_validate_ip_hourly: 500,
-  'plugin-media': 500 // 调用方 120/分钟，不受影响
+  'plugin-media': 500, // 调用方 120/分钟，不受影响
+  // 校园 NAT 共享出口：阈值取正常峰值的数倍，只拦脚本化洪水
+  proxy_image: 12000,
+  music_resolve: 600,
+  music_resolve_url: 600,
+  music_state: 1200
 }
 const DEFAULT_IP_SCOPED_HARD_CAP = 500
 

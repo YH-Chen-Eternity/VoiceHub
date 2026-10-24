@@ -58,7 +58,14 @@ export async function loadCommunityPosts(options: LoadOptions) {
   if (options.postId) conditions.push(eq(communityPosts.id, options.postId))
   if (options.status) conditions.push(eq(communityPosts.status, options.status))
   if (options.boardId) conditions.push(eq(communityPosts.boardId, options.boardId))
-  if (options.boardIds) conditions.push(inArray(communityPosts.boardId, options.boardIds))
+  if (Array.isArray(options.boardIds)) {
+    // 空数组表示没有任何可见板块，不能退化成不过滤
+    conditions.push(
+      options.boardIds.length
+        ? inArray(communityPosts.boardId, options.boardIds)
+        : sql`false`
+    )
+  }
   if (options.authorId) conditions.push(eq(communityPosts.authorId, options.authorId))
   if (options.beforeId) conditions.push(lt(communityPosts.id, options.beforeId))
   if (!options.includeDeleted) conditions.push(isNull(communityPosts.deletedAt))

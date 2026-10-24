@@ -36,15 +36,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
       </button>
 
       <component
-        :is="current.linkUrl ? 'a' : 'div'"
+        :is="safeLinkUrl ? 'a' : 'div'"
         class="announcement-item"
-        :href="current.linkUrl || undefined"
-        :target="current.linkUrl ? '_blank' : undefined"
-        :rel="current.linkUrl ? 'noopener noreferrer' : undefined"
+        :href="safeLinkUrl || undefined"
+        :target="safeLinkUrl ? '_blank' : undefined"
+        :rel="safeLinkUrl ? 'noopener noreferrer' : undefined"
         @mouseenter="pause" @mouseleave="resume"
       >
         <template v-if="current.type === 'IMAGE'">
-          <img :src="current.imageUrl" :alt="current.text || '公告'" class="announcement-image" />
+          <img v-if="safeImageUrl" :src="safeImageUrl" :alt="current.text || '公告'" class="announcement-image" />
         </template>
         <template v-else>
           <Icon name="volume" :size="14" class="announcement-icon" />
@@ -110,6 +110,24 @@ const current = computed(
   () => items.value[activeIndex.value] || { type: 'TEXT', text: '', imageUrl: '', linkUrl: '', displayMode: 'SCROLL', fontSize: 'MEDIUM' }
 )
 
+// 历史数据可能存有 javascript: 等危险协议，渲染侧再兜一层
+const isSafeUrl = (value) => {
+  if (typeof value !== 'string') return false
+  const input = value.trim()
+  if (!input || /[\u0000-\u001f\u007f\\]/.test(input)) return false
+  if (input.startsWith('//')) return false
+  if (input.startsWith('/')) return true
+  try {
+    const url = new URL(input)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+const safeLinkUrl = computed(() => (isSafeUrl(current.value?.linkUrl) ? current.value.linkUrl : ''))
+const safeImageUrl = computed(() => (isSafeUrl(current.value?.imageUrl) ? current.value.imageUrl : ''))
+
 /** 该条公告是否为「分行完整显示」模式（后台每条可单独设置） */
 const isWrap = computed(() => current.value?.type !== 'IMAGE' && current.value?.displayMode === 'WRAP')
 
@@ -171,8 +189,8 @@ onMounted(async () => {
   try {
     const res = await $fetch('/api/announcements')
     const list = Array.isArray(res?.data) ? res.data : []
-    // 图片类型必须有地址、文字类型必须有内容，避免出现空条目
-    items.value = list.filter((item) => (item.type === 'IMAGE' ? item.imageUrl : item.text))
+    // 图片类型必须有安全地址、文字类型必须有内容，避免出现空条目
+    items.value = list.filter((item) => (item.type === 'IMAGE' ? isSafeUrl(item.imageUrl) : item.text))
     emit('loaded', items.value.length > 0)
     await nextTick()
     measure()

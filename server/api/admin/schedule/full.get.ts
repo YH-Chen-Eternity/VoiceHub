@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (!['SONG_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+  if (!['SONG_ADMIN', 'BROADCASTER', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
     throw createError({
       statusCode: 403,
       message: '只有歌曲管理员及以上权限才能访问完整排期数据'

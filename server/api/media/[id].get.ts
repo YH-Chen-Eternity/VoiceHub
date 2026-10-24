@@ -15,11 +15,17 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-import { getRouterParam, setResponseHeaders } from 'h3'
-import { eq } from 'drizzle-orm'
+import { getQuery, getRouterParam, setResponseHeaders } from 'h3'
+import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
-import { mediaAssets } from '~/drizzle/schema'
+import {
+  announcements,
+  communityPostImages,
+  communityPosts,
+  mediaAssets
+} from '~/drizzle/schema'
 import { createApiError } from '~~/server/utils/apiError'
+import { verifyMediaToken } from '~~/server/utils/mediaToken'
 import {
   detectImageFormat,
   imageFormatToMimeType,
@@ -35,6 +41,44 @@ export default defineEventHandler(async (event) => {
 
   const [row] = await db.select().from(mediaAssets).where(eq(mediaAssets.id, id)).limit(1)
   if (!row) {
+    throw createApiError(404, 'MEDIA_NOT_FOUND', '图片不存在')
+  }
+
+  // 可见性：管理员/审帖员、上传者、审核链路签名令牌、已启用的公告或被公开帖子引用
+  const viewer = event.context.user
+  const privileged =
+    !!viewer && ['ADMIN', 'SUPER_ADMIN', 'REVIEWER'].includes(String(viewer.role || ''))
+  let allowed =
+    privileged ||
+    (!!viewer && row.uploadedBy === viewer.id) ||
+    verifyMediaToken(id, getQuery(event).mt)
+
+  if (!allowed) {
+    const [announcementRef] = await db
+      .select({ id: announcements.id })
+      .from(announcements)
+      .where(and(eq(announcements.imageId, id), eq(announcements.enabled, true)))
+      .limit(1)
+    allowed = !!announcementRef
+  }
+
+  if (!allowed) {
+    const [postImage] = await db
+      .select({ postId: communityPostImages.postId })
+      .from(communityPostImages)
+      .innerJoin(communityPosts, eq(communityPosts.id, communityPostImages.postId))
+      .where(
+        and(
+          eq(communityPostImages.mediaId, id),
+          eq(communityPosts.status, 'APPROVED'),
+          isNull(communityPosts.deletedAt)
+        )
+      )
+      .limit(1)
+    allowed = !!postImage
+  }
+
+  if (!allowed) {
     throw createApiError(404, 'MEDIA_NOT_FOUND', '图片不存在')
   }
 

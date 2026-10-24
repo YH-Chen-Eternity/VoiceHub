@@ -1,5 +1,6 @@
 import { getRouterParam } from 'h3'
 import {
+  getReviewableBoardIds,
   isCommunityAdmin,
   isCommunityReviewer,
   requireCommunityUser
@@ -17,7 +18,10 @@ export default defineEventHandler(async (event) => {
   const post = await getCommunityPostById(postId, user.id)
   if (!post) throw createApiError(404, 'COMMUNITY_POST_NOT_FOUND', '帖子不存在')
 
-  const privileged = isCommunityReviewer(user) || isCommunityAdmin(user)
+  // 审帖员只能读取自己负责板块的未公开帖子
+  const scopedBoardIds = await getReviewableBoardIds(user)
+  const canReviewBoard = !scopedBoardIds || scopedBoardIds.includes(post.board.id)
+  const privileged = canReviewBoard && (isCommunityReviewer(user) || isCommunityAdmin(user))
   if (post.status !== 'APPROVED' && post.author.id !== user.id && !privileged) {
     throw createApiError(404, 'COMMUNITY_POST_NOT_FOUND', '帖子不存在')
   }

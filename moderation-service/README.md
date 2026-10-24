@@ -196,6 +196,7 @@ python scripts/e2e_check.py --base-url http://127.0.0.1:8010
 | `APP_ENV` | `production` | `production` / `test` |
 | `LOG_LEVEL` | `INFO` | 日志级别 |
 | `MODERATION_ENDPOINTS` | 上海 | `host[:region],host[:region]`；默认仅上海；如需容灾可显式追加新加坡（跨境调用成本更高）；测试可用 `http://127.0.0.1:9101=test` |
+| `MODERATION_SERVICE_TOKEN` | 空 | 可选共享令牌；配置后 `/audit` 必须携带 `x-moderation-token`，VoiceHub 侧用 `COMMUNITY_MODERATION_SERVICE_TOKEN` 同步配置 |
 | `MODERATION_MULTIMODAL_APP_ID` | `img_txt_check_agent_01` | 图文混合审核智能体 |
 | `MODERATION_IMAGE_APP_ID` | `img_check_agent_01` | 纯图片审核智能体 |
 | `MODERATION_TEXT_APP_ID` | `txt_check_agent_01` | 标准文本审核（兜底用） |

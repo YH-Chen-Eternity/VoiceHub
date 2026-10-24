@@ -1,5 +1,6 @@
 /* Modified by YH-Chen-Eternity on 2026-10-23 */
 
+import { randomUUID } from 'node:crypto'
 import { defineEventHandler, getCookie, getQuery } from 'h3'
 import { db, users } from '~/drizzle/db'
 import { eq } from 'drizzle-orm'
@@ -9,6 +10,8 @@ import { createApiError } from '~~/server/utils/apiError'
 
 // 存储WebSocket连接
 const musicConnections = new Map<string, any>()
+// 单实例连接上限：每个连接都占用 socket 与心跳定时器，匿名端不可无限制开流
+const MAX_MUSIC_CONNECTIONS = 500
 
 // 音乐状态接口
 interface MusicState {
@@ -155,8 +158,12 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  if (musicConnections.size >= MAX_MUSIC_CONNECTIONS) {
+    throw createApiError(503, 'MUSIC_CONNECTIONS_FULL', '实时状态连接数已满，请稍后重试')
+  }
+
   // 生成连接ID
-  const connectionId = `music_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  const connectionId = `music_${randomUUID()}`
 
   // 设置SSE头
   const response = event.node.res

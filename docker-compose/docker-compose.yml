@@ -6,8 +6,8 @@ services:
     ports:
       - '3000:3000'
     environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/voicehub?sslmode=disable
-      - JWT_SECRET=your-jwt-secret-here
+      - DATABASE_URL=postgresql://user:${DB_PASSWORD:?set DB_PASSWORD}@postgres:5432/voicehub?sslmode=disable
+      - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET}
       - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD:-}
       - NODE_ENV=production
       - SKIP_BUILD=true
@@ -22,7 +22,7 @@ services:
       dockerfile: Dockerfile-postgres
     environment:
       - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?set DB_PASSWORD}
       - POSTGRES_DB=voicehub
     volumes:
       - postgres_data:/var/lib/postgresql/data

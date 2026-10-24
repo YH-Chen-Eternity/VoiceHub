@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto'
 import { db } from '~/drizzle/db'
 import { cardCodes } from '~/drizzle/schema'
 import { inArray } from 'drizzle-orm'
@@ -41,7 +42,10 @@ export default defineEventHandler(async (event) => {
   const manualCodeSet = new Set(codes)
   const generatedCodeSet = new Set<string>()
   if (batchCount > 0) {
-    const actualLength = Math.max(4, length)
+    if (length < 8) {
+      throw createError({ statusCode: 400, message: '点歌券随机长度至少 8 位' })
+    }
+    const actualLength = length
     const maxPossibleCodes = charset.length ** actualLength
     if (maxPossibleCodes < batchCount) {
       throw createError({
@@ -53,7 +57,7 @@ export default defineEventHandler(async (event) => {
     const makeRandom = () => {
       let code = prefix
       for (let i = 0; i < actualLength; i++) {
-        code += charset.charAt(Math.floor(Math.random() * charset.length))
+        code += charset.charAt(randomInt(charset.length))
       }
       return code
     }

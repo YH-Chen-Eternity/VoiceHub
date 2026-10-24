@@ -1,5 +1,9 @@
 /* Modified by YH-Chen-Eternity on 2026-10-23 */
 
+import { SERVER_ERROR_CODES } from '~~/server/config/constants'
+import { createApiError } from '~~/server/utils/apiError'
+import { getClientIP } from '~~/server/utils/ip-utils'
+import { checkDistributedRateLimit } from '~~/server/utils/rateLimiter'
 import { getTxSongPlayableInfo, upgradeTxAudioUrl } from '~~/server/utils/native_tx'
 import {
   getQqCookieDiagnostic,
@@ -111,6 +115,19 @@ const resolveTxWithHelloWorld = async (name: string) => {
 }
 
 export default defineEventHandler(async (event) => {
+  const rateLimit = await checkDistributedRateLimit(
+    `music_resolve_url:${getClientIP(event)}`,
+    600,
+    60 * 1000
+  )
+  if (!rateLimit.isAllowed) {
+    throw createApiError(
+      429,
+      SERVER_ERROR_CODES.COMMON_RATE_LIMITED_SECONDS,
+      '解析请求过于频繁，请稍后重试'
+    )
+  }
+
   const body = await readBody(event)
   const platform = String(body?.platform || '').trim()
   const musicId = body?.musicId

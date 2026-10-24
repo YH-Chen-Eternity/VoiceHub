@@ -3,7 +3,7 @@
 // Modified by YH-Chen on 2026-10-17
 import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
-import { eq, sql } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { createApiError } from '~~/server/utils/apiError'
 import { checkEmailDeliverability } from '~~/server/utils/email-deliverability'
 import { getEmailDomain, getEmailDomainViolation } from '~~/server/utils/email-domain-policy'
@@ -61,15 +61,7 @@ export default defineEventHandler(async (event) => {
       throw createApiError(400, 'USER_EMAIL_TAKEN', '该邮箱已被其他用户绑定')
     }
 
-    // 更新用户邮箱
-    await db
-      .update(users)
-      .set({
-        email: email,
-        emailVerified: false
-      })
-      .where(eq(users.id, user.id))
-
+    // 验证码通过后才写入邮箱（见 verify-code），避免未验证就能占用他人地址
     // 发送邮箱验证码
     try {
       const { sendEmailVerificationCode } = await import('~~/server/api/user/email/send-code.post')

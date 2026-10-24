@@ -10,6 +10,9 @@ import {
   requireCommunityEnabled
 } from '~~/server/utils/community'
 import { createApiError } from '~~/server/utils/apiError'
+import { SERVER_ERROR_CODES } from '~~/server/config/constants'
+import { checkDistributedRateLimit } from '~~/server/utils/rateLimiter'
+import { signMediaToken } from '~~/server/utils/mediaToken'
 import { moderateCommunityImage, moderateCommunityText } from '~~/server/utils/communityModeration'
 import {
   isCommunityModerationServiceConfigured,
@@ -22,6 +25,12 @@ function cleanText(input: unknown): string {
     .trim()
 }
 
+// 待审图片不在公开引用中，审核链路需要带短期签名才能读取
+function mediaUrl(origin: string, imageId: number): string {
+  const token = signMediaToken(imageId)
+  return `${origin}/api/media/${imageId}${token ? `?mt=${encodeURIComponent(token)}` : ''}`
+}
+
 export default defineEventHandler(async (event) => {
   const user = requireCommunityUser(event)
   const settings = await requireCommunityEnabled()
@@ -29,6 +38,25 @@ export default defineEventHandler(async (event) => {
 
   if (user.status && user.status !== 'active') {
     throw createApiError(403, 'COMMUNITY_ACCOUNT_UNAVAILABLE', '账号状态异常，无法发帖')
+  }
+
+  // 按用户限流：审核链路会调用付费接口，不能由单个账号无限放大
+  const minuteLimit = await checkDistributedRateLimit(
+    `community_post:user:${user.id}`,
+    10,
+    60 * 1000
+  )
+  const dayLimit = await checkDistributedRateLimit(
+    `community_post_day:user:${user.id}`,
+    50,
+    24 * 60 * 60 * 1000
+  )
+  if (!minuteLimit.isAllowed || !dayLimit.isAllowed) {
+    throw createApiError(
+      429,
+      SERVER_ERROR_CODES.COMMON_RATE_LIMITED_SECONDS,
+      '发帖过于频繁，请稍后重试'
+    )
   }
 
   const body = await readBody(event)
@@ -107,7 +135,7 @@ export default defineEventHandler(async (event) => {
     const publicOrigin = String(process.env.COMMUNITY_PUBLIC_ORIGIN || '').replace(/\/$/, '')
     const imageUrls =
       publicOrigin && settings.allowImages && imageIds.length > 0
-        ? imageIds.map((imageId) => `${publicOrigin}/api/media/${imageId}`)
+        ? imageIds.map((imageId) => mediaUrl(publicOrigin, imageId))
         : []
     const result = await moderateCommunityPostWithService({
       // 帖子尚未入库，使用带用户与随机后缀的临时业务 ID，仅用于审核链路追踪
@@ -144,7 +172,7 @@ export default defineEventHandler(async (event) => {
         needsManualReview = true
       } else {
         for (const imageId of imageIds) {
-          const result = await moderateCommunityImage(`${publicOrigin}/api/media/${imageId}`, settings)
+          const result = await moderateCommunityImage(mediaUrl(publicOrigin, imageId), settings)
           if (result.error) needsManualReview = true
           if (result.hit) {
             needsManualReview = true

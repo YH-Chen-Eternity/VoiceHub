@@ -208,7 +208,7 @@ Modified by YH-Chen on 2026-10-17
                   </button>
                 </div>
                 <div class="rounded-2xl overflow-hidden border border-border-secondary bg-bg-secondary shadow-2xl">
-                  <iframe :srcdoc="previewHtml" class="w-full h-[500px] border-none" />
+                  <iframe :srcdoc="previewHtml" sandbox="" class="w-full h-[500px] border-none" />
                 </div>
               </div>
             </Transition>

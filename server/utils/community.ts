@@ -206,7 +206,7 @@ export async function assertCommunityNotMuted(userId: number): Promise<void> {
   })
 }
 
-/** 审帖员可看板块：无分配 = 全部；有分配 = 仅分配板块 */
+/** 管理员返回 null（不受限）；审帖员只返回已分配板块，未分配时为空集 */
 export async function getReviewableBoardIds(user: any): Promise<number[] | null> {
   if (isCommunityAdmin(user)) return null
   const { communityBoardReviewers } = await import('~/drizzle/schema')
@@ -214,7 +214,6 @@ export async function getReviewableBoardIds(user: any): Promise<number[] | null>
     .select({ boardId: communityBoardReviewers.boardId })
     .from(communityBoardReviewers)
     .where(eq(communityBoardReviewers.userId, user.id))
-  if (rows.length === 0) return null
   return rows.map((row) => row.boardId)
 }
 

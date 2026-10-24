@@ -15,12 +15,14 @@ import {
   delStore,
   delStoreIfValue,
   getStore,
+  hashStateCode,
   incrStore,
   parseStoreJson,
   verifyStateCode
 } from '~~/server/utils/captchaStore'
 import otplib from 'otplib'
 import { createApiError } from '~~/server/utils/apiError'
+import { SERVER_ERROR_CODES } from '~~/server/config/constants'
 import {
   computeRequirePasswordChange,
   resolveRequirePasswordChange
@@ -117,6 +119,17 @@ export default defineEventHandler(async (event) => {
 
     if (!totpValid) {
       throw createApiError(400, 'AUTH_TOTP_CODE_INVALID', '动态验证码错误')
+    }
+
+    // 一次性消费：±1 窗口内同一验证码只能通过一次，防止截获后重放
+    const usedKey = `2fa_totp_used:${targetUserId}:${hashStateCode('totp', code)}`
+    const usedCount = await incrStore(usedKey, 120)
+    if (usedCount > 1) {
+      throw createApiError(
+        400,
+        SERVER_ERROR_CODES.AUTH_TOTP_CODE_ALREADY_USED,
+        '动态验证码已使用，请等待下一个验证码'
+      )
     }
 
     await delStore(totpUserFailureKey)

@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs'
 import { getRequestHeader } from 'h3'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { db, users } from '~/drizzle/db'
-import { JWTEnhanced } from '~~/server/utils/jwt-enhanced'
+import { createAuthSession } from '~~/server/utils/auth-session'
 import { validateOAuthRegisterCredentials } from '~/utils/oauth-register'
 import { isSecureRequest, getRequestHostname } from '~~/server/utils/request-utils'
 import { resolveEsaCaptchaSceneId } from '~/utils/esaCaptcha'
@@ -280,8 +280,20 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // 无需审核：直接登录
-    const token = JWTEnhanced.generateToken(insertedUser.id, 'USER', insertedUser.tokenVersion)
+    // 无需审核：直接登录，令牌必须绑定可撤销的会话
+    let token: string
+    try {
+      const session = await createAuthSession(
+        event,
+        { id: insertedUser.id, role: 'USER', tokenVersion: insertedUser.tokenVersion },
+        'password'
+      )
+      token = session.token
+    } catch (error) {
+      // 会话创建失败时回滚刚创建的用户，避免留下无法登录且重试报"用户名已存在"的半成品账号
+      await db.delete(users).where(eq(users.id, insertedUser.id)).catch(() => {})
+      throw error
+    }
     const isSecure = isSecureRequest(event)
 
     setCookie(event, 'auth-token', token, {

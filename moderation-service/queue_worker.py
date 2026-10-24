@@ -206,6 +206,7 @@ class QueueWorker:
                 task.image_url,
                 timeout_seconds=self.settings.image_fetch_timeout_seconds,
                 max_bytes=self.settings.max_image_bytes,
+                allow_private=self.settings.allow_private_image_urls,
             )
             if not ok:
                 return TaskOutcome(

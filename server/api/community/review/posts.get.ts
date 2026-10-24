@@ -28,7 +28,9 @@ export default defineEventHandler(async (event) => {
   const boardFilter = requestedBoardId
     ? eq(communityPosts.boardId, requestedBoardId)
     : scopedBoardIds
-      ? inArray(communityPosts.boardId, scopedBoardIds)
+      ? scopedBoardIds.length
+        ? inArray(communityPosts.boardId, scopedBoardIds)
+        : eq(communityPosts.boardId, -1)
       : undefined
 
   const posts = await loadCommunityPosts({

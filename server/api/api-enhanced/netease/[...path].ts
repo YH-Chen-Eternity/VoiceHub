@@ -3,7 +3,7 @@ import { JWTEnhanced } from '~~/server/utils/jwt-enhanced'
 import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
 import { eq } from 'drizzle-orm'
-import { getRequestIP } from 'h3'
+import { getClientIP } from '~~/server/utils/ip-utils'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -228,7 +228,7 @@ export default defineEventHandler(async (event) => {
 
     try {
 
-      clientIp = getRequestIP(event, { xForwardedFor: true }) || ''
+      clientIp = getClientIP(event) || ''
 
     } catch {
 

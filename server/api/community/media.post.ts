@@ -32,6 +32,12 @@ export default defineEventHandler(async (event) => {
     throw createApiError(429, 'COMMUNITY_MEDIA_DAILY_LIMIT', '今天上传的图片太多了，请明天再试')
   }
 
+  // multipart 会整体读入内存，先按声明的长度拒绝明显超限的请求
+  const declaredLength = Number(getHeader(event, 'content-length') || 0)
+  if (Number.isFinite(declaredLength) && declaredLength > COMMUNITY_IMAGE_MAX_UPLOAD_BYTES + 512 * 1024) {
+    throw createApiError(413, 'MEDIA_TOO_LARGE', '图片原始文件不能超过 15MB')
+  }
+
   const form = await readMultipartFormData(event)
   const file = form?.find((part) => part.name === 'file' && part.data?.length)
   if (!file) {

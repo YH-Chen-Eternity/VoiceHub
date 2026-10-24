@@ -225,7 +225,7 @@ export const siteConfig = {
   guidelinesPlaceholder: '请输入投稿须知内容（支持 Markdown 格式）',
   guidelinesEdit: '编辑',
   guidelinesPreview: '预览',
-  defaultSiteTitle: 'VoiceHub-Plus（非官方）校园广播站点歌系统',
+  defaultSiteTitle: 'VoiceHub-Plus 校园广播站点歌系统',
   defaultSubmissionGuidelines: `1. 投稿时无需加入书名号
 2. 除DJ外，其他类型歌曲均接收（包括小语种）
 3. 禁止投递含有违规内容的歌曲
@@ -733,7 +733,7 @@ export const pages = {
   dashboard: {
     backToTop: '返回顶部',
     fallbackTitle: '管理后台',
-    defaultSiteTitle: 'VoiceHub-Plus（非官方）校园广播站点歌系统',
+    defaultSiteTitle: 'VoiceHub-Plus 校园广播站点歌系统',
     tabs: {
       overview: '数据概览',
       songs: '歌曲管理',

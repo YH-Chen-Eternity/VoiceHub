@@ -17,7 +17,7 @@ try {
 }
 
 const siteTitle =
-  customSeoConfig.title || process.env.NUXT_PUBLIC_SITE_TITLE || 'VoiceHub-Plus（非官方）校园广播站点歌系统'
+  customSeoConfig.title || process.env.NUXT_PUBLIC_SITE_TITLE || 'VoiceHub-Plus 校园广播站点歌系统'
 const siteShortName = customSeoConfig.shortName || '校园广播'
 const siteDescription =
   customSeoConfig.description ||

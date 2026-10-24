@@ -101,7 +101,6 @@ Modified by YH-Chen on 2026-10-17
             <div class="collaborators-list">
               <div v-for="user in collaborators" :key="user.id" class="collaborator-tag">
                 <span class="collaborator-name">{{ user.name }}</span>
-                <span v-if="user.username" class="collaborator-username">@{{ user.username }}</span>
                 <button
                   class="remove-collaborator"
                   type="button"
@@ -4915,22 +4914,12 @@ defineExpose({
   color: var(--text-primary);
 }
 
-/* 姓名与用户名各自截断：窄屏下标签不会把页面撑出横向滚动 */
+/* 姓名截断：窄屏下标签不会把页面撑出横向滚动 */
 .collaborator-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.collaborator-username {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-accent);
 }
 
 .remove-collaborator {

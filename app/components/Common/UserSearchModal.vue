@@ -97,13 +97,10 @@
                   {{ user.name.charAt(0) }}
                 </div>
 
-                <!-- 用户信息：脱敏姓名 + 用户名分别展示，移动端各自截断避免溢出 -->
+                <!-- 用户信息：只展示姓名，移动端截断避免溢出 -->
                 <div class="flex-1 min-w-0">
                   <div class="font-bold text-text-primary truncate">
                     {{ user.name }}
-                  </div>
-                  <div v-if="user.username" class="mt-0.5 truncate text-[11px] font-bold text-primary">
-                    @{{ user.username }}
                   </div>
                   <div
                     v-if="user.grade || user.class"

@@ -798,11 +798,6 @@
                     class="inline-flex max-w-full min-w-0 items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-primary border border-border-secondary text-xs text-text-secondary"
                   >
                     <span class="min-w-0 truncate">{{ getCollaboratorDisplayName(collaborator) }}</span>
-                    <span
-                      v-if="collaborator.username"
-                      class="shrink-0 text-[10px] font-bold text-primary"
-                      >@{{ collaborator.username }}</span
-                    >
                     <button
                       class="shrink-0 text-text-tertiary hover:text-error transition-colors"
                       @click="removeEditCollaborator(collaborator.id)"
@@ -838,9 +833,6 @@
                     >
                       <div class="flex min-w-0 flex-col">
                         <span class="truncate text-sm font-bold text-text-primary">{{ user.name }}</span>
-                        <span v-if="user.username" class="truncate text-[11px] font-bold text-primary"
-                          >@{{ user.username }}</span
-                        >
                       </div>
                       <Plus :size="14" class="text-primary opacity-70 group-hover:opacity-100" />
                     </div>
@@ -1750,7 +1742,7 @@ const updateSubmissionNotePublicStatus = async (status) => {
 }
 
 const getCollaboratorDisplayName = (user) => {
-  return user?.displayName || user?.name || user?.username || getLocaleMessage('unknownUser')
+  return user?.displayName || user?.name || getLocaleMessage('unknownUser')
 }
 
 const openSubmissionRemark = (song) => {

@@ -604,3 +604,18 @@ GET  /api/admin/replay-requests
 
 - `https://gdqzvoicehub.cn/.well-known/security.txt` 已按 RFC 9116 配置（Contact/Expires/Preferred-Languages/Canonical），
   仅存在于服务器 Nginx 配置中，未写入源码仓库，避免联系方式随开源项目扩散。
+
+### 10.12 修复边缘层机器人评分误封后台（2026-10-25）
+
+**现象**：站长打开管理后台「攻击日志」时页面提示「检测到自动化访问，请刷新页面后重试」，多个 `/api/admin/*` 请求被边缘层（rewriter）拦截。
+
+**原因**：边缘层机器人评分对后台常开页面持续累计 `no_input`（无鼠标/键盘输入）分数，且 `/api/admin/` 属于敏感路径，
+分数超过 `BOT_BLOCK_SCORE` 后整会话被拦；后台页面轮询多个接口，数分钟后必然触发，属于误伤而非真的攻击。
+
+**修复**（`deploy/rewriter/app-rewriter.js`，已同步服务器 `/data/voicehub/rewriter/app-rewriter.js`）：
+
+- `no_input` 每次会话只记一次分（新增 `s.noInput` 标记），不再随页面停留无限累加。
+- `/api/admin/` 从机器人行为评分的拦截路径中移除：后台接口本身需要有效 JWT 会话，行为评分误伤风险高于收益；
+  登录、用户搜索、点歌、音源等未登录/高价值接口仍保留拦截。
+- 已重启 rewriter 清空内存评分，并将站长当前出口 IP（IPv4/IPv6）加入 trusted 白名单（可在后台解除）；
+  误锁的 IP 已全部解封。

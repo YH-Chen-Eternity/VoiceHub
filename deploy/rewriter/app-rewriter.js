@@ -1,11 +1,3 @@
-/**
- * VoiceHub-Plus — 非官方社区版（基于 laoshuikaixue/VoiceHub，GPL-3.0）
- * Copyright (C) 2026 YH-Chen-Eternity
- * SPDX-License-Identifier: GPL-3.0-only
- *
- * 本文件为社区版新增代码；完整许可证见仓库根目录 LICENSE。
- */
-
 const http = require('http');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -722,7 +714,9 @@ loadGeoLockState();
 // ============================================================
 const BOT_GUARD = String(process.env.BOT_GUARD || '1') === '1';
 const BOT_BLOCK_SCORE = envInt('BOT_BLOCK_SCORE', 9);
-const BOT_SENSITIVE_RE = /^\/api\/(admin\/|user\/export|songs\/request|music\/)/;
+// 管理接口需要有效 JWT 会话，误伤站长会直接锁死后台；这里不再用行为评分拦截 /api/admin/，
+// 登录/搜索/点歌/音源等未登录或高价值接口仍保留机器人拦截。
+const BOT_SENSITIVE_RE = /^\/api\/(user\/export|songs\/request|music\/)/;
 const BOT_LOG_FILE = process.env.BOT_LOG_FILE || '/app/data/bot-events.jsonl';
 let botLogWrites = 0;
 function botEvent(o) {
@@ -1378,7 +1372,11 @@ function handleBotGuard(req, res, pathname, ip) {
           if ((ev.pl || 0) === 0 && (ev.lg || 0) === 0) botAdd(s, 'headless_env', 2);
           const act = (ev.m || 0) + (ev.k || 0) + (ev.t || 0) + (ev.s || 0);
           if (act > 5) { s.human++; s.score = Math.max(0, s.score - 2); }
-          else if (Date.now() - s.first > 120000) botAdd(s, 'no_input', 3);
+          else if (Date.now() - s.first > 120000 && !s.noInput) {
+            // 长时间停留且无输入只扣一次分，避免后台常开页面被持续累加评分误封
+            s.noInput = 1;
+            botAdd(s, 'no_input', 3);
+          }
           s.reports++;
           s.last = Date.now();
           botEvent({ event: 'report', ip: ip, fp: j.fp || '', ua: String(req.headers['user-agent'] || '').slice(0, 160), key: rec.key, score: Number(s.score.toFixed(1)), reasons: Object.keys(s.reasons), ev: ev });

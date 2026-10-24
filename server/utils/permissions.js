@@ -21,6 +21,24 @@ const ROLES = {
     ],
     canAccessAdmin: true
   },
+  BROADCASTER: {
+    displayName: '放歌员',
+    description: '负责播出排期，只能查看概览、排期与打印',
+    pages: [
+      'overview', // 数据概览
+      'schedule', // 排期管理
+      'print' // 打印排期
+    ],
+    canAccessAdmin: true
+  },
+  REVIEWER: {
+    displayName: '审帖员',
+    description: '普通用户权限 + 回声社区帖子审核',
+    pages: [
+      'community-review' // 帖子审核
+    ],
+    canAccessAdmin: true
+  },
   ADMIN: {
     displayName: '管理员',
     description: '系统管理员，拥有大部分权限',
@@ -33,7 +51,12 @@ const ROLES = {
       'playtimes', // 播出时段
       'request-times', // 投稿时段
       'semesters', // 学期管理
-      'data-analysis' // 数据分析
+      'data-analysis', // 数据分析
+      'community-review', // 社区帖子审核
+      'community-boards', // 社区板块
+      'community-titles', // 社区称号
+      'community-users', // 社区用户与违规
+      'community-settings' // 社区配置
     ],
     canAccessAdmin: true
   },
@@ -53,7 +76,12 @@ const ROLES = {
       'blacklist', // 黑名单管理
       'site-config', // 站点配置
       'database', // 数据库操作
-      'data-analysis' // 数据分析
+      'data-analysis', // 数据分析
+      'community-review', // 社区帖子审核
+      'community-boards', // 社区板块
+      'community-titles', // 社区称号
+      'community-users', // 社区用户与违规
+      'community-settings' // 社区配置
     ],
     canAccessAdmin: true
   }
@@ -104,7 +132,7 @@ function canManageUserRole(currentUser, targetRole) {
   // 只有超级管理员可以分配角色
   if (currentUser.role === 'SUPER_ADMIN') {
     // 超级管理员可以分配除自己以外的所有角色
-    return ['USER', 'SONG_ADMIN', 'ADMIN'].includes(targetRole)
+    return ['USER', 'SONG_ADMIN', 'BROADCASTER', 'REVIEWER', 'ADMIN'].includes(targetRole)
   }
 
   return false

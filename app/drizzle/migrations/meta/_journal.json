@@ -477,6 +477,13 @@
       "when": 1792746000000,
       "tag": "20261023093000_add_force_username_change",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1792807120744,
+      "tag": "20261024015840_community",
+      "breakpoints": true
     }
   ]
 }

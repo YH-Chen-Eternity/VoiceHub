@@ -163,7 +163,7 @@ export default defineEventHandler(async (event) => {
       let validRole = 'USER' // 默认角色
       if (userData.role) {
         const rolePermissions: Record<string, string[]> = {
-          SUPER_ADMIN: ['USER', 'ADMIN', 'SONG_ADMIN', 'SUPER_ADMIN'],
+          SUPER_ADMIN: ['USER', 'ADMIN', 'SONG_ADMIN', 'BROADCASTER', 'REVIEWER', 'SUPER_ADMIN'],
           ADMIN: ['USER', 'SONG_ADMIN']
         }
         const allowedRoles = rolePermissions[user.role]

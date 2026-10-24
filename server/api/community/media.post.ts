@@ -1,0 +1,63 @@
+import { readMultipartFormData } from 'h3'
+import { and, count, eq, gte } from 'drizzle-orm'
+import { db } from '~/drizzle/db'
+import { mediaAssets } from '~/drizzle/schema'
+import {
+  assertCommunityNotMuted,
+  requireCommunityEnabled,
+  requireCommunityUser
+} from '~~/server/utils/community'
+import { createApiError } from '~~/server/utils/apiError'
+
+const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+const MAX_BYTES = 2 * 1024 * 1024
+const DAILY_LIMIT = 30
+
+export default defineEventHandler(async (event) => {
+  const user = requireCommunityUser(event)
+  const settings = await requireCommunityEnabled()
+  if (!settings.allowImages) {
+    throw createApiError(403, 'COMMUNITY_IMAGES_DISABLED', '当前不允许发布图片')
+  }
+  await assertCommunityNotMuted(user.id)
+
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+  const used = await db
+    .select({ value: count() })
+    .from(mediaAssets)
+    .where(and(eq(mediaAssets.uploadedBy, user.id), gte(mediaAssets.createdAt, since)))
+  if (Number(used[0]?.value || 0) >= DAILY_LIMIT) {
+    throw createApiError(429, 'COMMUNITY_MEDIA_DAILY_LIMIT', '今天上传的图片太多了，请明天再试')
+  }
+
+  const form = await readMultipartFormData(event)
+  const file = form?.find((part) => part.name === 'file' && part.data?.length)
+  if (!file) {
+    throw createApiError(400, 'MEDIA_NO_FILE', '请选择要上传的图片')
+  }
+
+  const mime = String(file.type || '').toLowerCase()
+  if (!ALLOWED_MIME.includes(mime)) {
+    throw createApiError(400, 'MEDIA_TYPE_UNSUPPORTED', '仅支持 PNG / JPEG / WebP / GIF 格式')
+  }
+  if (file.data.length > MAX_BYTES) {
+    throw createApiError(400, 'MEDIA_TOO_LARGE', '图片不能超过 2MB，请先压缩')
+  }
+
+  const [row] = await db
+    .insert(mediaAssets)
+    .values({
+      filename: file.filename || 'community-upload',
+      mimeType: mime,
+      byteSize: file.data.length,
+      data: file.data.toString('base64'),
+      uploadedBy: user.id
+    })
+    .returning({ id: mediaAssets.id })
+
+  if (!row) {
+    throw createApiError(500, 'MEDIA_SAVE_FAILED', '图片保存失败，请稍后重试')
+  }
+
+  return { success: true, id: row.id, url: `/api/media/${row.id}` }
+})

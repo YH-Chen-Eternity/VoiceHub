@@ -11,7 +11,7 @@ export const usePermissions = () => {
   const canAccessAdmin = computed(() => {
     if (!auth.user.value) return false
     const role = auth.user.value.role
-    return ['SONG_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(role)
+    return ['SONG_ADMIN', 'BROADCASTER', 'REVIEWER', 'ADMIN', 'SUPER_ADMIN'].includes(role)
   })
 
   // 检查用户是否可以访问指定页面
@@ -25,12 +25,22 @@ export const usePermissions = () => {
 
     // 管理员可以访问的页面
     if (role === 'ADMIN') {
-      return ['overview', 'schedule', 'print', 'songs', 'users', 'grade-class', 'playtimes', 'request-times', 'semesters', 'data-analysis', 'card-codes', 'music-source', 'review-notes', 'review-users', 'announcement', 'attack-logs'].includes(page)
+      return ['overview', 'schedule', 'print', 'songs', 'users', 'grade-class', 'playtimes', 'request-times', 'semesters', 'data-analysis', 'card-codes', 'music-source', 'review-notes', 'review-users', 'announcement', 'attack-logs', 'community-review', 'community-boards', 'community-titles', 'community-users', 'community-settings'].includes(page)
     }
 
     // 歌曲管理员可以访问的页面
     if (role === 'SONG_ADMIN') {
       return ['overview', 'schedule', 'print', 'songs', 'playtimes', 'request-times', 'semesters', 'data-analysis', 'card-codes'].includes(page)
+    }
+
+    // 放歌员仅能查看概览、排期与打印
+    if (role === 'BROADCASTER') {
+      return ['overview', 'schedule', 'print'].includes(page)
+    }
+
+    // 审帖员 = 普通用户 + 帖子审核
+    if (role === 'REVIEWER') {
+      return page === 'community-review'
     }
 
     return false
@@ -66,12 +76,21 @@ export const usePermissions = () => {
           'review-users',
           'announcement',
           'system-board',
-          'attack-logs'
+          'attack-logs',
+          'community-review',
+          'community-boards',
+          'community-titles',
+          'community-users',
+          'community-settings'
         ]
       case 'ADMIN':
-        return ['overview', 'schedule', 'print', 'songs', 'users', 'grade-class', 'playtimes', 'request-times', 'semesters', 'data-analysis', 'card-codes', 'music-source', 'review-notes', 'review-users', 'announcement', 'attack-logs']
+        return ['overview', 'schedule', 'print', 'songs', 'users', 'grade-class', 'playtimes', 'request-times', 'semesters', 'data-analysis', 'card-codes', 'music-source', 'review-notes', 'review-users', 'announcement', 'attack-logs', 'community-review', 'community-boards', 'community-titles', 'community-users', 'community-settings']
       case 'SONG_ADMIN':
         return ['overview', 'schedule', 'print', 'songs', 'playtimes', 'request-times', 'semesters', 'data-analysis', 'card-codes']
+      case 'BROADCASTER':
+        return ['overview', 'schedule', 'print']
+      case 'REVIEWER':
+        return ['community-review']
       default:
         return []
     }
@@ -80,6 +99,8 @@ export const usePermissions = () => {
   // 角色检查
   const isUser = computed(() => auth.user.value?.role === 'USER')
   const isSongAdmin = computed(() => auth.user.value?.role === 'SONG_ADMIN')
+  const isBroadcaster = computed(() => auth.user.value?.role === 'BROADCASTER')
+  const isReviewer = computed(() => auth.user.value?.role === 'REVIEWER')
   const isAdmin = computed(() => auth.user.value?.role === 'ADMIN')
   const isSuperAdmin = computed(() => auth.user.value?.role === 'SUPER_ADMIN')
 
@@ -100,11 +121,19 @@ export const usePermissions = () => {
 
     // 只有超级管理员可以分配角色
     if (auth.user.value.role === 'SUPER_ADMIN') {
-      return ['USER', 'SONG_ADMIN', 'ADMIN'].includes(targetRole)
+      return ['USER', 'SONG_ADMIN', 'BROADCASTER', 'REVIEWER', 'ADMIN'].includes(targetRole)
     }
 
     return false
   }
+
+  // 社区权限
+  const canReviewCommunity = computed(() => {
+    const role = auth.user.value?.role
+    return ['REVIEWER', 'ADMIN', 'SUPER_ADMIN'].includes(role || '')
+  })
+
+  const isCommunityAdmin = computed(() => ['ADMIN', 'SUPER_ADMIN'].includes(auth.user.value?.role || ''))
 
   // 检查是否可以打印排期
   const canPrintSchedule = computed(() => {
@@ -122,6 +151,8 @@ export const usePermissions = () => {
     // 角色检查
     isUser,
     isSongAdmin,
+    isBroadcaster,
+    isReviewer,
     isAdmin,
     isSuperAdmin,
     isAdminOrAbove,
@@ -129,6 +160,10 @@ export const usePermissions = () => {
 
     // 功能权限
     canPrintSchedule,
+
+    // 社区权限
+    canReviewCommunity,
+    isCommunityAdmin,
 
     // 用户管理权限
     canManageUserRole

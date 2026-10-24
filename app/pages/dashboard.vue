@@ -84,12 +84,52 @@ Modified by YH-Chen on 2026-10-17
               <LazyAdminReviewManager mode="users" />
             </div>
 
+            <!-- 审核：回声社区帖子 -->
+            <div
+              v-if="activeTab === 'community-review' && permissions.canAccessPage('community-review')"
+              class="animate-in fade-in slide-in-from-bottom-4 duration-500"
+            >
+              <LazyAdminCommunityReview />
+            </div>
+
             <!-- 内容管理：公告栏编辑 -->
             <div
               v-if="activeTab === 'announcement' && permissions.canAccessPage('announcement')"
               class="animate-in fade-in slide-in-from-bottom-4 duration-500"
             >
               <LazyAdminAnnouncementManager />
+            </div>
+
+            <!-- 回声社区：板块管理 -->
+            <div
+              v-if="activeTab === 'community-boards' && permissions.canAccessPage('community-boards')"
+              class="animate-in fade-in slide-in-from-bottom-4 duration-500"
+            >
+              <LazyAdminCommunityBoards />
+            </div>
+
+            <!-- 回声社区：称号管理 -->
+            <div
+              v-if="activeTab === 'community-titles' && permissions.canAccessPage('community-titles')"
+              class="animate-in fade-in slide-in-from-bottom-4 duration-500"
+            >
+              <LazyAdminCommunityTitles />
+            </div>
+
+            <!-- 回声社区：用户与违规 -->
+            <div
+              v-if="activeTab === 'community-users' && permissions.canAccessPage('community-users')"
+              class="animate-in fade-in slide-in-from-bottom-4 duration-500"
+            >
+              <LazyAdminCommunityUsers />
+            </div>
+
+            <!-- 回声社区：配置 -->
+            <div
+              v-if="activeTab === 'community-settings' && permissions.canAccessPage('community-settings')"
+              class="animate-in fade-in slide-in-from-bottom-4 duration-500"
+            >
+              <LazyAdminCommunitySettings />
             </div>
 
             <!-- 歌曲管理 -->
@@ -294,6 +334,7 @@ const registerBeforeNavigate = (hook) => {
 provide('registerBeforeNavigate', registerBeforeNavigate)
 
 // 服务
+const route = useRoute()
 let auth = null
 const permissions = usePermissions()
 
@@ -445,9 +486,12 @@ onMounted(async () => {
 
   currentUser.value = auth.user.value
 
-  // 设置默认页面
+  // 支持通过 ?tab= 直接打开指定栏目（社区入口跳转）
+  const queryTab = typeof route.query.tab === 'string' ? route.query.tab : ''
   const userPages = permissions.getUserPages.value
-  if (userPages.length > 0 && !userPages.includes(activeTab.value)) {
+  if (queryTab && userPages.includes(queryTab) && permissions.canAccessPage(queryTab)) {
+    activeTab.value = queryTab
+  } else if (userPages.length > 0 && !userPages.includes(activeTab.value)) {
     activeTab.value = userPages[0]
   }
 

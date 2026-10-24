@@ -691,6 +691,7 @@ const bindConfirmMessage = computed(() => {
 const passwordStrength = usePasswordStrength(password)
 
 const auth = useAuth()
+const permissions = usePermissions()
 const { ensureLegalConsent, ensureLegalConsentForRegister } = useLegalConsentPrompt()
 
 // 只允许站内绝对路径，避免登录参数被用于开放重定向。
@@ -766,7 +767,7 @@ const redirectAfterLogin = async () => {
   if (auth.user.value?.requirePasswordChange) {
     return navigateTo('/change-password')
   }
-  return navigateTo(getSafeRedirect(auth.isAdmin.value ? '/dashboard' : '/'))
+  return navigateTo(getSafeRedirect(permissions.canAccessAdmin.value ? '/dashboard' : '/'))
 }
 
 const handle2FASuccess = async () => {

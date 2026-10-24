@@ -69,7 +69,7 @@ export default defineEventHandler(async (event) => {
 
     // 角色权限控制
     let validRole = 'USER'
-    if (body.role && ['USER', 'ADMIN', 'SONG_ADMIN', 'SUPER_ADMIN'].includes(body.role)) {
+    if (body.role && ['USER', 'ADMIN', 'SONG_ADMIN', 'BROADCASTER', 'REVIEWER', 'SUPER_ADMIN'].includes(body.role)) {
       // 超级管理员可以创建任何角色的用户
       if (user.role === 'SUPER_ADMIN') {
         validRole = body.role

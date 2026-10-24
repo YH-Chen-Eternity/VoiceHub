@@ -16,6 +16,15 @@ import {
 import { describeAdminAction, isAuditedGetPath } from '~~/server/utils/adminAuditCatalog'
 
 // 与歌曲管理员后台可见页面一致；这些路由内部仍各自校验 SONG_ADMIN 及以上权限
+// 放歌员：只读概览与排期，不允许改任何数据
+const BROADCASTER_ALLOWED_PATTERNS = [
+  /^\/api\/admin\/stats(?:\/|$)/,
+  /^\/api\/admin\/activities$/,
+  /^\/api\/admin\/schedule\/full$/,
+  /^\/api\/admin\/semesters(?:\/|$)/,
+  /^\/api\/admin\/play-times(?:\/|$)/
+]
+
 const SONG_ADMIN_ALLOWED_PATTERNS = [
   /^\/api\/admin\/schedule(?:\/|$)/,
   /^\/api\/admin\/songs(?:\/|$)/,
@@ -51,13 +60,18 @@ export default defineEventHandler(async (event) => {
     throw createApiError(401, 'AUTH_UNAUTHORIZED', '请先登录')
   }
   const role = String(user.role || '')
-  if (!['ADMIN', 'SUPER_ADMIN', 'SONG_ADMIN'].includes(role)) {
+  if (!['ADMIN', 'SUPER_ADMIN', 'SONG_ADMIN', 'BROADCASTER'].includes(role)) {
     throw createApiError(403, 'AUTH_FORBIDDEN', '无权访问管理接口')
   }
 
   const method = getMethod(event).toUpperCase()
   if (role === 'SONG_ADMIN' && !SONG_ADMIN_ALLOWED_PATTERNS.some((pattern) => pattern.test(lower))) {
     throw createApiError(403, 'AUTH_FORBIDDEN', '该接口仅系统管理员可访问')
+  }
+  if (role === 'BROADCASTER') {
+    if (method !== 'GET' || !BROADCASTER_ALLOWED_PATTERNS.some((pattern) => pattern.test(lower))) {
+      throw createApiError(403, 'AUTH_FORBIDDEN', '放歌员仅可查看排期相关信息')
+    }
   }
 
   const mutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)

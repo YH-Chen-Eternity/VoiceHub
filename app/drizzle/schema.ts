@@ -1025,3 +1025,135 @@ export const loginAttempts = pgTable('LoginAttempt', {
 export type AdminAuditLog = typeof adminAuditLogs.$inferSelect;
 export type AttackLog = typeof attackLogs.$inferSelect;
 export type LoginAttempt = typeof loginAttempts.$inferSelect;
+
+// ============================================================
+// 回声社区：板块、帖子、评论、称号与社区档案
+// 歌曲、点赞、排期与通知复用 VoiceHub 现有表，避免两套数据。
+// ============================================================
+
+export const communityBoards = pgTable('CommunityBoard', {
+  id: serial('id').primaryKey(),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+  name: text('name').notNull(),
+  description: text('description').default('').notNull(),
+  sortOrder: integer('sortOrder').default(0).notNull(),
+  isActive: boolean('isActive').default(true).notNull(),
+}, (table) => [
+  uniqueIndex('CommunityBoard_name_unique').on(table.name),
+  index('CommunityBoard_sort_idx').on(table.sortOrder)
+]);
+
+// 板块审核员：一个同学可以负责多个板块，一个板块可以有多名审核员
+export const communityBoardReviewers = pgTable('CommunityBoardReviewer', {
+  boardId: integer('boardId').notNull().references(() => communityBoards.id, { onDelete: 'cascade' }),
+  userId: integer('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.boardId, table.userId] }),
+  index('CommunityBoardReviewer_user_idx').on(table.userId)
+]);
+
+export const communityTitles = pgTable('CommunityTitle', {
+  id: serial('id').primaryKey(),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  name: text('name').notNull(),
+  description: text('description').default('').notNull(),
+}, (table) => [uniqueIndex('CommunityTitle_name_unique').on(table.name)]);
+
+export const communityUserTitles = pgTable('CommunityUserTitle', {
+  userId: integer('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  titleId: integer('titleId').notNull().references(() => communityTitles.id, { onDelete: 'cascade' }),
+  grantedBy: integer('grantedBy').references(() => users.id, { onDelete: 'set null' }),
+  grantedAt: timestamp('grantedAt').defaultNow().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.userId, table.titleId] }),
+  index('CommunityUserTitle_title_idx').on(table.titleId)
+]);
+
+export const communityProfiles = pgTable('CommunityProfile', {
+  userId: integer('userId').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+  favoriteSongId: integer('favoriteSongId').references(() => songs.id, { onDelete: 'set null' }),
+  showFavorite: boolean('showFavorite').default(true).notNull(),
+  showLikedSongs: boolean('showLikedSongs').default(true).notNull(),
+  equippedTitleId: integer('equippedTitleId').references(() => communityTitles.id, { onDelete: 'set null' }),
+  violationCount: integer('violationCount').default(0).notNull(),
+  banned: boolean('banned').default(false).notNull(),
+  // banned=true 且 bannedUntil 为空表示永久禁言
+  bannedUntil: timestamp('bannedUntil'),
+  banReason: text('banReason'),
+});
+
+export const communityPosts = pgTable('CommunityPost', {
+  id: serial('id').primaryKey(),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+  boardId: integer('boardId').notNull().references(() => communityBoards.id, { onDelete: 'restrict' }),
+  authorId: integer('authorId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  content: text('content').notNull(),
+  songId: integer('songId').references(() => songs.id, { onDelete: 'set null' }),
+  // PENDING / APPROVED / REJECTED / BLOCKED
+  status: text('status').default('PENDING').notNull(),
+  moderationLabel: text('moderationLabel'),
+  moderationDetail: text('moderationDetail'),
+  reviewNote: text('reviewNote'),
+  reviewedBy: integer('reviewedBy').references(() => users.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewedAt'),
+}, (table) => [
+  index('CommunityPost_feed_idx').on(table.status, table.createdAt),
+  index('CommunityPost_board_feed_idx').on(table.boardId, table.status, table.createdAt),
+  index('CommunityPost_author_idx').on(table.authorId, table.createdAt)
+]);
+
+export const communityComments = pgTable('CommunityComment', {
+  id: serial('id').primaryKey(),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  postId: integer('postId').notNull().references(() => communityPosts.id, { onDelete: 'cascade' }),
+  authorId: integer('authorId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  content: text('content').notNull(),
+}, (table) => [index('CommunityComment_post_idx').on(table.postId, table.createdAt)]);
+
+// 帖子配图：图片先落到 MediaAsset，再按顺序关联到帖子，避免帖子表存大字段
+export const communityPostImages = pgTable('CommunityPostImage', {
+  postId: integer('postId').notNull().references(() => communityPosts.id, { onDelete: 'cascade' }),
+  mediaId: integer('mediaId').notNull().references(() => mediaAssets.id, { onDelete: 'cascade' }),
+  sortOrder: integer('sortOrder').default(0).notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.postId, table.mediaId] }),
+  index('CommunityPostImage_post_idx').on(table.postId, table.sortOrder)
+]);
+
+// 社区全局配置（单例，id 固定为 1）：开关、图片开关与阿里云内容安全参数
+export const communitySettings = pgTable('CommunitySettings', {
+  id: integer('id').primaryKey().default(1),
+  updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+  // 一键开启/关闭回声社区
+  enabled: boolean('enabled').default(false).notNull(),
+  // 发帖是否允许附加图片
+  allowImages: boolean('allowImages').default(false).notNull(),
+  maxImages: integer('maxImages').default(3).notNull(),
+  maxContentLength: integer('maxContentLength').default(1000).notNull(),
+  maxCommentLength: integer('maxCommentLength').default(300).notNull(),
+  // 阿里云内容安全（Green）：未填写密钥时只走人工审核
+  moderationEnabled: boolean('moderationEnabled').default(false).notNull(),
+  aliyunAccessKeyId: text('aliyunAccessKeyId'),
+  aliyunAccessKeySecret: text('aliyunAccessKeySecret'),
+  aliyunEndpoint: text('aliyunEndpoint').default('green-cip.cn-shanghai.aliyuncs.com').notNull(),
+  aliyunRegionId: text('aliyunRegionId').default('cn-shanghai').notNull(),
+  aliyunTextService: text('aliyunTextService').default('comment_detection').notNull(),
+  aliyunImageService: text('aliyunImageService').default('baselineCheck').notNull(),
+  aliyunConnectTimeoutMs: integer('aliyunConnectTimeoutMs').default(3000).notNull(),
+  aliyunReadTimeoutMs: integer('aliyunReadTimeoutMs').default(6000).notNull(),
+  // 命中内容安全时：MANUAL=转人工复核（默认）/ BLOCK=直接拦截
+  moderationHitAction: text('moderationHitAction').default('MANUAL').notNull(),
+});
+
+export type CommunityBoard = typeof communityBoards.$inferSelect;
+export type CommunityPost = typeof communityPosts.$inferSelect;
+export type CommunityComment = typeof communityComments.$inferSelect;
+export type CommunityTitle = typeof communityTitles.$inferSelect;
+export type CommunityProfile = typeof communityProfiles.$inferSelect;
+export type CommunitySettings = typeof communitySettings.$inferSelect;
+export type CommunityPostImage = typeof communityPostImages.$inferSelect;

@@ -145,7 +145,11 @@ import {
   ClipboardCheck,
   UserCheck,
   Activity,
-  ShieldAlert
+  ShieldAlert,
+  MessageSquare,
+  LayoutGrid,
+  Award,
+  Settings
 } from '@lucide/vue'
 import { useLocale } from '~/utils/locale'
 
@@ -200,7 +204,25 @@ const menuGroups = computed(() => [
     section: locale.value.sections?.review || '审核',
     items: [
       { icon: ClipboardCheck, label: locale.value.menu?.reviewNotes || '公开备注审核', id: 'review-notes' },
-      { icon: UserCheck, label: locale.value.menu?.reviewUsers || '用户审核', id: 'review-users' }
+      { icon: UserCheck, label: locale.value.menu?.reviewUsers || '用户审核', id: 'review-users' },
+      {
+        icon: MessageSquare,
+        label: locale.value.menu?.communityReview || '社区帖子审核',
+        id: 'community-review'
+      }
+    ]
+  },
+  {
+    section: locale.value.sections?.community || '回声社区',
+    items: [
+      { icon: LayoutGrid, label: locale.value.menu?.communityBoards || '社区板块', id: 'community-boards' },
+      { icon: Award, label: locale.value.menu?.communityTitles || '社区称号', id: 'community-titles' },
+      { icon: Users, label: locale.value.menu?.communityUsers || '社区用户', id: 'community-users' },
+      {
+        icon: Settings,
+        label: locale.value.menu?.communitySettings || '社区配置',
+        id: 'community-settings'
+      }
     ]
   },
   {

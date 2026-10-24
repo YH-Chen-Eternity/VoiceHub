@@ -742,7 +742,8 @@ export default defineNuxtConfig({
       const handlers = Array.isArray(nitro.options.errorHandler)
         ? nitro.options.errorHandler
         : (nitro.options.errorHandler ? [nitro.options.errorHandler] : [])
-      handlers.unshift(resolve(nitro.options.rootDir, 'server/error.ts'))
+      // Nitro 会把该路径直接写入虚拟模块，Windows 反斜杠会变成非法转义
+      handlers.unshift(resolve(nitro.options.rootDir, 'server/error.ts').replace(/\\/g, '/'))
       nitro.options.errorHandler = handlers
       console.info('[security] M-4 错误脱敏处理器已注册到 nitro 错误处理链首')
     }

@@ -24,6 +24,8 @@ const normalizeOptionalText = (value: unknown) => {
 const roleNames: Record<string, string> = {
   USER: '用户',
   SONG_ADMIN: '歌曲管理员',
+  BROADCASTER: '放歌员',
+  REVIEWER: '审帖员',
   ADMIN: '管理员',
   SUPER_ADMIN: '超级管理员'
 }
@@ -124,7 +126,7 @@ export default defineEventHandler(async (event) => {
     // 角色权限控制
     let validRole = targetUser.role
     if (role) {
-      if (!['USER', 'ADMIN', 'SONG_ADMIN', 'SUPER_ADMIN'].includes(role)) {
+      if (!['USER', 'ADMIN', 'SONG_ADMIN', 'BROADCASTER', 'REVIEWER', 'SUPER_ADMIN'].includes(role)) {
         throw createError({
           statusCode: 400,
           message: '无效的用户角色'

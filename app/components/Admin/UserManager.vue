@@ -1918,7 +1918,14 @@ const formatMessage = (value, ...args) => {
   return ''
 }
 const getRoleName = (role) => {
-  const aliases = { USER: 'user', SONG_ADMIN: 'songAdmin', ADMIN: 'admin', SUPER_ADMIN: 'superAdmin' }
+  const aliases = {
+    USER: 'user',
+    SONG_ADMIN: 'songAdmin',
+    BROADCASTER: 'broadcaster',
+    REVIEWER: 'reviewer',
+    ADMIN: 'admin',
+    SUPER_ADMIN: 'superAdmin'
+  }
   return locale.value?.roles?.[aliases[role]] || role
 }
 const getStatusName = (status) => locale.value?.statuses?.[status] || status
@@ -1976,6 +1983,8 @@ const currentSort = computed({
 const allRoles = computed(() => [
   { name: 'USER', displayName: getRoleName('USER') },
   { name: 'SONG_ADMIN', displayName: getRoleName('SONG_ADMIN') },
+  { name: 'BROADCASTER', displayName: getRoleName('BROADCASTER') },
+  { name: 'REVIEWER', displayName: getRoleName('REVIEWER') },
   { name: 'ADMIN', displayName: getRoleName('ADMIN') },
   { name: 'SUPER_ADMIN', displayName: getRoleName('SUPER_ADMIN') }
 ])

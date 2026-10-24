@@ -1,6 +1,5 @@
-/* Modified by YH-Chen-Eternity on 2026-10-23 */
-
 #!/usr/bin/env node
+/* Modified by YH-Chen-Eternity on 2026-10-23 */
 
 import { spawn } from 'child_process'
 import { config } from 'dotenv'

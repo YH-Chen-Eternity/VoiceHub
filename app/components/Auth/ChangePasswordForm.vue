@@ -220,6 +220,7 @@ const props = defineProps({
 })
 
 const auth = useAuth()
+const permissions = usePermissions()
 const router = useRouter()
 const { auth: authLocale } = useLocale()
 const locale = computed(() => authLocale.value?.changePasswordForm || {})
@@ -312,7 +313,7 @@ const handleChangePassword = async () => {
 
       // 密码设置完成后跳转
       scheduleRedirect(async () => {
-        if (auth.isAdmin.value) {
+        if (permissions.canAccessAdmin.value) {
           router.replace('/dashboard')
         } else {
           router.replace('/')

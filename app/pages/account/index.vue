@@ -306,6 +306,9 @@ Modified by YH-Chen on 2026-10-17
           <!-- 我的点赞（可设置对其他同学是否可见） -->
           <AccountMyLikes />
 
+          <!-- 回声社区资料与隐私 -->
+          <AccountCommunitySection />
+
           <!-- 修改登录用户名（即时生效，无需审核） -->
           <AccountUsernameChange />
 

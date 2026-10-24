@@ -345,3 +345,86 @@ GET  /api/admin/replay-requests
    - `playUrl` 的 `http(s)` 校验是否被覆盖。
 3. 重建镜像 → staging 回归 → 生产切换。
 4. 同步 `deploy/rewriter/app-rewriter.js` 到 `/data/voicehub/rewriter/`（rewriter 不在镜像里）。
+
+---
+
+## 十、回声社区（BBS）融合（2026-10-24，未部署生产）
+
+> 分支：`community/voicehub-plus`。本节内容仅存在于本地开发分支，
+> **生产仍运行 `voicehub-voicehub:final2-20261023`，未做任何变更**。
+
+### 10.1 入口与权限
+
+| 入口 | 位置 | 可见角色 |
+|---|---|---|
+| 社区信息流 | 首页第五个 Tab「社区」 | 所有登录用户（社区关闭时仅管理员/审帖员） |
+| 进入审帖后台 | 信息流头部按钮 | `ADMIN` / `SUPER_ADMIN` / `REVIEWER`（且有可审板块） |
+| 社区帖子审核 | 管理后台「审核」分组 | 同上（`REVIEWER` 仅此一栏） |
+| 社区板块 / 称号 / 用户 / 配置 | 管理后台「回声社区」分组 | `ADMIN` / `SUPER_ADMIN` |
+| 社区资料 | 账号页「回声社区」卡片 | 本人（含隐私、收藏歌曲、称号、违规与禁言状态） |
+
+- 新增角色值 `REVIEWER`（审帖员）：权限 = 普通用户 + 审帖，`/api/admin/*` 一律 403；
+  审帖接口 `/api/community/review/*` 仅 `REVIEWER`/管理员可用，且受板块分配范围限制。
+- `BROADCASTER`（放歌员）仅补充角色名称与可分配项，不获得社区管理权限。
+
+### 10.2 数据模型与迁移
+
+新增迁移 `app/drizzle/migrations/20261024015840_community.sql`，创建 9 张表：
+`CommunityBoard`、`CommunityBoardReviewer`、`CommunityTitle`、`CommunityUserTitle`、
+`CommunityProfile`、`CommunityPost`、`CommunityComment`、`CommunityPostImage`、
+`CommunitySettings`（单例 `id=1`，默认关闭）。迁移同时写入 4 个默认板块、
+4 个默认称号与默认配置行；不修改任何既有表。
+
+### 10.3 行为要点
+
+- 发帖默认进入 `PENDING`，审帖通过后才出现在信息流；驳回写入站内通知并累计违规。
+- 违规第 3 次自动禁言 30 天，第 6 次永久禁言；禁言期间禁止发帖、评论、上传图片。
+- 管理员可重置违规、解除禁言、手动禁言（指定天数或永久）。
+- 昵称展示统一脱敏为「年级班级 + 姓*名 + [称号]」，不展示头像；点击姓名可看个人页，
+  收藏歌曲 / 点赞歌曲受本人隐私开关控制。
+- 「附上一首歌」复用既有 `Song` 与 `Vote`：帖子内点赞直接调用 `/api/songs/vote`，
+  点赞数与歌曲列表一致，不新增投票表。
+- 图片：PNG/JPEG/WebP/GIF，单张 ≤2MB，每日 30 张；是否允许发图由后台开关控制，
+  关闭后上传接口与带图发帖同时拒绝。
+- 阿里云内容安全（Green 2022-03-02）文本/图片审核为辅助标记：未配置密钥或接口异常时
+  只转人工，绝不自动放行；命中策略可选「转人工审核」或「直接拦截」。
+  图片审核需配置 `COMMUNITY_PUBLIC_ORIGIN`，否则只走人工。
+
+### 10.4 主要文件
+
+- 前端：`app/components/Community/*`、`app/components/Admin/Community*.vue`、
+  `app/components/Account/CommunitySection.vue`；接入 `app/pages/index.vue`、
+  `app/pages/dashboard.vue`、`app/pages/account/index.vue` 与语言包。
+- 后端：`server/api/community/**`、`server/api/admin/community/**`、
+  `server/utils/community.ts`、`server/utils/communityFeed.ts`、
+  `server/utils/communityModeration.ts`。
+- 权限：`server/utils/permissions.js`、`server/api/admin/users/**`、`app/composables/usePermissions.ts`。
+
+### 10.5 本地验证记录（2026-10-24）
+
+在便携 PostgreSQL 16 + 构建产物 `.output` 上完成：
+
+| 项目 | 结果 |
+|---|---|
+| `node scripts/build.js` | 成功 |
+| 社区开关 | 关闭后公开接口 403，管理员/审帖员仍可审核；开启后恢复 |
+| 发帖 → 审核 | 待审不出现在信息流；通过后出现；驳回通知作者 |
+| 违规阈值 | 第 3 次禁言 30 天，第 6 次永久；禁言期间发帖/评论 403；管理员重置后恢复 |
+| 板块分配 | 仅分配板块 2 的审帖员只能看到并审核板块 2，越权审核 403 |
+| 图片开关 | 关闭后上传 403、带图发帖 400；恢复后上传与展示正常 |
+| 歌曲联动 | `/api/songs/vote` 点赞后，社区信息流 `voteCount/likedByMe` 同步 |
+| 隐私 | 关闭公开收藏/点赞后，他人视角返回 `null`，本人视角仍可见 |
+| 称号 | 后台创建/授予/佩戴后，信息流作者身份展示称号 |
+| 阿里云配置 | 密钥保存后仅回显掩码，支持清空；未配置时不影响人工审核 |
+| 响应式 | 1440×900 与 390×844 截图核对信息流、发布弹窗、审核/板块/称号/用户/配置面板 |
+
+`nuxt typecheck` 仍有 1116 个上游既有报错（`qq_music_sdk`、`netease` 等），
+社区相关文件无新增报错；构建不受影响。
+
+### 10.6 上线前注意
+
+1. 先备份数据库，再执行新迁移；本次迁移只新增表与默认数据。
+2. 生产启用前在后台「社区配置」确认：总开关、图片开关、字数上限、阿里云密钥与命中策略。
+3. 如需图片机器审核，设置 `COMMUNITY_PUBLIC_ORIGIN=https://实际域名` 并保证外网可访问
+   `/api/media/{id}`。
+4. 新增角色需在「用户管理」中分配；`REVIEWER` 不会出现在原有审核菜单之外。

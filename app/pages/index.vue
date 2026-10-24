@@ -104,7 +104,7 @@ Modified by YH-Chen on 2026-10-17
               <div v-if="isClientAuthenticated" class="user-info">
                 <div class="user-details-desktop">
                   <span class="user-name">{{ user?.name || locale.userFallback }}</span>
-                  <span v-if="isAdmin" class="user-badge admin">{{ roleName }}</span>
+                  <span v-if="canAccessAdmin" class="user-badge admin">{{ roleName }}</span>
                   <span v-else class="user-badge">{{ userClassInfo }}</span>
                 </div>
 
@@ -126,7 +126,7 @@ Modified by YH-Chen on 2026-10-17
                       <Icon name="user" :size="16" />
                       <span>{{ locale.account }}</span>
                     </NuxtLink>
-                    <NuxtLink v-if="isAdmin" class="action-item" to="/dashboard">
+                    <NuxtLink v-if="canAccessAdmin" class="action-item" to="/dashboard">
                       <Icon name="settings" :size="16" />
                       <span>{{ locale.dashboard }}</span>
                     </NuxtLink>
@@ -190,6 +190,23 @@ Modified by YH-Chen on 2026-10-17
             <Icon class="tab-icon" name="search" :size="20" />
             <span class="tab-text">{{ locale.tabs.request }}</span>
           </div>
+          <ClientOnly>
+            <div
+              :class="{ active: activeTab === 'community', disabled: !isClientAuthenticated }"
+              class="section-tab"
+              data-tab="community"
+              @click="isClientAuthenticated ? handleTabClick('community') : showLoginNotice()"
+            >
+              <Icon class="tab-icon" name="users" :size="20" />
+              <span class="tab-text">{{ communityLocale.tab }}</span>
+            </div>
+            <template #fallback>
+              <div class="section-tab disabled" data-tab="community">
+                <Icon class="tab-icon" name="users" :size="20" />
+                <span class="tab-text">{{ communityLocale.tab }}</span>
+              </div>
+            </template>
+          </ClientOnly>
           <ClientOnly>
             <div
               ref="notificationTabRef"
@@ -262,6 +279,21 @@ Modified by YH-Chen on 2026-10-17
                 @request="handleRequest"
                 @vote="handleVote"
               />
+            </div>
+
+            <!-- 回声社区内容 -->
+            <div v-else-if="activeTab === 'community'" key="community" class="tab-pane community-pane">
+              <div v-if="!isClientAuthenticated" class="login-required-container">
+                <div class="login-required-content">
+                  <div class="login-icon">💬</div>
+                  <h3>{{ communityLocale.loginRequired }}</h3>
+                  <p>{{ communityLocale.loginRequiredDesc }}</p>
+                  <button class="login-button" @click="navigateToLogin">
+                    {{ communityLocale.loginNow }}
+                  </button>
+                </div>
+              </div>
+              <CommunityFeed v-else />
             </div>
 
             <!-- 通知内容 -->
@@ -464,6 +496,36 @@ Modified by YH-Chen on 2026-10-17
                               color="var(--color-collab)"
                               name="message-circle"
                             />
+                            <Icon
+                              v-else-if="
+                                notification.type === 'COMMUNITY_COMMENT' ||
+                                notification.type === 'COMMUNITY_POST_APPROVED'
+                              "
+                              :size="20"
+                              color="var(--color-accent)"
+                              name="message-circle"
+                            />
+                            <Icon
+                              v-else-if="
+                                notification.type === 'COMMUNITY_POST_REJECTED' ||
+                                notification.type === 'COMMUNITY_POST_REMOVED'
+                              "
+                              :size="20"
+                              color="var(--color-error)"
+                              name="x-circle"
+                            />
+                            <Icon
+                              v-else-if="notification.type === 'COMMUNITY_MUTED'"
+                              :size="20"
+                              color="var(--color-warning)"
+                              name="warning"
+                            />
+                            <Icon
+                              v-else-if="notification.type === 'COMMUNITY_UNMUTED'"
+                              :size="20"
+                              color="var(--color-success)"
+                              name="check"
+                            />
                             <Icon v-else :size="20" color="var(--text-muted)" name="bell" />
                           </div>
                           <div class="notification-title-row">
@@ -502,6 +564,9 @@ Modified by YH-Chen on 2026-10-17
                                 <span v-else-if="notification.type === 'COLLABORATION_RESPONSE'"
                                   >{{ locale.notificationTypes.COLLABORATION_RESPONSE }}</span
                                 >
+                                <span
+                                  v-else-if="locale.notificationTypes[notification.type]"
+                                >{{ locale.notificationTypes[notification.type] }}</span>
                                 <span v-else>{{ locale.notificationTypes.SYSTEM }}</span>
                                 <span v-if="!notification.read" class="unread-indicator" />
                               </div>
@@ -867,8 +932,16 @@ import { useScrollMemory } from '~/composables/useScrollMemory'
 const config = useRuntimeConfig()
 const router = useRouter()
 const route = useRoute()
-const { pages, common, currentLocale, setLocale, supportedLocales, isFollowingSystem, followSystemLocale } =
-  useLocale()
+const {
+  pages,
+  common,
+  community: communityLocale,
+  currentLocale,
+  setLocale,
+  supportedLocales,
+  isFollowingSystem,
+  followSystemLocale
+} = useLocale()
 const locale = computed(() => pages.value?.home || {})
 const getHomeText = (section, key, ...args) => formatLocaleValue(locale.value?.[section]?.[key], ...args)
 const getMessage = (key, ...args) => getHomeText('messages', key, ...args)
@@ -887,10 +960,12 @@ const {
 const renderedGuidelines = computed(() => renderMarkdown(submissionGuidelines.value))
 
 const auth = useAuth()
+const permissions = usePermissions()
 const { showToast } = useToast()
 const { getLogo } = useThemeImage()
 const isClientAuthenticated = computed(() => auth?.isAuthenticated?.value || false)
 const isAdmin = computed(() => auth?.isAdmin?.value || false)
+const canAccessAdmin = computed(() => permissions.canAccessAdmin.value || false)
 const user = computed(() => auth?.user?.value || null)
 
 const roleName = computed(() => {
@@ -1081,7 +1156,7 @@ const activeTab = ref('schedule') // 默认显示播出排期
 // 各标签页滚动位置独立记忆与恢复
 useScrollMemory(() => activeTab.value)
 
-const tabOrder = ['schedule', 'songs', 'request', 'notification']
+const tabOrder = ['schedule', 'songs', 'request', 'community', 'notification']
 const activeIndex = computed(() => {
   const index = tabOrder.indexOf(activeTab.value)
   return index === -1 ? 0 : index
@@ -2703,6 +2778,13 @@ if (
   width: 100%;
   box-sizing: border-box;
   animation: tab-pane-enter 0.45s ease;
+}
+
+.community-pane {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 针对排期标签页的特殊样式 */

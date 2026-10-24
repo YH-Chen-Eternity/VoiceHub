@@ -10,6 +10,7 @@ import {
   users
 } from '~/drizzle/schema'
 import { buildCommunityIdentity } from './community'
+import { getActiveSemesterName, resolveCommunitySongVoteState } from './communitySongVote'
 
 type LoadOptions = {
   viewerId?: number | null
@@ -23,16 +24,30 @@ type LoadOptions = {
   includeDeleted?: boolean
 }
 
-export function serializeSong(song: any) {
-  if (!song?.songId) return null
+export function serializeSong(song: any, viewerId = 0, activeSemester: string | null = null) {
+  if (!song?.songId || !song.songTitle) return null
+  const likedByMe = !!song.likedByMe
+  const voteState = resolveCommunitySongVoteState(
+    {
+      requesterId: song.songRequesterId ?? null,
+      semester: song.songSemester ?? null,
+      played: !!song.songPlayed,
+      scheduled: !!song.songScheduled,
+      likedByMe
+    },
+    viewerId,
+    activeSemester
+  )
   return {
     id: song.songId,
     title: song.songTitle,
     artist: song.songArtist,
     cover: song.songCover ?? null,
     played: !!song.songPlayed,
+    scheduled: !!song.songScheduled,
     voteCount: Number(song.voteCount || 0),
-    likedByMe: !!song.likedByMe
+    likedByMe,
+    ...voteState
   }
 }
 
@@ -72,7 +87,9 @@ export async function loadCommunityPosts(options: LoadOptions) {
       songArtist: songs.artist,
       songCover: songs.cover,
       songPlayed: songs.played,
-      songIdForVote: communityPosts.songId,
+      songSemester: songs.semester,
+      songRequesterId: songs.requesterId,
+      songScheduled: sql<boolean>`exists(select 1 from "Schedule" s where s."songId" = ${communityPosts.songId} and s."isDraft" = false)`,
       voteCount: sql<number>`(select count(*)::int from "Vote" v where v."songId" = ${communityPosts.songId})`,
       likedByMe: sql<boolean>`exists(select 1 from "Vote" v2 where v2."songId" = ${communityPosts.songId} and v2."userId" = ${viewerId})`,
       commentCount: sql<number>`(select count(*)::int from "CommunityComment" c where c."postId" = ${communityPosts.id} and c."status" = 'APPROVED' and c."deletedAt" is null)`
@@ -106,14 +123,19 @@ export async function loadCommunityPosts(options: LoadOptions) {
     imagesByPost.set(image.postId, list)
   }
 
+  const activeSemester = rows.some((row) => row.songId) ? await getActiveSemesterName() : null
+
   return rows.map((row) => {
-    const song = row.songIdForVote
+    const song = row.songId
       ? {
-          songId: row.songIdForVote,
+          songId: row.songId,
           songTitle: row.songTitle,
           songArtist: row.songArtist,
           songCover: row.songCover,
           songPlayed: row.songPlayed,
+          songSemester: row.songSemester,
+          songRequesterId: row.songRequesterId,
+          songScheduled: row.songScheduled,
           voteCount: row.voteCount,
           likedByMe: row.likedByMe
         }
@@ -132,7 +154,7 @@ export async function loadCommunityPosts(options: LoadOptions) {
           row.titleName
         )
       },
-      song: serializeSong(song),
+      song: serializeSong(song, viewerId, activeSemester),
       images: imagesByPost.get(row.id) || [],
       commentCount: Number(row.commentCount || 0),
       moderationLabel: row.moderationLabel || null,

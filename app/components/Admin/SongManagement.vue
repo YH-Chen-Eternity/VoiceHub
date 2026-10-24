@@ -795,11 +795,16 @@
                   <span
                     v-for="collaborator in selectedEditCollaborators"
                     :key="collaborator.id"
-                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bg-primary border border-border-secondary text-xs text-text-secondary"
+                    class="inline-flex max-w-full min-w-0 items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-primary border border-border-secondary text-xs text-text-secondary"
                   >
-                    {{ getCollaboratorDisplayName(collaborator) }}
+                    <span class="min-w-0 truncate">{{ getCollaboratorDisplayName(collaborator) }}</span>
+                    <span
+                      v-if="collaborator.username"
+                      class="shrink-0 text-[10px] font-bold text-primary"
+                      >@{{ collaborator.username }}</span
+                    >
                     <button
-                      class="text-text-tertiary hover:text-error transition-colors"
+                      class="shrink-0 text-text-tertiary hover:text-error transition-colors"
                       @click="removeEditCollaborator(collaborator.id)"
                     >
                       <X :size="12" />
@@ -831,9 +836,11 @@
                       class="px-4 py-3 hover:bg-bg-tertiary cursor-pointer transition-colors flex items-center justify-between group"
                       @click="selectEditCollaborator(user)"
                     >
-                      <div class="flex flex-col">
-                        <span class="text-sm font-bold text-text-primary">{{ user.name }}</span>
-                        <span class="text-[10px] text-text-tertiary">@{{ user.username }}</span>
+                      <div class="flex min-w-0 flex-col">
+                        <span class="truncate text-sm font-bold text-text-primary">{{ user.name }}</span>
+                        <span v-if="user.username" class="truncate text-[11px] font-bold text-primary"
+                          >@{{ user.username }}</span
+                        >
                       </div>
                       <Plus :size="14" class="text-primary opacity-70 group-hover:opacity-100" />
                     </div>

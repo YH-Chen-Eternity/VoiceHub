@@ -25,7 +25,7 @@ VoiceHub 是一个面向校园的广播站点歌系统（Nuxt 4 全栈应用）�
 - 管理后台新增「社区归档记录」，可查看归档帖子及其全部评论、归档评论，显示操作人、撤回/删除时间与待删除时间。
 - 评论与帖子一样进入审核流程，管理后台新增「社区评论审核」；评论不支持图片。
 - 发帖图片上限 9 张，单张超过 3MB 时浏览器优先压缩、服务端 sharp 兜底压缩。
-- 两位用户相互点赞达到 50 首获得「共鸣」、200 首获得「70亿人中寻找永恒」；称号只与首位达成伙伴绑定，伙伴与歌曲明细仅本人可见，通过站内消息与邮件推送，对外仅展示称号。
+- 两位用户互相点赞对方投稿的歌曲各 50 首获得「共鸣」、各 100 首获得「70亿个灵魂都在找同个永恒」；称号只与首位达成伙伴绑定，伙伴与歌曲明细仅本人可见，通过站内消息与邮件推送，对外仅展示称号。
 
 ### 2026-10-24 回声社区审核服务融合
 
@@ -353,14 +353,18 @@ git clone https://github.com/laoshuikaixue/VoiceHub.git
 cd VoiceHub
 ```
 
-2. 修改 docker-compose.yml 中的环境变量
+2. 修改 docker-compose.yml 中的环境变量（或写入同目录 `.env`，compose 会自动读取）
 
 ```yaml
 environment:
   - DATABASE_URL=postgresql://user:password@postgres:5432/voicehub # 可能需要 ?sslmode=disable
   - JWT_SECRET=your-jwt-secret-here # 请修改为强随机字符串
+  - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD:-} # 初始管理员密码，至少 8 位；首次登录会强制改密
   - NODE_ENV=production
 ```
+
+> 初始管理员密码通过环境变量 `ADMIN_INITIAL_PASSWORD` 注入（可写在 `.env` 或 shell 环境中），
+> 仓库与镜像中不包含任何默认密码。首次启动会自动创建 `admin` 账号并强制改密。
 
 3. 启动服务
 
@@ -371,10 +375,13 @@ docker-compose up -d
 4. 访问应用
    打开浏览器访问 http://localhost:3000
 
-默认管理员账号：
+管理员账号（首次启动时由 `scripts/create-admin.js` 创建）：
 
 - 用户名：admin
-- 密码：admin123
+- 初始密码：由环境变量 `ADMIN_INITIAL_PASSWORD`（至少 8 位）指定，**首次登录会强制修改密码**
+- 未设置 `ADMIN_INITIAL_PASSWORD` 时不会创建管理员，容器会在启动日志中给出提示
+
+> 出于安全考虑，本项目不再提供 `admin123` 之类的公开默认密码；请在部署时通过环境变量或密钥管理服务注入初始密码。
 
 #### 方式二：使用预构建镜像
 
@@ -388,6 +395,7 @@ docker run -d \
   -e DATABASE_URL="postgresql://username:password@host:port/database?sslmode=require" \
   # 可能需要替换成 ?sslmode=disable
   -e JWT_SECRET="your-very-secure-jwt-secret-key" \
+  -e ADMIN_INITIAL_PASSWORD="your-strong-initial-admin-password" \
   -e NODE_ENV=production \
   --name voicehub \
   ghcr.io/laoshuikaixue/voicehub:latest
@@ -401,6 +409,7 @@ docker run -d \
   -e DATABASE_URL="postgresql://username:password@host:port/database?sslmode=require" \
   # 可能需要替换成 ?sslmode=disable
   -e JWT_SECRET="your-very-secure-jwt-secret-key" \
+  -e ADMIN_INITIAL_PASSWORD="your-strong-initial-admin-password" \
   -e NODE_ENV=production \
   --name voicehub \
   ghcr.nju.edu.cn/laoshuikaixue/voicehub:latest
@@ -423,6 +432,7 @@ docker run -d \
   -e DATABASE_URL="postgresql://username:password@host:port/database?sslmode=require" \
   # 可能需要替换成 ?sslmode=disable
   -e JWT_SECRET="your-very-secure-jwt-secret-key" \
+  -e ADMIN_INITIAL_PASSWORD="your-strong-initial-admin-password" \
   -e NODE_ENV=production \
   --name voicehub \
   voicehub
@@ -683,6 +693,9 @@ DATABASE_URL="postgresql://username:password@host:port/database?sslmode=require"
 # JWT 认证密钥（必填）
 JWT_SECRET="your-very-secure-jwt-secret-key"
 
+# 初始管理员密码（首次执行 pnpm run create-admin 时必填，至少 8 位，首次登录会强制改密）
+ADMIN_INITIAL_PASSWORD="your-strong-initial-admin-password"
+
 # 应用运行环境（可选）
 NODE_ENV=development
 ```
@@ -707,16 +720,18 @@ pnpm run deploy
 
 5. 创建管理员账户
 
-系统会在首次部署时自动创建管理员账户。如需手动创建：
+系统会在首次部署时自动创建管理员账户（需先设置环境变量 `ADMIN_INITIAL_PASSWORD`，至少 8 位）。如需手动创建：
 
 ```bash
-pnpm run create-admin
+ADMIN_INITIAL_PASSWORD='你的初始密码（至少 8 位）' pnpm run create-admin
 ```
 
-默认管理员账户：
+管理员账户：
 
 - 用户名：admin
-- 密码：admin123
+- 初始密码：即上面 `ADMIN_INITIAL_PASSWORD` 的值，**首次登录会强制修改密码**
+
+> `create-admin` 已不再接受 `admin123` 等公开默认密码：必须显式提供 `ADMIN_INITIAL_PASSWORD`，否则脚本会拒绝创建并退出。
 
 6. 启动开发服务器
 
@@ -1855,7 +1870,7 @@ app/assets/css/themes/
 
 ### 管理员
 
-1. 使用管理员账号登录（默认账号：admin，密码：admin123）
+1. 使用管理员账号登录（账号：admin，密码：创建管理员时通过 `ADMIN_INITIAL_PASSWORD` 设置的初始密码；首次登录需改密）
 2. 进入管理后台，选择相应功能标签
 3. **排期管理**：可以看到左侧"待排歌曲"和右侧"播放顺序"
    - 通过拖拽将歌曲从左侧添加到右侧的排期列表

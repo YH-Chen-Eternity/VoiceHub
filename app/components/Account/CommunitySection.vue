@@ -177,10 +177,27 @@
             <span class="text-[10px] text-text-disabled">{{ formatDate(record.createdAt) }}</span>
           </div>
           <p class="text-xs text-text-secondary">
-            {{ t.resonancePartner }} {{ record.partner?.displayName || '—' }} ·
-            {{ t.resonanceMutual(record.mutualCount) }}
+            {{ t.resonancePartner }} {{ record.partner?.displayName || '—' }}
           </p>
-          <div v-if="record.songs?.length" class="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
+          <p v-if="!record.legacy" class="text-xs text-text-secondary">
+            {{ t.resonanceDirectional(record.sentCount, record.receivedCount) }}
+          </p>
+          <p v-else class="text-xs text-text-secondary">
+            {{ t.resonanceLegacy(record.mutualCount) }}
+          </p>
+          <div v-if="record.songsSent?.length" class="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
+            <p class="text-[10px] font-bold text-text-disabled">{{ t.resonanceSentList }}</p>
+            <p v-for="song in record.songsSent" :key="`sent-${song.id}`" class="text-[10px] text-text-tertiary truncate">
+              《{{ song.title }}》- {{ song.artist }}
+            </p>
+          </div>
+          <div v-if="record.songsReceived?.length" class="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
+            <p class="text-[10px] font-bold text-text-disabled">{{ t.resonanceReceivedList }}</p>
+            <p v-for="song in record.songsReceived" :key="`received-${song.id}`" class="text-[10px] text-text-tertiary truncate">
+              《{{ song.title }}》- {{ song.artist }}
+            </p>
+          </div>
+          <div v-if="record.legacy && record.songs?.length" class="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
             <p v-for="song in record.songs" :key="song.id" class="text-[10px] text-text-tertiary truncate">
               《{{ song.title }}》- {{ song.artist }}
             </p>

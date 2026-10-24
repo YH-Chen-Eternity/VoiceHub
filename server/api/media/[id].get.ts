@@ -20,6 +20,11 @@ import { eq } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import { mediaAssets } from '~/drizzle/schema'
 import { createApiError } from '~~/server/utils/apiError'
+import {
+  detectImageFormat,
+  imageFormatToMimeType,
+  sanitizeDownloadFilename
+} from '~~/server/utils/imageSecurity'
 
 // 公开读取上传的图片（公告栏图片走这里，避免依赖构建期资源清单）
 export default defineEventHandler(async (event) => {
@@ -33,9 +38,21 @@ export default defineEventHandler(async (event) => {
     throw createApiError(404, 'MEDIA_NOT_FOUND', '图片不存在')
   }
 
+  // 不信任库中记录的 mimeType，按字节魔数判定内容类型；
+  // 历史脏数据（例如伪装成图片的 HTML/脚本）一律返回 415，避免内容嗅探与存储型 XSS
+  const data = Buffer.from(row.data, 'base64')
+  const format = detectImageFormat(data)
+  if (!format) {
+    throw createApiError(415, 'MEDIA_CONTENT_UNSUPPORTED', '图片内容不合法，无法展示')
+  }
+
   setResponseHeaders(event, {
-    'Content-Type': row.mimeType,
+    'Content-Type': imageFormatToMimeType(format),
+    'Content-Length': data.length,
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Disposition': `inline; filename="${sanitizeDownloadFilename(row.filename, format)}"`,
+    'Content-Security-Policy': "default-src 'none'; sandbox",
     'Cache-Control': 'public, max-age=604800, immutable'
   })
-  return Buffer.from(row.data, 'base64')
+  return data
 })

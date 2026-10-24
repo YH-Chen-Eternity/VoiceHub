@@ -92,6 +92,7 @@ const prefOptions = computed(() => [
 ])
 const songs = ref([])
 const total = ref(0)
+const loading = ref(false)
 
 
 const savePref = async (mode) => {

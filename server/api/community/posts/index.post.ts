@@ -57,6 +57,7 @@ export default defineEventHandler(async (event) => {
     if (!Number.isInteger(parsed) || parsed <= 0) {
       throw createApiError(400, 'COMMUNITY_SONG_INVALID', '歌曲参数不正确')
     }
+    // 选歌只要求「已投稿」；能否点赞由 /api/songs/vote 的资格规则单独判定
     const song = await db
       .select({ id: songs.id })
       .from(songs)
@@ -119,21 +120,34 @@ export default defineEventHandler(async (event) => {
     moderationLabel = result.label
     moderationDetail = result.detail
   } else {
-    // 未配置独立服务：保持原有直连阿里云审核逻辑
+    // 未配置独立审核服务：直连阿里云审核。
+    // 处置口径（站长设定）：中风险及以上转人工，低风险及以下自动放行；
+    // 审核接口异常、未配置密钥、图片无法校验时一律转人工，宁可多审不可漏审。
+    const hasAliyunCredentials = Boolean(
+      settings.aliyunAccessKeyId && settings.aliyunAccessKeySecret
+    )
+    let needsManualReview = !settings.moderationEnabled || !hasAliyunCredentials
+
     const moderation = await moderateCommunityText(content, settings)
+    if (moderation.error) needsManualReview = true
     if (moderation.hit) {
+      needsManualReview = true
       moderationLabel = moderation.labels.join(',') || 'RISK'
       moderationDetail = moderation.detail
       if (settings.moderationHitAction === 'BLOCK') status = 'BLOCKED'
     }
 
-    // 图片走人工审核；若配置了公网地址则额外调用阿里云图片审核作为辅助标记
-    if (settings.allowImages && imageIds.length > 0) {
+    // 图片逐张调用阿里云图片审核；任一张失败或命中违规都转人工
+    if (!needsManualReview && settings.allowImages && imageIds.length > 0) {
       const publicOrigin = String(process.env.COMMUNITY_PUBLIC_ORIGIN || '').replace(/\/$/, '')
-      if (publicOrigin) {
+      if (!publicOrigin) {
+        needsManualReview = true
+      } else {
         for (const imageId of imageIds) {
           const result = await moderateCommunityImage(`${publicOrigin}/api/media/${imageId}`, settings)
+          if (result.error) needsManualReview = true
           if (result.hit) {
+            needsManualReview = true
             moderationLabel = [moderationLabel, result.labels.join(',')].filter(Boolean).join(',')
             moderationDetail = [moderationDetail, result.detail].filter(Boolean).join('；')
             if (settings.moderationHitAction === 'BLOCK') status = 'BLOCKED'
@@ -141,6 +155,8 @@ export default defineEventHandler(async (event) => {
         }
       }
     }
+
+    if (!needsManualReview) status = 'APPROVED'
   }
 
   const created = await db.transaction(async (tx) => {

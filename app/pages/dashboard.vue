@@ -48,7 +48,7 @@ Modified by YH-Chen on 2026-10-17
           </header>
 
           <div
-            class="flex-1 custom-scrollbar p-4 md:p-8 overflow-y-auto"
+            class="flex-1 min-h-0 custom-scrollbar p-4 md:p-8 overflow-y-auto"
           >
             <!-- 移动端返回顶部按钮 -->
             <button

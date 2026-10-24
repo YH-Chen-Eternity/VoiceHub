@@ -79,11 +79,18 @@ export default defineEventHandler(async (event) => {
     moderationLabel = result.label
     moderationDetail = result.detail
   } else {
+    // 直连阿里云审核：中风险及以上转人工，低风险及以下自动放行；
+    // 接口异常/未配置密钥时保持待审，避免漏审。
+    const hasAliyunCredentials = Boolean(
+      settings.aliyunAccessKeyId && settings.aliyunAccessKeySecret
+    )
     const moderation = await moderateCommunityText(content, settings)
     if (moderation.hit) {
       moderationLabel = moderation.labels.join(',') || 'RISK'
       moderationDetail = moderation.detail
       if (settings.moderationHitAction === 'BLOCK') status = 'BLOCKED'
+    } else if (!moderation.error && settings.moderationEnabled && hasAliyunCredentials) {
+      status = 'APPROVED'
     }
   }
 

@@ -22,7 +22,10 @@ export default defineEventHandler(async (event) => {
       description: communityBoards.description,
       sortOrder: communityBoards.sortOrder,
       isActive: communityBoards.isActive,
-      postCount: sql<number>`(select count(*)::int from "CommunityPost" p where p."boardId" = ${communityBoards.id} and p."status" = 'APPROVED')`
+      // 必须显式写外层表名：Drizzle 在子查询里会把 ${communityBoards.id} 渲染成不带表名的 "id"，
+      // PostgreSQL 会优先绑定到内层 p.id，导致所有板块拿到同一个全局计数。
+      // 已撤回/删除的帖子（deletedAt 非空）不再计入板块帖子数，恢复归档后自动 +1
+      postCount: sql<number>`(select count(*)::int from "CommunityPost" p where p."boardId" = "CommunityBoard"."id" and p."status" = 'APPROVED' and p."deletedAt" is null)`
     })
     .from(communityBoards)
     .where(isCommunityReviewer(user) ? undefined : eq(communityBoards.isActive, true))

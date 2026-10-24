@@ -19,10 +19,10 @@ import { readMultipartFormData } from 'h3'
 import { db } from '~/drizzle/db'
 import { mediaAssets } from '~/drizzle/schema'
 import { createApiError } from '~~/server/utils/apiError'
+import { normalizeUploadedImage } from '~~/server/utils/imageSecurity'
 
-// 图片上传：存库（base64）+ 通过 /api/media/[id] 转发。
+// 图片上传：校验后存库（base64）+ 通过 /api/media/[id] 转发。
 // 之所以不落 public 目录：Nitro 的资源清单在构建期烘焙，运行时新增文件一律 404。
-const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
 const MAX_BYTES = 2 * 1024 * 1024
 
 export default defineEventHandler(async (event) => {
@@ -38,20 +38,26 @@ export default defineEventHandler(async (event) => {
   }
 
   const mime = String(file.type || '').toLowerCase()
-  if (!ALLOWED_MIME.includes(mime)) {
-    throw createApiError(400, 'MEDIA_TYPE_UNSUPPORTED', '仅支持 PNG / JPEG / WebP / GIF 格式')
-  }
   if (file.data.length > MAX_BYTES) {
     throw createApiError(400, 'MEDIA_TOO_LARGE', '图片不能超过 2MB，请先压缩')
   }
 
+  // 与社区图片共用同一套安全处理：魔数校验 + 完整解码 + 去元数据重编码为 WebP
+  const normalized = await normalizeUploadedImage({
+    data: file.data,
+    mimeType: mime,
+    filename: file.filename || 'announcement-image',
+    maxBytes: MAX_BYTES,
+    fallbackName: 'announcement-image'
+  })
+
   const [row] = await db
     .insert(mediaAssets)
     .values({
-      filename: file.filename || 'upload',
-      mimeType: mime,
-      byteSize: file.data.length,
-      data: file.data.toString('base64'),
+      filename: normalized.filename,
+      mimeType: normalized.mimeType,
+      byteSize: normalized.data.length,
+      data: normalized.data.toString('base64'),
       uploadedBy: user.id
     })
     .returning({ id: mediaAssets.id })

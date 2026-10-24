@@ -77,6 +77,7 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://voicehub:${DB_PASSWORD}@postgres:5432/voicehub?sslmode=disable
       - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD:-}
       - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379
       - REDIS_KEY_PREFIX="voicehub:"
       - NODE_OPTIONS=--max-old-space-size=1024
@@ -88,13 +89,13 @@ services:
       - NETEASE_SHARE_COOKIE=${NETEASE_SHARE_COOKIE}
       - NETEASE_SHARE_IPS=
       # ---- 第三方音源（可随时换源，无需改代码/重建镜像）----
-      - MUSIC_SRC_HYW_URL=${MUSIC_SRC_HYW_URL:-}
-      - MUSIC_SRC_HYW_KEY=${MUSIC_SRC_HYW_KEY:-}
-      - MUSIC_SRC_YUAFENG_URL=${MUSIC_SRC_YUAFENG_URL:-}
-      - MUSIC_SRC_YUAFENG_KEY=${MUSIC_SRC_YUAFENG_KEY:-}
-      - MUSIC_SRC_HELLOWORLD_URL=${MUSIC_SRC_HELLOWORLD_URL:-}
-      - MUSIC_SRC_VKEYS_URL=${MUSIC_SRC_VKEYS_URL:-}
-      - MUSIC_SRC_GDSTUDIO_URL=${MUSIC_SRC_GDSTUDIO_URL:-}
+      # 变量名必须与 server/api/music/resolve-url.post.ts 读取的一致：
+      # MUSIC_HYW_TX_URL / MUSIC_HYW_CARD_KEY / MUSIC_YUAFENG_TX_URL / MUSIC_YUAFENG_APIKEY
+      # 未配置时该音源自动禁用；真实卡密只放 deploy/.env，禁止写进源码。
+      - MUSIC_HYW_TX_URL=${MUSIC_HYW_TX_URL:-}
+      - MUSIC_HYW_CARD_KEY=${MUSIC_HYW_CARD_KEY:-}
+      - MUSIC_YUAFENG_TX_URL=${MUSIC_YUAFENG_TX_URL:-}
+      - MUSIC_YUAFENG_APIKEY=${MUSIC_YUAFENG_APIKEY:-}
     mem_limit: 1536m
     cpus: '1.50'
     depends_on:

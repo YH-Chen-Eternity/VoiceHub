@@ -2,7 +2,7 @@
 
 关键设计（均为业务硬约束）：
 1. 分级映射由 config.RISK_MAPPING 统一决定，本模块只返回原始 RiskLevel。
-2. 上海 Endpoint 优先，探测失败自动切换新加坡；两个都失败进入 DEGRADED。
+2. 默认仅使用上海 Endpoint；如显式配置多个 Endpoint，按顺序探测并切换；全部失败进入 DEGRADED。
 3. DEGRADED 状态下不发起任何外部 API 调用，由上层返回 API_UNAVAILABLE。
 4. 所有 API 尝试（含重试、标准审核兜底）统一经过 10 次/秒限流器。
 5. 运行时连续 2 次网络超时会触发一次重新探测并临时切换 Endpoint。
@@ -320,10 +320,10 @@ class ModerationClient:
             )
 
     async def select_endpoint(self, force: bool = False) -> Optional[EndpointCandidate]:
-        """探测并按上海->新加坡顺序选择可用 Endpoint。
+        """按配置顺序探测并选择可用 Endpoint（默认只有上海）。
 
         结果会缓存 probe_cache_seconds；force=True 时忽略缓存。
-        两个候选都失败时进入 DEGRADED，返回 None。
+        所有候选都失败时进入 DEGRADED，返回 None。
         """
         if not self.settings.credentials_ready:
             self._set_degraded(DEGRADED_REASON_NO_CREDENTIALS)
@@ -350,7 +350,7 @@ class ModerationClient:
                 probes.append(result)
                 if result.healthy and chosen is None:
                     chosen = candidate
-                    break  # 上海可用即停止，避免不必要探测与告警
+                    break  # 首个可用 Endpoint 即停止，避免不必要探测与告警
             self._probes = probes
             self._last_probe_at = now
 

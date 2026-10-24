@@ -13,7 +13,6 @@ import {
   normalizeCommunityImage
 } from '~~/server/utils/communityImage'
 
-const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
 const DAILY_LIMIT = 30
 
 export default defineEventHandler(async (event) => {
@@ -40,13 +39,11 @@ export default defineEventHandler(async (event) => {
   }
 
   const mime = String(file.type || '').toLowerCase()
-  if (!ALLOWED_MIME.includes(mime)) {
-    throw createApiError(400, 'MEDIA_TYPE_UNSUPPORTED', '仅支持 PNG / JPEG / WebP / GIF 格式')
-  }
   if (file.data.length > COMMUNITY_IMAGE_MAX_UPLOAD_BYTES) {
     throw createApiError(400, 'MEDIA_TOO_LARGE', '图片原始文件不能超过 15MB')
   }
 
+  // 类型与内容校验、去元数据重编码统一在 normalizeCommunityImage 内完成
   const normalized = await normalizeCommunityImage({
     data: file.data,
     mimeType: mime,

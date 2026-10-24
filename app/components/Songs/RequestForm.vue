@@ -101,6 +101,7 @@ Modified by YH-Chen on 2026-10-17
             <div class="collaborators-list">
               <div v-for="user in collaborators" :key="user.id" class="collaborator-tag">
                 <span class="collaborator-name">{{ user.name }}</span>
+                <span v-if="user.username" class="collaborator-username">@{{ user.username }}</span>
                 <button
                   class="remove-collaborator"
                   type="button"
@@ -1511,6 +1512,61 @@ Modified by YH-Chen on 2026-10-17
         </div>
       </Transition>
     </Teleport>
+    <!-- 点赞署名选择：匿名 or 署名 + 是否记住该选择 -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="pendingLikeSong"
+          class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          @click.self="cancelLikeReveal"
+        >
+          <div class="w-full max-w-sm rounded-2xl border border-border-secondary bg-bg-primary p-5 shadow-2xl">
+            <h3 class="text-sm font-black text-text-primary">{{ t.voteReveal.title }}</h3>
+            <p class="mt-1 text-[11px] text-text-tertiary">{{ t.voteReveal.desc }}</p>
+            <div class="mt-4 space-y-2">
+              <button
+                class="w-full rounded-xl border px-3 py-2.5 text-left transition-all"
+                :class="likeRevealChoice === 'ANONYMOUS' ? 'border-primary bg-primary-10' : 'border-border-secondary hover:bg-bg-tertiary'"
+                type="button"
+                @click="likeRevealChoice = 'ANONYMOUS'"
+              >
+                <p class="text-xs font-bold text-text-primary">{{ t.voteReveal.anonymous }}</p>
+                <p class="mt-0.5 text-[10px] text-text-tertiary">{{ t.voteReveal.anonymousHint }}</p>
+              </button>
+              <button
+                class="w-full rounded-xl border px-3 py-2.5 text-left transition-all"
+                :class="likeRevealChoice === 'REVEAL' ? 'border-primary bg-primary-10' : 'border-border-secondary hover:bg-bg-tertiary'"
+                type="button"
+                @click="likeRevealChoice = 'REVEAL'"
+              >
+                <p class="text-xs font-bold text-text-primary">{{ t.voteReveal.reveal }}</p>
+                <p class="mt-0.5 text-[10px] text-text-tertiary">{{ t.voteReveal.revealHint }}</p>
+              </button>
+            </div>
+            <label class="mt-3 flex items-start gap-2 rounded-xl bg-bg-secondary-60 px-3 py-2 text-[11px] text-text-secondary">
+              <input v-model="rememberLikeReveal" class="mt-0.5 h-3.5 w-3.5 accent-[var(--primary)]" type="checkbox" >
+              <span class="min-w-0">
+                <span class="block font-bold">{{ t.voteReveal.remember }}</span>
+                <span class="mt-0.5 block text-text-tertiary">{{ t.voteReveal.rememberHint }}</span>
+              </span>
+            </label>
+            <div class="mt-4 flex gap-2">
+              <button
+                class="flex-1 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white transition-all hover:bg-primary-hover"
+                type="button"
+                @click="confirmLikeReveal"
+              >{{ t.voteReveal.confirm }}</button>
+              <button
+                class="rounded-xl border border-border-secondary px-4 py-2.5 text-xs font-bold text-text-secondary transition-all hover:bg-bg-tertiary"
+                type="button"
+                @click="cancelLikeReveal"
+              >{{ t.voteReveal.cancel }}</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <!-- 隐藏的文件输入框 -->
     <input
       ref="fileInput"
@@ -1633,6 +1689,12 @@ const error = ref('')
 const success = ref('')
 const submitting = ref(false)
 const voting = ref(false)
+
+// 搜索结果点赞署名：ASK=每次询问（默认）/ ANONYMOUS / REVEAL
+const likeRevealMode = ref('ASK')
+const pendingLikeSong = ref(null)
+const likeRevealChoice = ref('ANONYMOUS')
+const rememberLikeReveal = ref(false)
 
 const {
   getAvailablePlatforms,
@@ -2710,6 +2772,7 @@ onMounted(async () => {
   fetchPlayTimes()
   initSiteConfig()
   fetchSubmissionStatus()
+  loadLikeRevealMode()
   // 获取当前学期和所有学期选项
   await Promise.all([fetchCurrentSemester(), fetchSemesterOptions()])
   // 只有在用户已登录时才加载歌曲列表以便检查相似歌曲
@@ -2882,6 +2945,48 @@ const getSimilarSong = (result) => {
   })
 }
 
+const loadLikeRevealMode = async () => {
+  if (!auth.isAuthenticated.value) return
+  try {
+    const res = await $fetch('/api/user/vote-reveal')
+    const mode = res?.data?.voteRevealMode
+    if (mode === 'ANONYMOUS' || mode === 'REVEAL' || mode === 'ASK') likeRevealMode.value = mode
+  } catch {
+    // 读取失败不阻塞点赞
+  }
+}
+
+const doLikeVote = async (song, reveal) => {
+  try {
+    await songService.voteSong(song.id, { revealToRequester: reveal === true })
+  } catch (error) {
+    console.error('点赞失败:', error)
+  }
+}
+
+const cancelLikeReveal = () => {
+  pendingLikeSong.value = null
+}
+
+const confirmLikeReveal = async () => {
+  const song = pendingLikeSong.value
+  if (!song) return
+  const reveal = likeRevealChoice.value === 'REVEAL'
+  pendingLikeSong.value = null
+  if (rememberLikeReveal.value) {
+    try {
+      await $fetch('/api/user/vote-reveal', {
+        method: 'PUT',
+        body: { voteRevealMode: reveal ? 'REVEAL' : 'ANONYMOUS' }
+      })
+      likeRevealMode.value = reveal ? 'REVEAL' : 'ANONYMOUS'
+    } catch {
+      if (window.$showNotification) window.$showNotification(t.value.voteReveal.saveFailed, 'error')
+    }
+  }
+  await doLikeVote(song, reveal)
+}
+
 // 从搜索结果中点赞已存在的歌曲
 const handleLikeFromSearch = async (song, originalResult = null) => {
   if (!song || song.voted) {
@@ -2896,7 +3001,14 @@ const handleLikeFromSearch = async (song, originalResult = null) => {
     return
   }
 
-  // 如果原始结果是多P视频，打开剧集选择弹窗
+  if (user.value && song.requesterId && Number(song.requesterId) === Number(user.value.id)) {
+    if (window.$showNotification) {
+      window.$showNotification(locale.value.selfLikeDisabled || t.value.voteReveal.selfLikeDisabled, 'warning')
+    }
+    return
+  }
+
+  // 如果原始结果是多P视频，打开剧集选择弹窗（弹窗内部自带署名选择）
   if (originalResult && isBilibiliMultiP(originalResult)) {
     selectedBilibiliVideo.value = originalResult
     bilibiliEpisodes.value = originalResult.pages
@@ -2905,11 +3017,14 @@ const handleLikeFromSearch = async (song, originalResult = null) => {
     return
   }
 
-  try {
-    await songService.voteSong(song.id)
-  } catch (error) {
-    console.error('点赞失败:', error)
+  if (likeRevealMode.value === 'ANONYMOUS' || likeRevealMode.value === 'REVEAL') {
+    await doLikeVote(song, likeRevealMode.value === 'REVEAL')
+    return
   }
+
+  likeRevealChoice.value = 'ANONYMOUS'
+  rememberLikeReveal.value = false
+  pendingLikeSong.value = song
 }
 
 // 平台切换函数
@@ -4789,13 +4904,33 @@ defineExpose({
 .collaborator-tag {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
   background: var(--color-accent-alpha-10);
   border: 1px solid var(--color-accent-alpha-20);
   border-radius: 6px;
   padding: 0.25rem 0.5rem;
   font-size: 14px;
   color: var(--text-primary);
+}
+
+/* 姓名与用户名各自截断：窄屏下标签不会把页面撑出横向滚动 */
+.collaborator-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collaborator-username {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
 }
 
 .remove-collaborator {

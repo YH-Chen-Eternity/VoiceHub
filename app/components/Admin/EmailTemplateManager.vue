@@ -38,64 +38,70 @@ Modified by YH-Chen on 2026-10-17
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 min-h-[650px]">
+    <div class="grid grid-cols-1 lg:grid-cols-12 lg:h-[650px] min-h-[650px]">
       <!-- 左侧：模板列表 -->
-      <div class="lg:col-span-3 border-r border-border-secondary bg-bg-secondary-10 flex flex-col">
+      <div class="lg:col-span-3 border-r border-border-secondary bg-bg-secondary-10 flex flex-col min-h-0">
         <div class="p-4 border-b border-border-secondary-50">
           <div class="relative">
             <Search :size="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-text-disabled" />
             <input
+              v-model="searchQuery"
               type="text"
               :placeholder="locale.searchPlaceholder"
               class="w-full bg-bg-primary border border-border-secondary rounded-lg pl-9 pr-3 py-2 text-[10px] text-text-tertiary focus:outline-none focus:border-primary-30"
             >
           </div>
         </div>
-        <div class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
-          <button
-            v-for="t in templates"
-            :key="t.key"
-            class="w-full group flex flex-col gap-1 p-3 rounded-2xl transition-all text-left border"
-            :class="[
-              selectedKey === t.key
-                ? 'bg-primary-hover-10 border-primary-20'
-                : 'bg-transparent border-transparent hover:bg-bg-tertiary-40'
-            ]"
-            @click="select(t)"
-          >
-            <div class="flex items-center justify-between">
-              <span
-                class="text-[11px] font-black tracking-tight transition-colors"
-                :class="
-                  selectedKey === t.key
-                    ? 'text-primary'
-                    : 'text-text-secondary group-hover:text-text-primary'
-                "
-              >
-                {{ t.name }}
-              </span>
-              <div class="flex gap-1">
-                <span
-                  v-if="t.isBuiltin && !t.isOverridden"
-                  class="px-1.5 py-0.5 rounded-md bg-bg-tertiary text-[8px] font-black text-text-tertiary uppercase tracking-tighter"
-                >
-                  {{ locale.builtin }}
-                </span>
-                <span
-                  v-if="t.isOverridden"
-                  class="px-1.5 py-0.5 rounded-md bg-success-10 text-[8px] font-black text-success uppercase tracking-tighter"
-                >
-                  {{ locale.custom }}
-                </span>
-              </div>
+        <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-2 space-y-1 max-h-[60vh] lg:max-h-none">
+          <template v-for="group in groupedTemplates" :key="group.id">
+            <div class="px-2 pt-3 pb-1 text-[9px] font-black text-text-disabled uppercase tracking-widest">
+              {{ group.label }}
             </div>
-            <span class="text-[9px] font-bold text-text-disabled font-mono">{{ t.key }}</span>
-          </button>
+            <button
+              v-for="t in group.items"
+              :key="t.key"
+              class="w-full group flex flex-col gap-1 p-3 rounded-2xl transition-all text-left border"
+              :class="[
+                selectedKey === t.key
+                  ? 'bg-primary-hover-10 border-primary-20'
+                  : 'bg-transparent border-transparent hover:bg-bg-tertiary-40'
+              ]"
+              @click="select(t)"
+            >
+              <div class="flex items-center justify-between">
+                <span
+                  class="text-[11px] font-black tracking-tight transition-colors"
+                  :class="
+                    selectedKey === t.key
+                      ? 'text-primary'
+                      : 'text-text-secondary group-hover:text-text-primary'
+                  "
+                >
+                  {{ t.name }}
+                </span>
+                <div class="flex gap-1">
+                  <span
+                    v-if="t.isBuiltin && !t.isOverridden"
+                    class="px-1.5 py-0.5 rounded-md bg-bg-tertiary text-[8px] font-black text-text-tertiary uppercase tracking-tighter"
+                  >
+                    {{ locale.builtin }}
+                  </span>
+                  <span
+                    v-if="t.isOverridden"
+                    class="px-1.5 py-0.5 rounded-md bg-success-10 text-[8px] font-black text-success uppercase tracking-tighter"
+                  >
+                    {{ locale.custom }}
+                  </span>
+                </div>
+              </div>
+              <span class="text-[9px] font-bold text-text-disabled font-mono">{{ t.key }}</span>
+            </button>
+          </template>
         </div>
       </div>
 
       <!-- 右侧：编辑器区域 -->
-      <div class="lg:col-span-9 flex flex-col bg-bg-primary-20 overflow-hidden">
+      <div class="lg:col-span-9 flex flex-col bg-bg-primary-20 overflow-hidden min-h-0">
         <div v-if="selected" class="flex-1 overflow-y-auto custom-scrollbar p-8">
           <div class="max-w-4xl mx-auto space-y-8">
             <!-- 基础信息与主题 -->
@@ -256,6 +262,7 @@ const getLocaleText = (section: string, key: string, fallback = '') => {
   return locale.value?.[section]?.[key] || fallback
 }
 const templates = ref<TemplateItem[]>([])
+const searchQuery = ref('')
 const selectedKey = ref<string>('')
 const form = ref<{ key: string; name: string; subject: string; html: string }>({
   key: '',
@@ -268,6 +275,47 @@ const previewHtml = ref<string>('')
 const previewSubject = ref<string>('')
 
 const selected = computed(() => templates.value.find((t) => t.key === selectedKey.value))
+
+const CATEGORY_ORDER = ['notification', 'community', 'account', 'other'] as const
+function categoryOf(key: string): (typeof CATEGORY_ORDER)[number] {
+  if (key.startsWith('notification.')) return 'notification'
+  if (key.startsWith('community.')) return 'community'
+  if (key.startsWith('account.') || key.startsWith('verification.') || key.startsWith('register')) {
+    return 'account'
+  }
+  return 'other'
+}
+
+const filteredTemplates = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return templates.value
+  return templates.value.filter(
+    (t) =>
+      t.name.toLowerCase().includes(q) ||
+      t.key.toLowerCase().includes(q) ||
+      t.subject.toLowerCase().includes(q)
+  )
+})
+
+const groupedTemplates = computed(() => {
+  const labels: Record<string, string> = {
+    notification: locale.value.groupNotification || '通知推送',
+    community: locale.value.groupCommunity || '回声社区',
+    account: locale.value.groupAccount || '账号与安全',
+    other: locale.value.groupOther || '其他'
+  }
+  const groups = new Map<string, TemplateItem[]>()
+  for (const t of filteredTemplates.value) {
+    const category = categoryOf(t.key)
+    if (!groups.has(category)) groups.set(category, [])
+    groups.get(category)!.push(t)
+  }
+  return CATEGORY_ORDER.filter((category) => groups.has(category)).map((category) => ({
+    id: category,
+    label: labels[category],
+    items: groups.get(category)!
+  }))
+})
 
 // 可用变量展示：优先用服务端给出的 variables，其次按模板类型兜底（保证所有模板界面一致）
 const CODE_VARIABLES = ['name', 'email', 'code', 'expiresInMinutes']

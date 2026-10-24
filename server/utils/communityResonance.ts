@@ -19,23 +19,32 @@ export const COMMUNITY_RESONANCE_LEVELS = [
   {
     threshold: 50,
     name: '共鸣',
-    description: '与同一位同学相互点赞 50 首歌曲'
+    description: '互相点赞对方投稿的歌曲各 50 首'
   },
   {
-    threshold: 200,
-    name: '70亿人中寻找永恒',
-    description: '与同一位同学相互点赞 200 首歌曲'
+    threshold: 100,
+    name: '70亿个灵魂都在找同个永恒',
+    description: '互相点赞对方投稿的歌曲各 100 首'
   }
 ] as const
 
 type ResonanceLevel = (typeof COMMUNITY_RESONANCE_LEVELS)[number]
 
-type MutualSong = { id: number; title: string; artist: string }
+type ResonanceSong = { id: number; title: string; artist: string }
+
+type DirectionalSongs = {
+  /** 我点赞对方投稿的歌曲 */
+  sent: ResonanceSong[]
+  /** 对方点赞我投稿的歌曲 */
+  received: ResonanceSong[]
+}
 
 type PartnerRow = {
   partnerId: number
+  sentCount: number
+  receivedCount: number
   mutualCount: number
-  firstMutualAt: Date | string
+  firstAt: Date | string
 }
 
 async function ensureCommunityTitle(name: string, description: string): Promise<number> {
@@ -48,40 +57,96 @@ async function ensureCommunityTitle(name: string, description: string): Promise<
   return row!.id
 }
 
-async function listMutualSongs(userId: number, partnerId: number): Promise<MutualSong[]> {
-  const rows = await db.execute(sql`
-    SELECT s."id" AS "id", s."title" AS "title", s."artist" AS "artist"
-    FROM "Vote" mine
-    JOIN "Vote" theirs ON theirs."songId" = mine."songId" AND theirs."userId" = ${partnerId}
-    JOIN "Song" s ON s."id" = mine."songId"
-    WHERE mine."userId" = ${userId}
-    ORDER BY s."title" ASC, s."id" ASC
-  `)
-  return (rows as unknown as Array<{ id: number; title: string; artist: string }>).map((row) => ({
+function mapSongs(rows: unknown): ResonanceSong[] {
+  return (rows as Array<{ id: number; title: string; artist: string }>).map((row) => ({
     id: Number(row.id),
     title: String(row.title || ''),
     artist: String(row.artist || '')
   }))
 }
 
+async function listDirectionalSongs(userId: number, partnerId: number): Promise<DirectionalSongs> {
+  const sentRows = await db.execute(sql`
+    SELECT s."id" AS "id", s."title" AS "title", s."artist" AS "artist"
+    FROM "Vote" v
+    JOIN "Song" s ON s."id" = v."songId"
+    WHERE v."userId" = ${userId}
+      AND s."requesterId" = ${partnerId}
+      AND s."requesterId" <> ${userId}
+    ORDER BY s."title" ASC, s."id" ASC
+  `)
+
+  const receivedRows = await db.execute(sql`
+    SELECT s."id" AS "id", s."title" AS "title", s."artist" AS "artist"
+    FROM "Vote" v
+    JOIN "Song" s ON s."id" = v."songId"
+    WHERE v."userId" = ${partnerId}
+      AND s."requesterId" = ${userId}
+      AND v."userId" <> ${userId}
+    ORDER BY s."title" ASC, s."id" ASC
+  `)
+
+  return { sent: mapSongs(sentRows), received: mapSongs(receivedRows) }
+}
+
+/**
+ * 找出与当前用户形成“双向投稿互赞”的伙伴。
+ * sentCount = 我点赞对方投稿的歌数，receivedCount = 对方点赞我投稿的歌数。
+ * firstAt 取两个方向第一次都出现点赞的时间，用于确定首位伙伴。
+ */
 async function listPartners(userId: number): Promise<PartnerRow[]> {
   const rows = await db.execute(sql`
-    SELECT v."userId" AS "partnerId",
-           count(*)::int AS "mutualCount",
-           min(GREATEST(mine."createdAt", v."createdAt")) AS "firstMutualAt"
-    FROM "Vote" mine
-    JOIN "Vote" v ON v."songId" = mine."songId" AND v."userId" <> ${userId}
-    WHERE mine."userId" = ${userId}
-    GROUP BY v."userId"
-    ORDER BY "firstMutualAt" ASC, v."userId" ASC
+    WITH sent AS (
+      SELECT s."requesterId" AS partner_id,
+             count(*)::int AS sent_count,
+             min(v."createdAt") AS first_sent
+      FROM "Vote" v
+      JOIN "Song" s ON s."id" = v."songId"
+      WHERE v."userId" = ${userId}
+        AND s."requesterId" IS NOT NULL
+        AND s."requesterId" <> ${userId}
+      GROUP BY s."requesterId"
+    ),
+    received AS (
+      SELECT v."userId" AS partner_id,
+             count(*)::int AS received_count,
+             min(v."createdAt") AS first_received
+      FROM "Vote" v
+      JOIN "Song" s ON s."id" = v."songId"
+      WHERE s."requesterId" = ${userId}
+        AND v."userId" <> ${userId}
+      GROUP BY v."userId"
+    )
+    SELECT COALESCE(sent.partner_id, received.partner_id) AS "partnerId",
+           COALESCE(sent.sent_count, 0)::int AS "sentCount",
+           COALESCE(received.received_count, 0)::int AS "receivedCount",
+           LEAST(COALESCE(sent.sent_count, 0), COALESCE(received.received_count, 0))::int AS "mutualCount",
+           GREATEST(
+             COALESCE(sent.first_sent, received.first_received),
+             COALESCE(received.first_received, sent.first_sent)
+           ) AS "firstAt"
+    FROM sent
+    FULL OUTER JOIN received ON received.partner_id = sent.partner_id
+    WHERE COALESCE(sent.sent_count, 0) > 0
+      AND COALESCE(received.received_count, 0) > 0
+    ORDER BY "firstAt" ASC NULLS LAST, "partnerId" ASC
   `)
-  return (rows as unknown as Array<{ partnerId: number; mutualCount: number; firstMutualAt: string }>).map(
-    (row) => ({
-      partnerId: Number(row.partnerId),
-      mutualCount: Number(row.mutualCount),
-      firstMutualAt: row.firstMutualAt
-    })
-  )
+
+  return (
+    rows as unknown as Array<{
+      partnerId: number
+      sentCount: number
+      receivedCount: number
+      mutualCount: number
+      firstAt: string
+    }>
+  ).map((row) => ({
+    partnerId: Number(row.partnerId),
+    sentCount: Number(row.sentCount),
+    receivedCount: Number(row.receivedCount),
+    mutualCount: Number(row.mutualCount),
+    firstAt: row.firstAt
+  }))
 }
 
 async function equipResonanceTitle(userId: number, titleId: number, level: ResonanceLevel) {
@@ -93,7 +158,8 @@ async function equipResonanceTitle(userId: number, titleId: number, level: Reson
     .limit(1)
   if (!profile) return
   if (profile.equippedTitleId) {
-    if (level.threshold !== 200) return
+    // 仅允许低档「共鸣」升级到高档；用户主动佩戴了其他称号时不覆盖。
+    if (level.threshold !== 100) return
     const lower = COMMUNITY_RESONANCE_LEVELS.find((item) => item.threshold === 50)!
     const lowerTitleId = await ensureCommunityTitle(lower.name, lower.description)
     if (profile.equippedTitleId !== lowerTitleId) return
@@ -108,52 +174,72 @@ async function notifyResonance(params: {
   userId: number
   partnerId: number
   level: ResonanceLevel
-  titleId: number
-  mutualCount: number
-  songs: MutualSong[]
+  sentCount: number
+  receivedCount: number
+  songs: DirectionalSongs
   achievedAt: Date
 }) {
   const partner = await getCommunityUserIdentity(params.partnerId)
   const partnerName = partner?.displayName || '一位同学'
-  const songNames = params.songs.map((song) => `《${song.title}》`)
-  const preview = songNames.slice(0, 10).join('、')
-  const more = songNames.length > 10 ? ` 等 ${songNames.length} 首` : ''
+  const mutualCount = Math.min(params.sentCount, params.receivedCount)
+  const preview = [
+    ...params.songs.sent.slice(0, 5).map((song) => `你点赞《${song.title}》`),
+    ...params.songs.received.slice(0, 5).map((song) => `TA 点赞《${song.title}》`)
+  ].join('、')
 
   await db.insert(notifications).values({
     userId: params.userId,
     type: 'COMMUNITY_RESONANCE',
     source: 'COMMUNITY',
     title: `回声社区：获得「${params.level.name}」称号`,
-    message: `你与${partnerName}相互点赞的歌曲达到 ${params.mutualCount} 首，获得称号「${params.level.name}」。共同喜欢的歌：${preview}${more}。该记录仅你本人可见。`
+    message: `你点赞了${partnerName}投稿的 ${params.sentCount} 首，${partnerName}点赞了你投稿的 ${params.receivedCount} 首，获得称号「${params.level.name}」。${preview ? `${preview}等。` : ''}该记录仅你本人可见。`
   })
 
   await sendAccountEmail(params.userId, 'community.resonance.awarded', {
     titleName: params.level.name,
     partnerName,
-    mutualCount: params.mutualCount,
-    songList: params.songs.map((song) => `${song.title} - ${song.artist}`).join('\n'),
+    sentCount: params.sentCount,
+    receivedCount: params.receivedCount,
+    mutualCount,
+    sentSongList: params.songs.sent.map((song) => `${song.title} - ${song.artist}`).join('\n'),
+    receivedSongList: params.songs.received.map((song) => `${song.title} - ${song.artist}`).join('\n'),
     achievedAt: params.achievedAt.toLocaleString('zh-CN', { hour12: false })
   }).catch(() => {})
 }
 
 /**
  * 为某一对用户授予共鸣称号。
- * 每个用户在每个阈值上只保留第一位达成伙伴：已存在记录的一侧不会重复授予。
+ * 每个用户在每个阈值上只保留第一位伙伴；已存在记录的一侧不会重复授予。
  */
 async function awardPair(
   userId: number,
   partnerId: number,
   level: ResonanceLevel,
-  mutualCount: number,
-  songs: MutualSong[],
+  sentCount: number,
+  receivedCount: number,
+  songs: DirectionalSongs,
   titleId: number
 ) {
   const now = new Date()
-  const snapshot = JSON.stringify(songs)
+  const mutualCount = Math.min(sentCount, receivedCount)
 
   const sides = [
-    { ownerId: userId, otherId: partnerId },
-    { ownerId: partnerId, otherId: userId }
+    {
+      ownerId: userId,
+      otherId: partnerId,
+      sentCount,
+      receivedCount,
+      sentSongs: songs.sent,
+      receivedSongs: songs.received
+    },
+    {
+      ownerId: partnerId,
+      otherId: userId,
+      sentCount: receivedCount,
+      receivedCount: sentCount,
+      sentSongs: songs.received,
+      receivedSongs: songs.sent
+    }
   ]
 
   for (const side of sides) {
@@ -164,8 +250,13 @@ async function awardPair(
         partnerId: side.otherId,
         titleId,
         threshold: level.threshold,
+        sentCount: side.sentCount,
+        receivedCount: side.receivedCount,
         mutualCount,
-        songsSnapshot: snapshot
+        songsSnapshot: JSON.stringify({
+          sent: side.sentSongs,
+          received: side.receivedSongs
+        })
       })
       .onConflictDoNothing()
       .returning({ id: communityResonance.id })
@@ -180,17 +271,17 @@ async function awardPair(
       userId: side.ownerId,
       partnerId: side.otherId,
       level,
-      titleId,
-      mutualCount,
-      songs,
+      sentCount: side.sentCount,
+      receivedCount: side.receivedCount,
+      songs: { sent: side.sentSongs, received: side.receivedSongs },
       achievedAt: now
     })
   }
 }
 
 /**
- * 投票后评估：找出与当前用户共同点赞数首次达到 50 / 200 的第一位伙伴。
- * 任何异常都不应影响投票主流程。
+ * 投票后评估：只有两个方向都达到阈值才授予。
+ * 50 首 -> 共鸣；100 首 -> 70亿个灵魂都在找同个永恒。
  */
 export async function evaluateCommunityResonance(userId: number): Promise<void> {
   const partners = await listPartners(userId)
@@ -210,7 +301,10 @@ export async function evaluateCommunityResonance(userId: number): Promise<void> 
       .limit(1)
     if (existing[0]) continue
 
-    const candidate = partners.find((partner) => partner.mutualCount >= level.threshold)
+    const candidate = partners.find(
+      (partner) =>
+        partner.sentCount >= level.threshold && partner.receivedCount >= level.threshold
+    )
     if (!candidate) continue
 
     let titleId = titleCache.get(level.threshold)
@@ -219,8 +313,16 @@ export async function evaluateCommunityResonance(userId: number): Promise<void> 
       titleCache.set(level.threshold, titleId)
     }
 
-    const songs = await listMutualSongs(userId, candidate.partnerId)
-    await awardPair(userId, candidate.partnerId, level, candidate.mutualCount, songs, titleId)
+    const songs = await listDirectionalSongs(userId, candidate.partnerId)
+    await awardPair(
+      userId,
+      candidate.partnerId,
+      level,
+      candidate.sentCount,
+      candidate.receivedCount,
+      songs,
+      titleId
+    )
   }
 }
 
@@ -231,6 +333,8 @@ export async function listUserResonance(userId: number) {
       id: communityResonance.id,
       createdAt: communityResonance.createdAt,
       threshold: communityResonance.threshold,
+      sentCount: communityResonance.sentCount,
+      receivedCount: communityResonance.receivedCount,
       mutualCount: communityResonance.mutualCount,
       songsSnapshot: communityResonance.songsSnapshot,
       titleName: communityTitles.name,
@@ -246,18 +350,31 @@ export async function listUserResonance(userId: number) {
     .orderBy(communityResonance.threshold)
 
   return rows.map((row) => {
-    let songs: MutualSong[] = []
+    let sent: ResonanceSong[] = []
+    let received: ResonanceSong[] = []
+    let legacy = false
     try {
       const parsed = JSON.parse(row.songsSnapshot)
-      if (Array.isArray(parsed)) songs = parsed
+      if (Array.isArray(parsed)) {
+        // 旧版记录：只有共同点赞歌曲数组
+        sent = mapSongs(parsed)
+        legacy = true
+      } else if (parsed && typeof parsed === 'object') {
+        if (Array.isArray(parsed.sent)) sent = mapSongs(parsed.sent)
+        if (Array.isArray(parsed.received)) received = mapSongs(parsed.received)
+      }
     } catch {
-      songs = []
+      sent = []
+      received = []
     }
     return {
       id: row.id,
       createdAt: row.createdAt,
       threshold: row.threshold,
+      sentCount: Number(row.sentCount || 0),
+      receivedCount: Number(row.receivedCount || 0),
       mutualCount: row.mutualCount,
+      legacy,
       titleName: row.titleName || '',
       partner: {
         id: row.partnerId,
@@ -266,7 +383,9 @@ export async function listUserResonance(userId: number) {
           null
         )
       },
-      songs
+      songsSent: sent,
+      songsReceived: received,
+      songs: [...sent, ...received]
     }
   })
 }

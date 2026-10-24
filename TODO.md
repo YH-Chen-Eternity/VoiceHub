@@ -89,4 +89,4 @@
   - 服务端：`node node_modules/typescript/bin/tsc -p .nuxt/tsconfig.server.json --noEmit`
   - 全量：`node node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p .nuxt/tsconfig.json`
   - 构建：`node scripts/build.js`
-- 生产环境（150.109.84.17）本轮融资相关改动一律未部署
+- 生产环境（自建服务器，具体地址不写入仓库）本轮融资相关改动一律未部署

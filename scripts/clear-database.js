@@ -117,6 +117,17 @@ async function resetAutoIncrementSequences() {
 async function main() {
   console.log('开始清空数据库...')
 
+  // 2026-10-25 安全加固：先校验初始管理员密码，避免把数据清空后才发现缺少环境变量。
+  // 不再使用公开已知的默认密码 admin123，必须显式提供 ADMIN_INITIAL_PASSWORD（至少 8 位）。
+  const initialPassword = String(process.env.ADMIN_INITIAL_PASSWORD || '').trim()
+  if (initialPassword.length < 8) {
+    console.error(
+      '❌ 安全要求：请设置环境变量 ADMIN_INITIAL_PASSWORD（至少 8 位）作为初始管理员密码；' +
+      '脚本不再使用默认密码 admin123（该凭据已公开，等同于无鉴权）。本次未做任何修改。'
+    )
+    process.exit(1)
+  }
+
   // 清空所有表数据
   try {
     // 按照关联关系顺序删除数据
@@ -151,10 +162,10 @@ async function main() {
     // 先重置所有自增序列
     await resetAutoIncrementSequences()
 
-    console.log('开始创建默认超级管理员账户...')
+    console.log('开始创建超级管理员账户...')
 
-    // 创建默认管理员账户
-    const hashedPassword = await bcrypt.hash('admin123', 10)
+    // 创建管理员账户（初始密码来自 ADMIN_INITIAL_PASSWORD，已在 main() 开头校验）
+    const hashedPassword = await bcrypt.hash(initialPassword, 10)
 
     // 创建超级管理员用户
     const [admin] = await db
@@ -164,13 +175,13 @@ async function main() {
         username: 'admin',
         password: hashedPassword,
         role: 'SUPER_ADMIN',
-        forcePasswordChange: false
+        forcePasswordChange: true
       })
       .returning()
 
-    console.log('默认超级管理员账户已创建:')
+    console.log('超级管理员账户已创建:')
     console.log('用户名: admin')
-    console.log('密码: admin123')
+    console.log('密码: 你设置的 ADMIN_INITIAL_PASSWORD（首次登录需改密）')
     console.log(`管理员ID: ${admin.id}`)
 
     // 调整User表的自增序列，确保下一个用户从admin.id + 1开始

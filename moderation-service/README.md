@@ -1,5 +1,8 @@
 # 校园音乐社区内容审核服务
 
+> 审核策略提示词见 [`POLICY_PROMPT.md`](POLICY_PROMPT.md)：用于在阿里云内容安全控制台配置 MultiModalAgent，或接入自建多模态 LLM。
+> 说明：手机号/微信号/QQ/邮箱/任何网址链接/身份证/银行卡/学号/住址等确定性规则已在应用侧做本地拦截；语义类标签由智能体或人工判断。帖内分享歌曲只能使用「选歌」功能，音乐平台链接同样按引流拦截。
+
 基于 **阿里云内容安全 MultiModalAgent（审核智能体）** 的帖子图文审核服务。面向校园音乐社区九宫格发帖场景：一次请求最多 9 张图片，逐图调用审核接口，再由服务端聚合为唯一处置结论。
 
 - 服务形态：FastAPI + 进程内异步队列 + 全局 QPS 整形
@@ -49,7 +52,7 @@
 ### 1.4 API 不可用降级
 
 1. 启动时 AK/SK 任一缺失：服务以 `DEGRADED` 模式启动，`/audit` 不发起任何外部调用，直接返回 `API_UNAVAILABLE`。
-2. 上海、新加坡两个 Endpoint 探测均失败：进入 `DEGRADED`，后续请求返回 `API_UNAVAILABLE`。
+2. 所有已配置 Endpoint 探测均失败：进入 `DEGRADED`，后续请求返回 `API_UNAVAILABLE`。默认只配置上海节点；如显式追加新加坡等节点，则按配置顺序选第一个可用节点。
 3. 降级期间由后台周期探测恢复；请求路径上不反复探测。
 4. 运行中连续 2 次网络超时：触发一次重新探测，必要时临时切换 Endpoint。
 5. 单张图片调用失败：该图片记为失败，**整组转人工**，不会因为其他图片通过而放行。
@@ -86,7 +89,7 @@
 │         ▼                                                │
 │  moderation_client.py                                    │
 │  ├─ 全局 10 QPS 限流（重试同样受限）                     │
-│  ├─ Endpoint 探测：上海优先 → 新加坡备选                 │
+│  ├─ Endpoint 探测：默认上海；显式配置多节点时按顺序切换
 │  ├─ 连续 2 次超时 → 重新探测 / 临时切换                  │
 │  ├─ 超时 15s、指数退避重试                               │
 │  └─ 阿里云 Green 2022-03-02 SDK（线程池中执行）          │
@@ -192,7 +195,7 @@ python scripts/e2e_check.py --base-url http://127.0.0.1:8010
 | `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | 空 | 阿里云 SK；缺失则启动即 `DEGRADED` |
 | `APP_ENV` | `production` | `production` / `test` |
 | `LOG_LEVEL` | `INFO` | 日志级别 |
-| `MODERATION_ENDPOINTS` | 上海, 新加坡 | `host[:region],host[:region]`；测试可用 `http://127.0.0.1:9101=test` |
+| `MODERATION_ENDPOINTS` | 上海 | `host[:region],host[:region]`；默认仅上海；如需容灾可显式追加新加坡（跨境调用成本更高）；测试可用 `http://127.0.0.1:9101=test` |
 | `MODERATION_MULTIMODAL_APP_ID` | `img_txt_check_agent_01` | 图文混合审核智能体 |
 | `MODERATION_IMAGE_APP_ID` | `img_check_agent_01` | 纯图片审核智能体 |
 | `MODERATION_TEXT_APP_ID` | `txt_check_agent_01` | 标准文本审核（兜底用） |
@@ -460,8 +463,8 @@ python scripts/e2e_check.py
 - [x] `学生欺凌` 标签 → 强制 `MANUAL_REVIEW`
 - [x] 空图片列表 → `MANUAL_REVIEW`，0 次 API 调用
 - [x] 缺失 AK/SK → 启动 `DEGRADED`，`/audit` 返回 `API_UNAVAILABLE`
-- [x] 上海不可达、新加坡可用 → 自动切换并保持 `NORMAL`
-- [x] 两个 Endpoint 均不可达 → `DEGRADED`
+- [x] 显式配置上海、新加坡两个 Endpoint 时：上海不可达、新加坡可用 → 自动切换并保持 `NORMAL`
+- [x] 所有已配置 Endpoint 均不可达 → `DEGRADED`
 - [x] 连续 2 次超时 → 触发重新探测
 - [x] 日志不包含 AK/SK，响应与日志不包含 URL 敏感 query
 
@@ -612,7 +615,7 @@ curl -s http://127.0.0.1:8000/health | python -m json.tool
 ```
 
 - `mode=DEGRADED` 且 `degraded_reason=未配置...`：检查 AK/SK 是否注入
-- `mode=DEGRADED` 且 `degraded_reason=上海/新加坡 Endpoint 均探测失败`：检查出网、DNS、安全组
+- `mode=DEGRADED` 且 `degraded_reason=已配置的阿里云内容安全 Endpoint 均探测失败`：检查出网、DNS、安全组
 - 配置修复后重启容器；Endpoint 故障恢复由后台每 60 秒自动探测
 
 ### 12.2 队列积压
@@ -666,4 +669,4 @@ curl -s http://127.0.0.1:8000/health | python -c "import json,sys; d=json.load(s
 
 ## 14. 变更记录
 
-- `v1.0.0`：首个生产版本，支持九宫格审核、Endpoint 故障切换、DEGRADED 降级、SSRF 防护、全局 10 QPS 整形、优雅停机、Docker 部署。
+- `v1.0.0`：首个生产版本，支持九宫格审核、Endpoint 故障切换（显式配置多节点时）、DEGRADED 降级、SSRF 防护、全局 10 QPS 整形、优雅停机、Docker 部署。

@@ -457,7 +457,8 @@ GET  /api/admin/replay-requests
   `deleteReason`、`purgeAt`；`purgeAt = 删除时间 + 30 天`。
 - `CommunityComment` 新增 `status`、`moderationLabel`、`moderationDetail`、`reviewNote`、`reviewedBy`、`reviewedAt`。
   迁移会把存量评论标记为 `APPROVED`，避免升级后历史评论全部消失。
-- 新表 `CommunityResonance`（`userId + threshold` 唯一），记录首位共鸣伙伴、称号、达成时的相互点赞数与歌曲快照。
+- 新表 `CommunityResonance`（`userId + threshold` 唯一），记录首位共鸣伙伴、称号、双向点赞数
+  （`sentCount` / `receivedCount`）与双向歌曲快照。
 - `CommunitySettings.maxImages` 默认值由 3 调整为 9。
 
 **撤回/删除与归档清理**
@@ -481,13 +482,15 @@ GET  /api/admin/replay-requests
 - 帖子上限 9 张；浏览器端 `app/utils/communityImage.ts` 用 Canvas 压缩超过 3MB 的静态图，
   服务端 `server/utils/communityImage.ts` 使用 `sharp` 兜底（GIF 保留动画）。
 - 新增依赖 `sharp`；原始文件上限 15MB，压缩后仍超过 3MB 返回明确错误。
+  运行时镜像必须实际包含 `sharp`，否则服务端兜底压缩不可用（仅前端压缩生效）。
 
 **共鸣称号**
 
-- 投票成功后触发 `evaluateCommunityResonance`，按阈值 50 / 200 查找首位达成伙伴；
-  `CommunityResonance` 的唯一索引保证每个用户每个阈值只与第一位伙伴绑定。
-- 双方都会获得称号并自动佩戴；已有称号时仅在低档「共鸣」可升级为高档称号。
-- 达成时写入站内消息并发送邮件模板 `community.resonance.awarded`，包含伙伴与共同点赞歌曲；
+- 投票成功后触发 `evaluateCommunityResonance`：分别统计“我点赞对方投稿的歌”和“对方点赞我投稿的歌”，
+  两个方向都达到 50 首获得「共鸣」，都达到 100 首获得「70亿个灵魂都在找同个永恒」。
+- `CommunityResonance` 的唯一索引保证每个用户每个阈值只与第一位伙伴绑定；双方都会获得称号并自动佩戴。
+- 已有称号时仅在低档「共鸣」可升级为高档称号，用户主动佩戴其他称号时不会被覆盖。
+- 达成时写入站内消息并发送邮件模板 `community.resonance.awarded`，包含伙伴、双向点赞数与双向歌曲列表；
   账号页「回声社区」只向本人展示共鸣记录，公开个人页仍只展示称号。
 
 **管理后台与前端**
@@ -502,3 +505,102 @@ GET  /api/admin/replay-requests
 - `pnpm build` 构建成功；`pnpm exec drizzle-kit check` 通过。
 - `nuxt typecheck` 新增文件无报错（仓库仍存在上游既有类型报错）。
 - 本机无可用 PostgreSQL/Docker，未执行真实数据库端到端；未部署生产。
+
+### 10.9 贴内点赞与 VoiceHub 点赞资格统一（2026-10-25）
+
+**背景**：帖子里的爱心本质是给「投稿歌曲」点赞，必须与点歌页共用同一张 `Vote` 表与同一套资格，
+否则会出现「点歌页点不了、帖子却能点」或热度不一致。
+
+- 新增 `server/utils/communitySongVote.ts`，统一判定：存在活跃学期、歌曲属于该学期、未播放、
+  未进入已发布排期、非本人投稿；已点赞但资格失效时也不允许取消。
+- 发帖选歌 `/api/community/songs` 返回所有已投稿歌曲（含自己投稿、已播放、已排期、非当前学期），
+  并附带 `voteCount/likedByMe/isOwn` 与点赞资格原因；**选歌只要求「已投稿」**，能否点赞在帖子里单独判定。
+  不可点赞的歌曲仍可附上，爱心按钮会禁用并显示原因；发帖 `POST /api/community/posts` 只校验歌曲存在。
+- 信息流与详情返回 `canLike/canUnvote/likeBlockedCode/likeBlockedReason`；不满足条件时按钮禁用并显示原因。
+- 点赞/取消仍调用 `/api/songs/vote`，投票数、站内通知、共鸣称号统计与点歌页完全同步。
+- 内容审核不再放行任何音乐平台链接：所有网址一律按「联系方式引流」处理，分享歌曲只能使用「选歌」。
+- 修复账号页「我的点赞」因缺少 `loading` 声明导致列表始终为空的问题。
+- 修复邮箱解绑写入不存在的 `User.emailVerifiedAt` 字段导致 500 的问题。
+- 投稿页搜索结果点赞补上「匿名 / 署名」弹窗并遵循账号页偏好；社区帖子点赞同样遵循该偏好。
+- 修复社区页内层滚动容器吞掉鼠标滚轮的问题：社区页交给页面自然滚动。
+- 修复后台内容区缺少 `min-h-0` 导致归档统计有数字但列表被裁掉、无法滚动的问题；归档统计卡片可直接点击切换。
+- 修复选歌接口的排期子查询在部分查询下恒为 false 的问题，改为单独查询已发布排期。
+- 生产已部署镜像 `voicehub-voicehub:community-20261025b`，迁移 68–70 应用成功；
+  回滚镜像为 `voicehub-voicehub:titlefix-20261024`，部署前数据库备份在
+  `/home/voicehub/backups/prod-20261025-pre-community.dump`。
+
+### 10.10 图片安全、九宫格、归档恢复与开源前密钥治理（2026-10-25）
+
+**图片上传/读取安全加固（回应「用户发恶意文件怎么办」）**
+
+- 新增 `server/utils/imageSecurity.ts`：按字节魔数识别 PNG/JPEG/WebP/GIF，声明 MIME 与真实格式不一致直接拒绝；
+  用 `sharp` 完整解码并校验解码像素（动图按全部帧累计 ≤40MP）、宽/单帧高 ≤12000、动图帧数 ≤300，防解压炸弹与超大图 DoS。
+- 所有上传图片一律重编码为 WebP（修正 EXIF 方向、不保留 EXIF/GPS/ICC），GIF/动态 WebP 保留动画；超体积按尺寸+质量阶梯降级
+  （社区输出 ≤3MB、公告输出 ≤2MB，仍超限 400）。原文件不再原样入库，polyglot/伪装图片/恶意元数据无法落库。
+- `server/api/community/media.post.ts`、`server/api/admin/media/index.post.ts` 改为复用该逻辑，响应字段不变；
+  新增稳定错误码 `MEDIA_IMAGE_MISMATCH`、`MEDIA_IMAGE_INVALID`、`MEDIA_IMAGE_TOO_LARGE`、`MEDIA_CONTENT_UNSUPPORTED`。
+- `server/api/media/[id].get.ts`：不信任数据库里的 mimeType，按字节魔数决定 `Content-Type`；历史脏数据（伪装图片）返回 415；
+  响应新增 `X-Content-Type-Options: nosniff`、`Content-Disposition: inline; filename=...`、
+  `Content-Security-Policy: default-src 'none'; sandbox`、`Content-Length`，保留 `Cache-Control`。
+- 权限与业务不变：帖子图片仍校验归属与数量上限（9 张），评论仍不支持图片；公告图片上传后正常显示。
+- 自测：41 项（工具单测 25 + 读取接口 e2e 6 + 上传接口 e2e 10）全部通过，覆盖 EXIF/GPS 清除与方向修正、
+  GIF→动态 WebP、HTML 伪装、魔数错配、伪造 IHDR 20000×20000、64MP 像素炸弹、301 帧动图、历史脏数据 415 等。
+
+**社区体验修复**
+
+- 图片布局改为微信式九宫格：1 张单独展示、2/4 张两列、3 张及以上三列，统一正方形缩略图，不再占满屏幕。
+- 板块帖子数统计排除已撤回/已删除帖子（`deletedAt` 非空），撤回后计数同步减少、恢复后自动加回；
+  个人统计、用户主页的帖子/评论计数同步排除已删除内容。
+- 管理后台「社区归档记录」新增「恢复/撤回归档」：`POST /api/admin/community/archive/:type/:id/restore`（帖子/评论），
+  鉴权与归档页一致，超过 30 天清理时间返回 409，恢复操作写入管理审计；前端每条记录增加恢复按钮与确认弹窗。
+- 联合投稿人搜索与已选标签补充显示 `@username`（投稿页与后台编辑歌曲弹窗），姓名仍按原规则脱敏。
+- 修复「编辑用户信息」弹窗中用户名输入框 `@` 图标错位（提示文案移出图标定位容器）。
+
+**内容审核与合规（确认现状，未新增验证码）**
+
+- 所有网址（含网易云/QQ 音乐/Spotify 等音乐平台歌曲页）一律按「联系方式引流」拦截，社区内分享歌曲只能使用「选歌」功能；
+  `moderation-service/POLICY_PROMPT.md` 同步为「无例外」。
+- 发帖/评论没有图形验证码，仅保留账号维度限制（上传每日 30 张、发帖审核状态等），符合「不要人机验证、保留账号限流」的要求。
+
+**开源前密钥/凭据治理**
+
+- 全仓库 + handoff 审计：源码本体无硬编码云密钥；`handoff/assets` 中 3 处真实凭据已脱敏（SSH 密码、analytics AUTH_PASS、TOTP_SECRET），
+  报告见 `/home/cyh/Documents/Qoder/2026-10-24/3eda206f/SECRETS-AUDIT-2026-10-25.md`（仅前缀+掩码）。
+- `scripts/clear-database.js` 不再使用公开默认密码 `admin123`：必须通过 `ADMIN_INITIAL_PASSWORD`（≥8 位）初始化，
+  并强制首次登录改密、不再打印明文；README 同步修正。
+- `.gitignore` / `.dockerignore` 补齐 `.env*`、证书私钥、备份、密钥目录等；根与 deploy 的 `.env.example` 补齐占位变量；
+  修正 `deploy/docker-compose.yml` 音源卡密环境变量名与代码不一致的问题。
+- 后台「阿里云配置」等密钥字段确认符合「掩码回显、留空不修改、显式清除」语义，无需改业务逻辑。
+
+**审核服务（进行中）**
+
+- `moderation-service` 已部署到测试环境（127.0.0.1:8000，Docker，上海 endpoint），`/health` 为 NORMAL；策略映射保持
+  `none/low→PASS`、`medium/high→MANUAL_REVIEW`。真实接口验证被阿里云账号欠费阻塞（见 ALIYUN-MODERATION-TEST-2026-10-25.md），
+  充值后可完成端到端验证。
+
+**验证与部署**
+
+- `pnpm build`（`node scripts/build.js`）构建通过；test2 环境镜像验证图片安全、归档恢复、板块计数、九宫格样式后，
+  生产部署镜像 `voicehub-voicehub:community-20261025d`；回滚镜像 `voicehub-voicehub:community-20261025b`。
+
+### 10.11 内容审核处置口径对齐（2026-10-25）
+
+**背景**：站长要求「中风险及以上人工复核，低风险及以下放行」，并要求在后台配置阿里云内容安全（上海区域）。
+
+- 直连阿里云路径（未配置独立审核服务时）此前只要命中标签就转人工，且帖子默认始终 `PENDING`，低风险内容无法自动放行。
+- 修复：
+  - `server/utils/communityModeration.ts` 解析阿里云返回的 `riskLevel`：`none/low` 视为通过，`medium/high` 视为命中；
+    接口未返回风险等级时保持旧行为（有标签即转人工），继续「宁可多审不可漏审」。
+  - `server/api/community/posts/index.post.ts`、`server/api/community/posts/[id]/comments.post.ts`：
+    审核已启用且配置了阿里云密钥时，文本/图片均无命中且接口正常 → `APPROVED`；命中 → `PENDING`（`moderationHitAction=BLOCK` 时 `BLOCKED`）；
+    接口异常、未配置密钥、图片无法校验（缺少公网源站地址）时保持 `PENDING` 转人工。
+- 后台配置现状（生产库 `CommunitySettings`）：`moderationEnabled=true`、AccessKey 已配置（掩码回显）、
+  `aliyunEndpoint=green-cip.cn-shanghai.aliyuncs.com`、`aliyunRegionId=cn-shanghai`、
+  `aliyunTextService=comment_detection`、`aliyunImageService=baselineCheck`、`moderationHitAction=MANUAL`。
+- 现状限制：阿里云账号当前欠费（余额 -0.01 CNY），内容安全接口返回 408，所有帖子仍按「接口异常转人工」保守处理；
+  充值后低风险内容将自动通过，中高风险转人工。该 AK 为主账号根凭证，建议轮换为仅内容安全权限的 RAM 子账号。
+
+**安全联系信息（服务器配置，不进入仓库）**
+
+- `https://gdqzvoicehub.cn/.well-known/security.txt` 已按 RFC 9116 配置（Contact/Expires/Preferred-Languages/Canonical），
+  仅存在于服务器 Nginx 配置中，未写入源码仓库，避免联系方式随开源项目扩散。

@@ -3,15 +3,27 @@ node_modules
 .output
 .git
 .gitignore
+# 禁止把任何真实环境变量打进镜像（只保留示例文件）
 .env
-.env.local
-.env.production
-.env.development
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+# 证书 / 私钥 / 备份等敏感文件不进构建上下文
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.dump
+*.sql.gz
+backups
+*.log
 dist
 coverage
 .vscode
 .idea
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

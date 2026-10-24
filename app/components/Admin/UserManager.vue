@@ -692,10 +692,10 @@ Modified by YH-Chen on 2026-10-17
                       :placeholder="locale.form.usernamePlaceholder"
                       type="text"
                     >
-                    <p class="text-[10px] text-text-tertiary ml-1">
-                      {{ locale.errors.usernameInvalid }}
-                    </p>
                   </div>
+                  <p class="text-[10px] text-text-tertiary ml-1 leading-relaxed">
+                    {{ locale.errors.usernameInvalid }}
+                  </p>
                 </div>
               </div>
 

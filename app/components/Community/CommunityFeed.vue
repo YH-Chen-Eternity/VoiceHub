@@ -132,7 +132,7 @@
 
               <div
                 v-if="post.images.length"
-                :class="['post-images', `images-${Math.min(post.images.length, 3)}`]"
+                :class="['post-images', `images-${post.images.length >= 5 ? 'many' : post.images.length}`]"
               >
                 <button
                   v-for="(image, index) in post.images"
@@ -153,11 +153,13 @@
                 <div class="song-info">
                   <span class="song-title">{{ post.song.title }}</span>
                   <span class="song-artist">{{ post.song.artist }}</span>
+                  <span v-if="likeBlockedText(post)" class="song-note">{{ likeBlockedText(post) }}</span>
                 </div>
                 <button
                   :class="{ liked: post.song.likedByMe }"
                   class="like-button"
-                  :disabled="post.liking"
+                  :disabled="post.liking || !canToggleLike(post)"
+                  :title="likeButtonTitle(post)"
                   type="button"
                   @click="toggleLike(post)"
                 >
@@ -299,6 +301,9 @@
                   <div class="song-info">
                     <span class="song-title">{{ publishForm.song.title }}</span>
                     <span class="song-artist">{{ publishForm.song.artist }}</span>
+                    <span v-if="songBlockedText(publishForm.song)" class="song-note">
+                      {{ songBlockedText(publishForm.song) }}
+                    </span>
                   </div>
                   <button class="link-button" type="button" @click="publishForm.song = null">
                     {{ t.remove }}
@@ -325,10 +330,20 @@
                     >
                       <span class="song-result-title">{{ song.title }}</span>
                       <span class="song-result-artist">{{ song.artist }}</span>
+                      <span v-if="song.isOwn" class="song-result-own">{{ t.ownSubmission }}</span>
+                      <span v-if="song.likedByMe" class="song-result-liked">{{ t.alreadyLiked }}</span>
+                      <span
+                        v-if="songBlockedText(song)"
+                        class="song-result-blocked"
+                        :title="songBlockedText(song)"
+                      >
+                        {{ t.cannotLike }}
+                      </span>
                       <span class="song-result-pick">{{ t.choose }}</span>
                     </button>
                   </div>
                   <p v-else-if="songQuery && songSearched" class="muted-text">{{ t.noSongFound }}</p>
+                  <p class="field-hint">{{ t.attachSongHint }}</p>
                 </template>
               </div>
 
@@ -439,7 +454,7 @@
 
               <div
                 v-if="selectedPost.images.length"
-                :class="['post-images', `images-${Math.min(selectedPost.images.length, 3)}`]"
+                :class="['post-images', `images-${selectedPost.images.length >= 5 ? 'many' : selectedPost.images.length}`]"
               >
                 <button
                   v-for="(image, index) in selectedPost.images"
@@ -464,11 +479,15 @@
                 <div class="song-info">
                   <span class="song-title">{{ selectedPost.song.title }}</span>
                   <span class="song-artist">{{ selectedPost.song.artist }}</span>
+                  <span v-if="likeBlockedText(selectedPost)" class="song-note">
+                    {{ likeBlockedText(selectedPost) }}
+                  </span>
                 </div>
                 <button
                   :class="{ liked: selectedPost.song.likedByMe }"
                   class="like-button"
-                  :disabled="selectedPost.liking"
+                  :disabled="selectedPost.liking || !canToggleLike(selectedPost)"
+                  :title="likeButtonTitle(selectedPost)"
                   type="button"
                   @click="toggleLike(selectedPost)"
                 >
@@ -670,6 +689,63 @@
       </Transition>
     </Teleport>
 
+    <!-- 点赞署名选择：匿名 or 署名 -->
+    <Teleport to="body">
+      <Transition name="community-fade">
+        <div v-if="pendingLikePost" class="modal-layer" @click.self="cancelLikeReveal">
+          <div class="modal-card" style="max-width: 24rem">
+            <header class="modal-head">
+              <div>
+                <h3>{{ uiT.voteReveal.title }}</h3>
+                <p>{{ uiT.voteReveal.desc }}</p>
+              </div>
+              <button class="icon-button" type="button" @click="cancelLikeReveal">
+                <X :size="18" />
+              </button>
+            </header>
+            <div class="modal-body">
+              <button
+                class="w-full rounded-xl border px-3 py-2.5 text-left transition-all"
+                :class="pendingRevealChoice === 'ANONYMOUS' ? 'border-primary bg-primary-10' : 'border-border-secondary hover:bg-bg-tertiary'"
+                type="button"
+                @click="pendingRevealChoice = 'ANONYMOUS'"
+              >
+                <p class="text-xs font-bold text-text-primary">{{ uiT.voteReveal.anonymous }}</p>
+                <p class="mt-0.5 text-[10px] text-text-tertiary">{{ uiT.voteReveal.anonymousHint }}</p>
+              </button>
+              <button
+                class="w-full rounded-xl border px-3 py-2.5 text-left transition-all"
+                :class="pendingRevealChoice === 'REVEAL' ? 'border-primary bg-primary-10' : 'border-border-secondary hover:bg-bg-tertiary'"
+                type="button"
+                @click="pendingRevealChoice = 'REVEAL'"
+              >
+                <p class="text-xs font-bold text-text-primary">{{ uiT.voteReveal.reveal }}</p>
+                <p class="mt-0.5 text-[10px] text-text-tertiary">{{ uiT.voteReveal.revealHint }}</p>
+              </button>
+              <label class="flex items-start gap-2 rounded-xl bg-bg-secondary-60 px-3 py-2 text-[11px] text-text-secondary">
+                <input v-model="pendingRememberChoice" class="mt-0.5 h-3.5 w-3.5 accent-[var(--primary)]" type="checkbox" >
+                <span class="min-w-0">
+                  <span class="block font-bold">{{ uiT.voteReveal.remember }}</span>
+                  <span class="mt-0.5 block text-text-tertiary">{{ uiT.voteReveal.rememberHint }}</span>
+                </span>
+              </label>
+            </div>
+            <footer class="modal-foot">
+              <span class="foot-hint">{{ uiT.voteReveal.desc }}</span>
+              <div class="foot-actions">
+                <button class="ghost-button" type="button" @click="cancelLikeReveal">
+                  {{ uiT.voteReveal.cancel }}
+                </button>
+                <button class="primary-button" type="button" @click="confirmLikeReveal">
+                  {{ uiT.voteReveal.confirm }}
+                </button>
+              </div>
+            </footer>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <ConfirmDialog
       v-model:show="removeConfirm.show"
       :title="removeConfirm.title"
@@ -709,6 +785,7 @@ import {
 } from '@lucide/vue'
 import ConfirmDialog from '~/components/UI/ConfirmDialog.vue'
 import { useLocale } from '~/utils/locale'
+import { useNewUi } from '~/composables/useNewUi'
 import { useToast } from '~/composables/useToast'
 import {
   COMMUNITY_IMAGE_MAX_UPLOAD_BYTES,
@@ -720,6 +797,7 @@ type AnyRecord = Record<string, any>
 
 const { community: communityLocale, currentLocale } = useLocale()
 const t = computed<AnyRecord>(() => communityLocale.value || {})
+const uiT = useNewUi()
 const { showToast } = useToast()
 
 const loading = ref(true)
@@ -792,6 +870,7 @@ const songQuery = ref('')
 const songResults = ref<AnyRecord[]>([])
 const songSearched = ref(false)
 let songTimer: ReturnType<typeof setTimeout> | null = null
+let songSearchSeq = 0
 
 const detailOpen = ref(false)
 const selectedPost = ref<AnyRecord | null>(null)
@@ -799,6 +878,11 @@ const comments = ref<AnyRecord[]>([])
 const commentsLoading = ref(false)
 const commentContent = ref('')
 const sendingComment = ref(false)
+
+const voteRevealMode = ref('ASK')
+const pendingLikePost = ref<AnyRecord | null>(null)
+const pendingRevealChoice = ref('ANONYMOUS')
+const pendingRememberChoice = ref(false)
 
 const profileOpen = ref(false)
 const profileLoading = ref(false)
@@ -877,6 +961,7 @@ async function init() {
     ])
     status.value = statusRes
     me.value = meRes
+    void loadVoteRevealMode()
     if (!isOpen.value) return
     const boardsRes = await $fetch<AnyRecord>('/api/community/boards')
     boards.value = boardsRes.boards || []
@@ -922,28 +1007,72 @@ function toggleMine() {
   loadFeed(true)
 }
 
+const LIKE_BLOCK_KEYS: Record<string, string> = {
+  NO_ACTIVE_SEMESTER: 'likeBlockedNoActiveSemester',
+  INACTIVE_SEMESTER: 'likeBlockedInactiveSemester',
+  PLAYED: 'likeBlockedPlayed',
+  SCHEDULED: 'likeBlockedScheduled',
+  SELF: 'likeBlockedSelf'
+}
+
+function songBlockedText(song: AnyRecord | null): string {
+  if (!song) return ''
+  if (song.likedByMe && song.canUnvote) return ''
+  if (!song.likedByMe && song.canLike) return ''
+  const key = song.likeBlockedCode ? LIKE_BLOCK_KEYS[song.likeBlockedCode] : ''
+  return (key ? t.value[key] : '') || song.likeBlockedReason || t.value.likeUnavailable || ''
+}
+
+function likeBlockedText(post: AnyRecord | null): string {
+  return songBlockedText(post?.song)
+}
+
+function canToggleLike(post: AnyRecord | null): boolean {
+  const song = post?.song
+  if (!song) return false
+  return song.likedByMe ? !!song.canUnvote : !!song.canLike
+}
+
+function likeButtonTitle(post: AnyRecord | null): string {
+  if (!post?.song) return ''
+  if (post.liking) return t.value.likePending || ''
+  return likeBlockedText(post) || (post.song.likedByMe ? t.value.unlike : t.value.like)
+}
+
 function applyLikeState(songId: number, liked: boolean, voteCount: number) {
   const update = (post: AnyRecord | null) => {
     if (!post?.song || post.song.id !== songId) return
     post.song.likedByMe = liked
     post.song.voteCount = Math.max(0, voteCount)
+    post.song.canLike = !liked
+    post.song.canUnvote = liked
+    post.song.likeBlockedCode = null
+    post.song.likeBlockedReason = null
   }
   posts.value.forEach(update)
   update(selectedPost.value)
-  if (me.value?.profile?.favoriteSongId === songId) {
-    // 个人资料里的歌曲对象不带点赞状态，无需同步
+}
+
+async function loadVoteRevealMode() {
+  try {
+    const res = await $fetch<AnyRecord>('/api/user/vote-reveal')
+    const mode = res?.data?.voteRevealMode
+    if (mode === 'ANONYMOUS' || mode === 'REVEAL' || mode === 'ASK') voteRevealMode.value = mode
+  } catch {
+    // 读取偏好失败时回落到每次询问
   }
 }
 
-async function toggleLike(post: AnyRecord) {
+async function submitVote(post: AnyRecord, reveal: boolean) {
   if (!post?.song || post.liking) return
   const songId = Number(post.song.id)
   const unvote = !!post.song.likedByMe
   post.liking = true
   try {
+    // 与 VoiceHub 点歌页共用 /api/songs/vote，热度写回同一张 Vote 表
     const res = await $fetch<AnyRecord>('/api/songs/vote', {
       method: 'POST',
-      body: { songId, unvote }
+      body: { songId, unvote, revealToRequester: unvote ? false : reveal === true }
     })
     const count = Number(res?.song?.voteCount ?? post.song.voteCount + (unvote ? -1 : 1))
     applyLikeState(songId, !unvote, count)
@@ -952,6 +1081,52 @@ async function toggleLike(post: AnyRecord) {
   } finally {
     post.liking = false
   }
+}
+
+function cancelLikeReveal() {
+  pendingLikePost.value = null
+}
+
+async function confirmLikeReveal() {
+  const post = pendingLikePost.value
+  if (!post) return
+  const reveal = pendingRevealChoice.value === 'REVEAL'
+  pendingLikePost.value = null
+  if (pendingRememberChoice.value) {
+    try {
+      await $fetch('/api/user/vote-reveal', {
+        method: 'PUT',
+        body: { voteRevealMode: reveal ? 'REVEAL' : 'ANONYMOUS' }
+      })
+      voteRevealMode.value = reveal ? 'REVEAL' : 'ANONYMOUS'
+    } catch {
+      showToast(uiT.value.voteReveal.saveFailed, 'error')
+    }
+  }
+  await submitVote(post, reveal)
+}
+
+async function toggleLike(post: AnyRecord) {
+  if (!post?.song || post.liking) return
+  if (!canToggleLike(post)) {
+    const reason = likeBlockedText(post)
+    if (reason) showToast(reason, 'warning')
+    return
+  }
+
+  // 取消点赞不需要询问署名
+  if (post.song.likedByMe) {
+    await submitVote(post, false)
+    return
+  }
+  if (voteRevealMode.value === 'ANONYMOUS' || voteRevealMode.value === 'REVEAL') {
+    await submitVote(post, voteRevealMode.value === 'REVEAL')
+    return
+  }
+
+  pendingRevealChoice.value = 'ANONYMOUS'
+  pendingRememberChoice.value = false
+  pendingLikePost.value = post
 }
 
 function openPublish() {
@@ -978,6 +1153,7 @@ function closePublish() {
 function handleSongInput() {
   if (songTimer) clearTimeout(songTimer)
   const keyword = songQuery.value.trim()
+  const seq = ++songSearchSeq
   if (!keyword) {
     songResults.value = []
     songSearched.value = false
@@ -986,17 +1162,29 @@ function handleSongInput() {
   songTimer = setTimeout(async () => {
     try {
       const res = await $fetch<AnyRecord>('/api/community/songs', { query: { q: keyword } })
+      if (seq !== songSearchSeq) return
       songResults.value = res.songs || []
     } catch {
+      if (seq !== songSearchSeq) return
       songResults.value = []
     } finally {
-      songSearched.value = true
+      if (seq === songSearchSeq) songSearched.value = true
     }
   }, 300)
 }
 
 function chooseSong(song: AnyRecord) {
-  publishForm.song = { id: song.id, title: song.title, artist: song.artist, cover: song.cover }
+  publishForm.song = {
+    id: song.id,
+    title: song.title,
+    artist: song.artist,
+    cover: song.cover,
+    canLike: song.canLike,
+    canUnvote: song.canUnvote,
+    likedByMe: song.likedByMe,
+    likeBlockedCode: song.likeBlockedCode,
+    likeBlockedReason: song.likeBlockedReason
+  }
   songQuery.value = ''
   songResults.value = []
   songSearched.value = false
@@ -1251,10 +1439,8 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 1.25rem;
   width: 100%;
-  height: 100%;
+  height: auto;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
   padding-right: 0.25rem;
 }
 
@@ -1639,22 +1825,26 @@ onUnmounted(() => {
   word-break: break-word;
 }
 
+/* 微信式九宫格：1 张单独展示，2/4 张两列，3 张及以上三列，统一正方形缩略图，避免占满屏幕 */
 .post-images {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.3rem;
   margin-top: 0.85rem;
-  max-width: 30rem;
+  max-width: 21rem;
 }
 
 .post-images.images-1 {
   grid-template-columns: minmax(0, 1fr);
+  max-width: 15rem;
 }
 
-.post-images.images-2 {
+.post-images.images-2,
+.post-images.images-4 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.post-images.images-3 {
+.post-images.images-3,
+.post-images.images-many {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -1664,7 +1854,7 @@ onUnmounted(() => {
   width: 100%;
   padding: 0;
   border: none;
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   overflow: hidden;
   cursor: zoom-in;
   background: var(--overlay-5);
@@ -1675,8 +1865,12 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
   transition: transform 0.3s ease;
+}
+
+.post-images.images-1 .image-button img {
+  aspect-ratio: 4 / 3;
 }
 
 .image-button:hover img {
@@ -1733,6 +1927,15 @@ onUnmounted(() => {
 .song-artist {
   font-size: 0.66rem;
   color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.song-note {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--warning);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2190,6 +2393,36 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.song-result-liked {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: var(--error-light);
+  color: #f43f5e;
+  font-size: 0.58rem;
+  font-weight: 800;
+}
+
+.song-result-own {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: var(--overlay-8);
+  color: var(--text-tertiary);
+  font-size: 0.58rem;
+  font-weight: 800;
+}
+
+.song-result-blocked {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: var(--warning-light);
+  color: var(--warning);
+  font-size: 0.58rem;
+  font-weight: 800;
 }
 
 .song-result-pick {

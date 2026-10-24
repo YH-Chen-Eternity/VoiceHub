@@ -19,12 +19,13 @@
       <div
         v-for="item in typeCards"
         :key="item.type"
-        class="rounded-2xl border p-4 transition-colors"
+        class="cursor-pointer rounded-2xl border p-4 transition-colors"
         :class="
           type === item.type
             ? 'border-primary-30 bg-primary-hover-5'
             : 'border-border-secondary-50 bg-bg-secondary-30'
         "
+        @click="switchType(item.type)"
       >
         <p class="text-[10px] font-black uppercase tracking-widest text-text-disabled">{{ item.label }}</p>
         <p class="mt-2 text-2xl font-black text-text-primary">{{ stats[item.type] || 0 }}</p>
@@ -90,9 +91,21 @@
             <span class="rounded bg-bg-tertiary px-1.5 py-0.5 text-text-tertiary">{{ post.board.name }}</span>
             <span class="text-text-disabled">#{{ post.id }}</span>
           </div>
-          <span class="rounded-full bg-error-10 px-2 py-0.5 text-[10px] font-bold text-error">
-            {{ deleteTypeLabel(post.deleteType) }}
-          </span>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="rounded-full bg-error-10 px-2 py-0.5 text-[10px] font-bold text-error">
+              {{ deleteTypeLabel(post.deleteType) }}
+            </span>
+            <button
+              v-if="canReviewCommunity"
+              type="button"
+              class="inline-flex items-center gap-1 rounded-lg border border-success-30 bg-success-10 px-2.5 py-1 text-[10px] font-bold text-success hover:bg-success-15 disabled:opacity-50"
+              :disabled="restoringId === `post-${post.id}`"
+              @click="askRestore('post', post)"
+            >
+              <RotateCcw :size="12" :class="{ 'animate-spin': restoringId === `post-${post.id}` }" />
+              {{ t.restore }}
+            </button>
+          </div>
         </div>
 
         <p class="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-text-secondary">
@@ -175,9 +188,25 @@
             <span class="rounded bg-bg-tertiary px-1.5 py-0.5 text-text-tertiary">{{ comment.board.name }}</span>
             <span class="text-text-disabled">#{{ comment.id }}</span>
           </div>
-          <span class="rounded-full bg-error-10 px-2 py-0.5 text-[10px] font-bold text-error">
-            {{ deleteTypeLabel(comment.deleteType) }}
-          </span>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="rounded-full bg-error-10 px-2 py-0.5 text-[10px] font-bold text-error">
+              {{ deleteTypeLabel(comment.deleteType) }}
+            </span>
+            <button
+              v-if="canReviewCommunity"
+              type="button"
+              class="inline-flex items-center gap-1 rounded-lg border border-success-30 bg-success-10 px-2.5 py-1 text-[10px] font-bold text-success hover:bg-success-15 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="restoringId === `comment-${comment.id}` || !!comment.post?.deletedAt"
+              :title="comment.post?.deletedAt ? t.restoreCommentBlocked : ''"
+              @click="askRestore('comment', comment)"
+            >
+              <RotateCcw
+                :size="12"
+                :class="{ 'animate-spin': restoringId === `comment-${comment.id}` }"
+              />
+              {{ t.restore }}
+            </button>
+          </div>
         </div>
 
         <div class="mt-3 rounded-xl border border-border-secondary-50 bg-bg-primary-40 p-3">
@@ -214,6 +243,18 @@
       </article>
     </section>
 
+    <ConfirmDialog
+      :show="restoreConfirm.show"
+      :title="restoreConfirm.title"
+      :message="restoreConfirm.message"
+      type="info"
+      :loading="restoreConfirm.loading"
+      :confirm-text="t.restore"
+      :cancel-text="t.cancel"
+      @confirm="runRestore"
+      @cancel="restoreConfirm.show = false"
+    />
+
     <Teleport to="body">
       <div
         v-if="lightbox"
@@ -228,12 +269,19 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { RefreshCw } from '@lucide/vue'
+import { RefreshCw, RotateCcw } from '@lucide/vue'
 import CustomSelect from '~/components/UI/Common/CustomSelect.vue'
+import ConfirmDialog from '~/components/UI/ConfirmDialog.vue'
 import { useLocale } from '~/utils/locale'
+import { useServerErrors } from '~/composables/useLocaleText'
+import { useToast } from '~/composables/useToast'
+import { usePermissions } from '~/composables/usePermissions'
 
 const { community: communityLocale } = useLocale()
 const t = computed(() => communityLocale.value?.admin || {})
+const { showToast } = useToast()
+const { canReviewCommunity } = usePermissions()
+const { localize: localizeServerError } = useServerErrors()
 
 const type = ref('posts')
 const boardId = ref(0)
@@ -244,6 +292,17 @@ const stats = reactive({ posts: 0, comments: 0 })
 const loading = ref(true)
 const error = ref(false)
 const lightbox = ref(null)
+const restoringId = ref('')
+
+// 恢复/撤回归档：确认弹窗状态（type = post | comment）
+const restoreConfirm = reactive({
+  show: false,
+  loading: false,
+  type: 'post',
+  target: null,
+  title: '',
+  message: ''
+})
 
 const typeCards = computed(() => [
   { type: 'posts', label: t.value.archivedPostsTab },
@@ -296,6 +355,43 @@ const switchType = (value) => {
   if (type.value === value) return
   type.value = value
   load()
+}
+
+// 恢复归档：先确认，成功后刷新列表与统计（板块帖子数由后端统计修正）
+const askRestore = (targetType, target) => {
+  if (targetType === 'comment' && target?.post?.deletedAt) {
+    showToast(t.value.restoreCommentBlocked, 'warning')
+    return
+  }
+  Object.assign(restoreConfirm, {
+    show: true,
+    loading: false,
+    type: targetType,
+    target,
+    title: targetType === 'post' ? t.value.restorePostTitle : t.value.restoreCommentTitle,
+    message: targetType === 'post' ? t.value.restorePostMsg : t.value.restoreCommentMsg
+  })
+}
+
+const runRestore = async () => {
+  const target = restoreConfirm.target
+  if (!target) return
+  const targetType = restoreConfirm.type
+  restoreConfirm.loading = true
+  restoringId.value = `${targetType}-${target.id}`
+  try {
+    await $fetch(`/api/admin/community/archive/${targetType}/${target.id}/restore`, {
+      method: 'POST'
+    })
+    showToast(t.value.restoreSuccess, 'success')
+    restoreConfirm.show = false
+    await load()
+  } catch (e) {
+    showToast(localizeServerError(e, t.value.restoreFailed), 'error')
+  } finally {
+    restoreConfirm.loading = false
+    restoringId.value = ''
+  }
 }
 
 watch(boardId, () => {

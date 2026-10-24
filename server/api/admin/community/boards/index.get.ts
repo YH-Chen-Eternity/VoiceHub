@@ -1,4 +1,4 @@
-import { asc, count, eq, sql } from 'drizzle-orm'
+import { and, asc, count, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import { communityBoards, communityBoardReviewers, communityPosts } from '~/drizzle/schema'
 import { requireCommunityAdmin } from '~~/server/utils/community'
@@ -14,15 +14,20 @@ export default defineEventHandler(async (event) => {
       sortOrder: communityBoards.sortOrder,
       isActive: communityBoards.isActive,
       createdAt: communityBoards.createdAt,
-      reviewerCount: sql<number>`(select count(*)::int from "CommunityBoardReviewer" r where r."boardId" = ${communityBoards.id})`,
-      postCount: sql<number>`(select count(*)::int from "CommunityPost" p where p."boardId" = ${communityBoards.id})`,
-      pendingCount: sql<number>`(select count(*)::int from "CommunityPost" p where p."boardId" = ${communityBoards.id} and p."status" = 'PENDING')`
+      // 显式限定外层列，避免子查询里的 "id" 被解析成内层表主键。
+      reviewerCount: sql<number>`(select count(*)::int from "CommunityBoardReviewer" r where r."boardId" = "CommunityBoard"."id")`,
+      // 已撤回/删除（deletedAt 非空）的帖子不计入板块统计，避免归档数据把数字撑大
+      postCount: sql<number>`(select count(*)::int from "CommunityPost" p where p."boardId" = "CommunityBoard"."id" and p."deletedAt" is null)`,
+      pendingCount: sql<number>`(select count(*)::int from "CommunityPost" p where p."boardId" = "CommunityBoard"."id" and p."status" = 'PENDING' and p."deletedAt" is null)`
     })
     .from(communityBoards)
     .orderBy(asc(communityBoards.sortOrder), asc(communityBoards.id))
 
   const total = await db.select({ value: count() }).from(communityBoardReviewers)
-  const totalPosts = await db.select({ value: count() }).from(communityPosts).where(eq(communityPosts.status, 'PENDING'))
+  const totalPosts = await db
+    .select({ value: count() })
+    .from(communityPosts)
+    .where(and(eq(communityPosts.status, 'PENDING'), isNull(communityPosts.deletedAt)))
 
   return {
     success: true,

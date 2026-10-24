@@ -240,7 +240,10 @@ Modified by YH-Chen on 2026-10-17
         </div>
 
         <!-- 内容区域 -->
-        <div class="tab-content-container">
+        <div
+          class="tab-content-container"
+          :class="{ 'tab-content-container--scroll': activeTab === 'community' }"
+        >
           <ClientOnly>
             <!-- 播出排期内容 -->
             <div v-if="activeTab === 'schedule'" key="schedule" class="tab-pane schedule-tab-pane">
@@ -2785,6 +2788,18 @@ if (
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* 社区页内容较长，交给页面自然滚动，避免内层滚动容器吞掉鼠标滚轮 */
+.tab-content-container--scroll {
+  overflow: visible;
+  min-height: 0;
+}
+
+.tab-content-container--scroll .community-pane,
+.tab-content-container--scroll .community-shell {
+  height: auto;
+  min-height: 0;
 }
 
 /* 针对排期标签页的特殊样式 */

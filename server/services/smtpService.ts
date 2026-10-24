@@ -189,10 +189,13 @@ export class SmtpService {
       <p>请使用管理员提供的新密码登录，并在登录后立即在「账号」页面修改为你自己的密码。</p>
     `,
     communityResonanceAwarded: `
-      <p>恭喜你！你与 <strong>{{partnerName}}</strong> 相互点赞的歌曲已达到 <strong>{{mutualCount}}</strong> 首，获得称号「<strong>{{titleName}}</strong>」。</p>
+      <p>恭喜你！你与 <strong>{{partnerName}}</strong> 达成双向投稿互赞，获得称号「<strong>{{titleName}}</strong>」。</p>
+      <p>你点赞了 TA 投稿的 <strong>{{sentCount}}</strong> 首；TA 点赞了你投稿的 <strong>{{receivedCount}}</strong> 首。</p>
+      <p>你点赞 TA 的歌曲：</p>
+      <div style="white-space: pre-wrap; background: #f8f9fa; border-radius: 4px; padding: 12px;">{{sentSongList}}</div>
+      <p>TA 点赞你的歌曲：</p>
+      <div style="white-space: pre-wrap; background: #f8f9fa; border-radius: 4px; padding: 12px;">{{receivedSongList}}</div>
       <p>达成时间：<strong>{{achievedAt}}</strong></p>
-      <p>你们共同点赞的歌曲：</p>
-      <div style="white-space: pre-wrap; background: #f8f9fa; border-radius: 4px; padding: 12px;">{{songList}}</div>
       <p style="color: #888;">该记录仅你本人可见；对外仅展示你所佩戴的称号。</p>
     `
   }
@@ -254,7 +257,7 @@ export class SmtpService {
       subject: '获得「{{titleName}}」称号 | {{siteTitle}}通知推送',
       contentType: 'communityResonanceAwarded',
       headerSubtitle: '回声社区',
-      variables: ['titleName', 'partnerName', 'mutualCount', 'songList', 'achievedAt']
+      variables: ['titleName', 'partnerName', 'sentCount', 'receivedCount', 'mutualCount', 'sentSongList', 'receivedSongList', 'achievedAt']
     },
     'notification.songSelected': {
       name: '歌曲被选中',

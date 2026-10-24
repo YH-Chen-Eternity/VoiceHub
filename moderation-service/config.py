@@ -39,18 +39,18 @@ MODE_DEGRADED = "DEGRADED"
 # ============================================================================
 # 【业务硬约束 · API 不可用降级】
 # 1. AK/SK 任一缺失 -> 启动即 DEGRADED，/audit 不发起任何外部 API 调用。
-# 2. 上海、新加坡两个 Endpoint 探测均失败 -> DEGRADED。
+# 2. 所有已配置 Endpoint 探测均失败 -> DEGRADED。
 # 3. 降级期间所有请求返回 API_UNAVAILABLE，直接进入人工队列。
 # 恢复只能由后台周期探测完成，不允许请求路径上反复探测。
 # ============================================================================
 DEGRADED_REASON_NO_CREDENTIALS = "未配置 ALIBABA_CLOUD_ACCESS_KEY_ID / ALIBABA_CLOUD_ACCESS_KEY_SECRET"
 DEGRADED_REASON_SDK_MISSING = "阿里云内容安全 SDK 未安装或加载失败"
-DEGRADED_REASON_ENDPOINTS_DOWN = "上海/新加坡 Endpoint 均探测失败"
+DEGRADED_REASON_ENDPOINTS_DOWN = "已配置的阿里云内容安全 Endpoint 均探测失败"
 
-# 上海优先，新加坡备选。
+# 默认仅使用国内上海节点，避免跨境调用成本。
+# 如需容灾，可通过 MODERATION_ENDPOINTS 显式追加新加坡等其他节点。
 DEFAULT_ENDPOINTS: Tuple[Tuple[str, str], ...] = (
     ("green-cip.cn-shanghai.aliyuncs.com", "cn-shanghai"),
-    ("green-cip.ap-southeast-1.aliyuncs.com", "ap-southeast-1"),
 )
 
 DEFAULT_MULTIMODAL_APP_ID = "img_txt_check_agent_01"
@@ -93,7 +93,8 @@ def _parse_endpoints(raw: str) -> Tuple[Tuple[str, str], ...]:
     """解析 MODERATION_ENDPOINTS。
 
     格式：``host[:region],host[:region]``，也允许测试时使用 ``http://127.0.0.1:9101=test``。
-    未配置时返回上海/新加坡默认候选。Endpoint 属于受信任配置，不接受用户输入。
+    未配置时返回仅上海节点的默认候选；如需容灾可显式追加其他节点。
+    Endpoint 属于受信任配置，不接受用户输入。
     """
     if not raw:
         return DEFAULT_ENDPOINTS

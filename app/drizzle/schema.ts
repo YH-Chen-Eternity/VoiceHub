@@ -1096,6 +1096,10 @@ export const communityResonance = pgTable('CommunityResonance', {
   titleId: integer('titleId').references(() => communityTitles.id, { onDelete: 'set null' }),
   // 达成阈值：50 / 200
   threshold: integer('threshold').notNull(),
+  // 双向互赞：sentCount = 我点赞对方投稿的歌数，receivedCount = 对方点赞我投稿的歌数
+  sentCount: integer('sentCount').default(0).notNull(),
+  receivedCount: integer('receivedCount').default(0).notNull(),
+  // 双向中较小的一个，保留用于旧 UI/兼容展示
   mutualCount: integer('mutualCount').notNull(),
   songsSnapshot: text('songsSnapshot').notNull(),
 }, (table) => [

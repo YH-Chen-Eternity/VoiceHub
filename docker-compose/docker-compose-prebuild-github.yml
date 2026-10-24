@@ -6,6 +6,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/voicehub?sslmode=disable
       - JWT_SECRET=your-jwt-secret-here
+      - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD:-}
       - NODE_ENV=production
       - SKIP_BUILD=true
     depends_on:

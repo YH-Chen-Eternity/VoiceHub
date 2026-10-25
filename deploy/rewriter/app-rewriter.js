@@ -294,10 +294,10 @@ function loadTrustedIpsState() {
 loadTrustedIpsState();
 
 // 可调阈值（默认值按校园共享出口放宽）
-const ATK_LOGIN_MAX = envInt('ATK_LOGIN_MAX', 30);     // 10 分钟内登录请求数
-const ATK_FAIL_MAX = envInt('ATK_FAIL_MAX', 12);       // 10 分钟内登录失败数
+const ATK_LOGIN_MAX = envInt('ATK_LOGIN_MAX', 45);     // 10 分钟内登录请求数
+const ATK_FAIL_MAX = envInt('ATK_FAIL_MAX', 18);       // 10 分钟内登录失败数
 const ATK_SEARCH_MAX = envInt('ATK_SEARCH_MAX', 20);   // 1 分钟内用户搜索数
-const ATK_PERMA_FAILS = envInt('ATK_PERMA_FAILS', 20); // 1 小时内失败数 -> 永久封禁
+const ATK_PERMA_FAILS = envInt('ATK_PERMA_FAILS', 30); // 1 小时内失败数 -> 永久封禁
 
 const permanentBans = new Map();
 

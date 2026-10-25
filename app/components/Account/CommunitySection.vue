@@ -213,11 +213,12 @@
         <p class="text-[10px] text-text-disabled">{{ t.resonanceProgressDesc }}</p>
         <div v-if="progress.partners?.length" class="space-y-2">
           <p class="text-[10px] font-bold text-text-disabled">{{ t.resonanceTopPartners }}</p>
-          <div
-            v-for="item in progress.partners"
-            :key="`progress-${item.partner.id}`"
-            class="rounded-2xl border border-border-secondary-70 bg-bg-primary-45 px-4 py-3 space-y-1"
-          >
+          <div class="max-h-64 space-y-2 overflow-y-auto custom-scrollbar pr-1">
+            <div
+              v-for="item in progress.partners"
+              :key="`progress-${item.partner.id}`"
+              class="rounded-2xl border border-border-secondary-70 bg-bg-primary-45 px-4 py-3 space-y-1"
+            >
             <div class="flex flex-wrap items-center justify-between gap-2">
               <span class="text-xs font-black text-text-primary">{{ item.partner.displayName }}</span>
               <span class="text-[10px] text-text-disabled">{{ t.resonanceGap(item.gapToNext) }}</span>
@@ -232,6 +233,7 @@
               {{ t.resonanceNext(levelName(item.nextThreshold), item.nextThreshold) }}
             </p>
             <p v-else class="text-[10px] text-success">{{ t.resonanceAchievedHint }}</p>
+          </div>
           </div>
         </div>
         <p v-else class="text-[10px] text-text-tertiary">{{ t.resonanceEmptyProgress }}</p>

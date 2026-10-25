@@ -730,8 +730,9 @@ watch(isAuthenticated, (authenticated) => {
 /* 分类 tab */
 .nc-tabs {
   display: flex;
+  align-items: center;
   gap: 0.35rem;
-  padding: 0.6rem 1rem 0;
+  padding: 0.6rem 1rem 0.75rem;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -745,13 +746,16 @@ watch(isAuthenticated, (authenticated) => {
   flex-shrink: 0;
   align-items: center;
   gap: 0.3rem;
+  min-height: 30px;
   border: 1px solid transparent;
   border-radius: 999px;
   background: var(--overlay-4);
   padding: 0.32rem 0.7rem;
   color: var(--overlay-55);
   font-size: 0.75rem;
+  line-height: 1.2;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     background 0.2s ease,

@@ -5,11 +5,13 @@ import {
   communityComments,
   communityPosts,
   communityProfiles,
-  communityReports
+  communityReports,
+  users
 } from '~/drizzle/schema'
 import {
   COMMUNITY_ARCHIVE_RETENTION_MS,
   assertCommunityBoardAccess,
+  isCommunityAdmin,
   requireCommunityReviewer
 } from '~~/server/utils/community'
 import { createApiError } from '~~/server/utils/apiError'
@@ -82,12 +84,25 @@ export default defineEventHandler(async (event) => {
     await assertCommunityBoardAccess(user, summary.board.id)
   }
 
-  if (report.targetType === 'USER' && action === 'ACCEPT_DELETE') {
-    throw createApiError(
-      400,
-      'COMMUNITY_REPORT_ACTION_INVALID',
-      '用户举报不支持删除操作，请选择影子封禁或驳回'
-    )
+  if (report.targetType === 'USER') {
+    if (action === 'ACCEPT_DELETE') {
+      throw createApiError(
+        400,
+        'COMMUNITY_REPORT_ACTION_INVALID',
+        '用户举报不支持删除操作，请选择影子封禁或驳回'
+      )
+    }
+    // 影子封禁不得针对管理员，与拉黑接口保持同一约束（审帖员不得限制管理员内容展示）
+    if (action === 'ACCEPT_HIDE') {
+      const [targetUser] = await db
+        .select({ role: users.role })
+        .from(users)
+        .where(eq(users.id, targetId))
+        .limit(1)
+      if (isCommunityAdmin(targetUser)) {
+        throw createApiError(400, 'COMMUNITY_REPORT_ADMIN_FORBIDDEN', '不能对管理员执行内容展示限制')
+      }
+    }
   }
 
   const now = getServerDate()

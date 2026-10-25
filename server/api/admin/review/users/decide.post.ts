@@ -22,6 +22,7 @@ import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
 import { createApiError } from '~~/server/utils/apiError'
 import { purgeExpiredDeletions } from '~~/server/utils/accountPurge'
+import { SmtpService } from '~~/server/services/smtpService'
 
 // 用户审核决策：注册审核 / 注销处理 / 手动触发清理
 // 注：真实姓名修改功能已于 2026-10-23 下线（用户自助改名仅保留登录用户名，即时生效无需审核）。
@@ -46,6 +47,12 @@ export default defineEventHandler(async (event) => {
   if (!Number.isInteger(id) || id <= 0) throw createApiError(400, 'COMMON_INVALID_PARAMS', '参数错误')
 
   if (kind === 'register') {
+    const [target] = await db
+      .select({ name: users.name, username: users.username, email: users.email })
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1)
+
     await db
       .update(users)
       .set({
@@ -56,6 +63,28 @@ export default defineEventHandler(async (event) => {
         updatedAt: now
       })
       .where(eq(users.id, id))
+
+    // 注册审核结果邮件：复用 register-approved / register-rejected 模板，失败不影响审核结果
+    if (target?.email) {
+      const displayName = target.name || target.username || ''
+      try {
+        const smtp = SmtpService.getInstance()
+        if (approve) {
+          await smtp.renderAndSend(target.email, 'register-approved', {
+            title: '注册审核已通过',
+            message: `${displayName}，您的注册申请已通过审核，现在可以使用账号登录了。`
+          })
+        } else {
+          await smtp.renderAndSend(target.email, 'register-rejected', {
+            title: '注册申请未通过审核',
+            message: `${displayName}，您的注册申请未通过审核${reason ? `，原因：${reason}` : ''}。如有疑问请联系管理员。`
+          })
+        }
+      } catch (error: any) {
+        console.error('注册审核结果邮件发送失败:', error)
+      }
+    }
+
     return { success: true }
   }
 

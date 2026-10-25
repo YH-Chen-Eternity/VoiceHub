@@ -920,6 +920,8 @@ export type NewBackupHistory = typeof backupHistory.$inferInsert;
 // 媒体资源：运行时上传的图片不能放 public（Nitro 资源清单构建期烘焙，运行时新增文件一律 404），
 // 因此统一存库 + 通过 /api/media/[id] 转发，公告栏图片就走这条路。
 export const mediaAssets = pgTable('MediaAsset', {
+  // 规范化后内容的 sha256，用于同用户重复图片去重（可空，历史数据无）
+  sha256: text('sha256'),
   id: serial('id').primaryKey(),
   filename: text('filename').notNull(),
   mimeType: text('mimeType').notNull(),
@@ -928,7 +930,9 @@ export const mediaAssets = pgTable('MediaAsset', {
   data: text('data').notNull(),
   uploadedBy: integer('uploadedBy'),
   createdAt: timestamp('createdAt').defaultNow().notNull(),
-});
+}, (table) => [
+  index('MediaAsset_sha256_uploader_idx').on(table.sha256, table.uploadedBy)
+]);
 
 export type MediaAsset = typeof mediaAssets.$inferSelect;
 export type NewMediaAsset = typeof mediaAssets.$inferInsert;
@@ -1073,6 +1077,8 @@ export const communityUserTitles = pgTable('CommunityUserTitle', {
 
 export const communityProfiles = pgTable('CommunityProfile', {
   userId: integer('userId').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  // 影子封禁：本人仍可见自己的内容，其他用户看不到
+  shadowBanned: boolean('shadowBanned').default(false).notNull(),
   createdAt: timestamp('createdAt').defaultNow().notNull(),
   updatedAt: timestamp('updatedAt').defaultNow().notNull(),
   favoriteSongId: integer('favoriteSongId').references(() => songs.id, { onDelete: 'set null' }),
@@ -1136,18 +1142,23 @@ export const communityPosts = pgTable('CommunityPost', {
   pinned: boolean('pinned').default(false).notNull(),
   // 帖子收到的「帖子点赞」数（与歌曲点赞 Vote 无关）
   likeCount: integer('likeCount').default(0).notNull(),
+  // 正文规范化后的 hash，用于重复/刷屏检测（可空，历史帖无）
+  contentHash: text('contentHash'),
 }, (table) => [
   index('CommunityPost_feed_idx').on(table.status, table.createdAt),
   index('CommunityPost_board_feed_idx').on(table.boardId, table.status, table.createdAt),
   index('CommunityPost_author_idx').on(table.authorId, table.createdAt),
   index('CommunityPost_deleted_idx').on(table.deletedAt),
-  index('CommunityPost_purge_idx').on(table.purgeAt)
+  index('CommunityPost_purge_idx').on(table.purgeAt),
+  index('CommunityPost_author_hash_idx').on(table.authorId, table.contentHash, table.createdAt)
 ]);
 
 export const communityComments = pgTable('CommunityComment', {
   id: serial('id').primaryKey(),
   createdAt: timestamp('createdAt').defaultNow().notNull(),
   postId: integer('postId').notNull().references(() => communityPosts.id, { onDelete: 'cascade' }),
+  // 楼中楼：回复某条评论时记录父评论（仅支持一层）
+  parentId: integer('parentId'),
   authorId: integer('authorId').notNull().references(() => users.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
   // PENDING / APPROVED / REJECTED / BLOCKED，评论与帖子走同一套审核流程
@@ -1181,7 +1192,76 @@ export const communityPostImages = pgTable('CommunityPostImage', {
   index('CommunityPostImage_mediaId_idx').on(table.mediaId)
 ]);
 
+// 举报：帖子/评论/用户；同一举报者对同一目标只能有一条待处理记录
+export const communityReports = pgTable('CommunityReport', {
+  id: serial('id').primaryKey(),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  targetType: text('targetType').notNull(),
+  targetId: integer('targetId').notNull(),
+  reporterId: integer('reporterId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  reasonCode: text('reasonCode').notNull(),
+  detail: text('detail'),
+  status: text('status').default('PENDING').notNull(),
+  handledBy: integer('handledBy').references(() => users.id, { onDelete: 'set null' }),
+  handledAt: timestamp('handledAt'),
+  resultNote: text('resultNote'),
+  actionTaken: text('actionTaken')
+}, (table) => [
+  uniqueIndex('CommunityReport_reporter_target_unique').on(table.reporterId, table.targetType, table.targetId),
+  index('CommunityReport_status_idx').on(table.status, table.createdAt),
+  index('CommunityReport_target_idx').on(table.targetType, table.targetId)
+]);
+
+// 拉黑：blocker 不再看到 blocked 的社区内容（双向过滤）
+export const communityBlocks = pgTable('CommunityBlock', {
+  blockerId: integer('blockerId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  blockedId: integer('blockedId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').defaultNow().notNull()
+}, (table) => [
+  primaryKey({ columns: [table.blockerId, table.blockedId] }),
+  index('CommunityBlock_blocked_idx').on(table.blockedId)
+]);
+
+// 申诉：被删帖/禁言等处置后的申诉入口
+export const communityAppeals = pgTable('CommunityAppeal', {
+  id: serial('id').primaryKey(),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  userId: integer('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  targetType: text('targetType').notNull(),
+  targetId: integer('targetId').notNull(),
+  reason: text('reason').notNull(),
+  status: text('status').default('PENDING').notNull(),
+  handledBy: integer('handledBy').references(() => users.id, { onDelete: 'set null' }),
+  handledAt: timestamp('handledAt'),
+  resultNote: text('resultNote')
+}, (table) => [
+  index('CommunityAppeal_status_idx').on(table.status, table.createdAt),
+  index('CommunityAppeal_user_idx').on(table.userId, table.createdAt)
+]);
+
 // 社区全局配置（单例，id 固定为 1）：开关、图片开关与阿里云内容安全参数
+// 帖子观看记录：同一用户对同一帖子只算一次「观看人数」
+export const communityPostViews = pgTable('CommunityPostView', {
+  postId: integer('postId').notNull().references(() => communityPosts.id, { onDelete: 'cascade' }),
+  userId: integer('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  viewedAt: timestamp('viewedAt').defaultNow().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.postId, table.userId] }),
+  index('CommunityPostView_user_idx').on(table.userId, table.viewedAt)
+]);
+
+// 违规记录：用于「近 30 天」滚动统计，避免历史违规永久累计
+export const communityViolations = pgTable('CommunityViolation', {
+  id: serial('id').primaryKey(),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  userId: integer('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sourceType: text('sourceType'),
+  sourceId: integer('sourceId'),
+  reason: text('reason')
+}, (table) => [
+  index('CommunityViolation_user_time_idx').on(table.userId, table.createdAt)
+]);
+
 // 帖子点赞：与「歌曲点赞」Vote 完全独立，仅影响帖子热度/互动氛围
 export const communityPostLikes = pgTable('CommunityPostLike', {
   postId: integer('postId').notNull().references(() => communityPosts.id, { onDelete: 'cascade' }),
@@ -1194,6 +1274,8 @@ export const communityPostLikes = pgTable('CommunityPostLike', {
 
 export const communitySettings = pgTable('CommunitySettings', {
   id: integer('id').primaryKey().default(1),
+  // 举报达到该数量后自动把帖子/评论转为待审隐藏（0 = 关闭自动隐藏）
+  reportAutoHideThreshold: integer('reportAutoHideThreshold').default(5).notNull(),
   updatedAt: timestamp('updatedAt').defaultNow().notNull(),
   // 一键开启/关闭回声社区
   enabled: boolean('enabled').default(false).notNull(),

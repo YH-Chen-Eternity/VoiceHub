@@ -12,6 +12,7 @@ import {
   COMMUNITY_IMAGE_MAX_UPLOAD_BYTES,
   normalizeCommunityImage
 } from '~~/server/utils/communityImage'
+import { findReusableMediaAsset, hashMediaData } from '~~/server/utils/mediaDedup'
 
 const DAILY_LIMIT = 30
 
@@ -56,6 +57,20 @@ export default defineEventHandler(async (event) => {
     filename: file.filename || 'community-upload'
   })
 
+  // 同一上传者的相同图片直接复用已有记录，避免重复占库
+  const sha256 = hashMediaData(normalized.data)
+  const existing = await findReusableMediaAsset({ sha256, uploadedBy: user.id })
+  if (existing) {
+    return {
+      success: true,
+      id: existing.id,
+      url: `/api/media/${existing.id}`,
+      byteSize: existing.byteSize,
+      compressed: normalized.compressed,
+      reused: true
+    }
+  }
+
   const [row] = await db
     .insert(mediaAssets)
     .values({
@@ -63,6 +78,7 @@ export default defineEventHandler(async (event) => {
       mimeType: normalized.mimeType,
       byteSize: normalized.data.length,
       data: normalized.data.toString('base64'),
+      sha256,
       uploadedBy: user.id
     })
     .returning({ id: mediaAssets.id })
@@ -76,6 +92,7 @@ export default defineEventHandler(async (event) => {
     id: row.id,
     url: `/api/media/${row.id}`,
     byteSize: normalized.data.length,
-    compressed: normalized.compressed
+    compressed: normalized.compressed,
+    reused: false
   }
 })

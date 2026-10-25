@@ -516,6 +516,25 @@ Modified by YH-Chen on 2026-10-17
                             />
                             <Icon
                               v-else-if="
+                                notification.type === 'COMMUNITY_COMMENT_REPLY' ||
+                                notification.type === 'COMMUNITY_MENTION'
+                              "
+                              :size="20"
+                              color="var(--color-accent)"
+                              name="message-circle"
+                            />
+                            <Icon
+                              v-else-if="
+                                notification.type === 'COMMUNITY_REPORT_AUTO_HIDE' ||
+                                notification.type === 'COMMUNITY_REPORT_HANDLED' ||
+                                notification.type === 'COMMUNITY_APPEAL_HANDLED'
+                              "
+                              :size="20"
+                              color="var(--color-warning, var(--color-error))"
+                              name="x-circle"
+                            />
+                            <Icon
+                              v-else-if="
                                 notification.type === 'COMMUNITY_POST_REJECTED' ||
                                 notification.type === 'COMMUNITY_POST_REMOVED'
                               "

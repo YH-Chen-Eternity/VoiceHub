@@ -1,0 +1,2 @@
+CREATE INDEX "CommunityPost_author_hash_idx" ON "CommunityPost" USING btree ("authorId","contentHash","createdAt");--> statement-breakpoint
+CREATE INDEX "MediaAsset_sha256_uploader_idx" ON "MediaAsset" USING btree ("sha256","uploadedBy");

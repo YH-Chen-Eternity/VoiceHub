@@ -100,7 +100,7 @@ export default defineEventHandler(async (event) => {
     type: 'COMMUNITY_POST_REJECTED',
     source: 'COMMUNITY',
     title: '回声社区：帖子未通过审核',
-    message: `你发布的帖子未通过审核，记违规 1 次（累计 ${result.violationCount} 次）。${
+    message: `你发布的帖子未通过审核，记违规 1 次（近 30 天累计 ${result.violationCount} 次）。${
       note ? `审核说明：${note}。` : ''
     }${muteText}`
   })

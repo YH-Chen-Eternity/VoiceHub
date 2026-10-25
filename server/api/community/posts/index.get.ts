@@ -32,7 +32,8 @@ export default defineEventHandler(async (event) => {
     status: mine ? undefined : 'APPROVED',
     authorId: mine ? user.id : undefined,
     q: q || undefined,
-    sort
+    sort,
+    viewerIsAdmin: isCommunityAdmin(user)
   })
 
   return {

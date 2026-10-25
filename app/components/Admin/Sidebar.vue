@@ -151,7 +151,8 @@ import {
   Archive,
   LayoutGrid,
   Award,
-  Settings
+  Settings,
+  Flag
 } from '@lucide/vue'
 import { useLocale } from '~/utils/locale'
 
@@ -226,6 +227,12 @@ const menuGroups = computed(() => [
       { icon: Award, label: locale.value.menu?.communityTitles || '社区称号', id: 'community-titles' },
       { icon: Users, label: locale.value.menu?.communityUsers || '社区用户', id: 'community-users' },
       { icon: Archive, label: locale.value.menu?.communityArchive || '社区归档记录', id: 'community-archive' },
+      { icon: Flag, label: locale.value.menu?.communityReports || '举报与申诉', id: 'community-reports' },
+      {
+        icon: BarChart3,
+        label: locale.value.menu?.communityOverview || '社区数据看板',
+        id: 'community-overview'
+      },
       {
         icon: Settings,
         label: locale.value.menu?.communitySettings || '社区配置',

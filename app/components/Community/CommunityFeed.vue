@@ -6,6 +6,7 @@
         <p class="community-subtitle">{{ t.subtitle }}</p>
       </div>
       <div class="community-head-actions">
+        <NotificationCenter />
         <button v-if="canReview" class="ghost-button" type="button" @click="goReview">
           <ShieldCheck :size="16" />
           <span>{{ t.goReview }}</span>
@@ -219,6 +220,15 @@
                   <span>{{ post.likeCount || 0 }}</span>
                 </button>
                 <button
+                  v-if="!isOwnPost(post)"
+                  class="footer-action"
+                  type="button"
+                  @click="openReport('POST', post.id, post.content)"
+                >
+                  <Flag :size="16" />
+                  <span>{{ t.report || '举报' }}</span>
+                </button>
+                <button
                   v-if="feedPermissions.canPin && post.status === 'APPROVED'"
                   class="footer-action"
                   type="button"
@@ -277,6 +287,8 @@
               <ArrowRight :size="14" />
             </NuxtLink>
           </section>
+
+          <NowPlayingCard v-if="isOpen" />
 
           <section class="rules-card">
             <h3>{{ t.rulesTitle }}</h3>
@@ -584,35 +596,92 @@
                 </div>
                 <div v-else-if="!comments.length" class="comment-empty">{{ t.noComments }}</div>
                 <div v-else class="comment-list">
-                  <div v-for="comment in comments" :key="comment.id" class="comment-item">
+                  <div v-for="thread in threads" :key="thread.id" class="comment-item">
                     <div class="comment-head">
-                      <button class="identity comment-identity" type="button" @click="openProfile(comment.author.id)">
-                        <span class="identity-name">{{ comment.author.displayName }}</span>
-                        <span v-if="comment.author.title" class="identity-title">{{ comment.author.title }}</span>
+                      <button class="identity comment-identity" type="button" @click="openProfile(thread.author.id)">
+                        <span class="identity-name">{{ thread.author.displayName }}</span>
+                        <span v-if="thread.author.title" class="identity-title">{{ thread.author.title }}</span>
                       </button>
                       <div class="comment-tail">
                         <span
-                          v-if="comment.status !== 'APPROVED'"
-                          :class="['status-pill', `status-${comment.status.toLowerCase()}`]"
+                          v-if="thread.status !== 'APPROVED'"
+                          :class="['status-pill', `status-${thread.status.toLowerCase()}`]"
                         >
-                          {{ statusText(comment.status) }}
+                          {{ statusText(thread.status) }}
                         </span>
                         <button
-                          v-if="canRemoveComment(comment)"
-                          class="comment-remove"
-                          :title="isOwnComment(comment) ? t.withdraw : t.deleteContent"
+                          v-if="selectedPost.status === 'APPROVED' && !ban.muted"
+                          class="comment-reply-btn"
                           type="button"
-                          @click="askRemoveComment(comment)"
+                          @click="startReply(thread)"
+                        >
+                          {{ t.reply || '回复' }}
+                        </button>
+                        <button
+                          v-if="!isOwnComment(thread)"
+                          class="comment-remove"
+                          :title="t.report || '举报'"
+                          type="button"
+                          @click="openReport('COMMENT', thread.id, thread.content)"
+                        >
+                          <Flag :size="13" />
+                        </button>
+                        <button
+                          v-if="canRemoveComment(thread)"
+                          class="comment-remove"
+                          :title="isOwnComment(thread) ? t.withdraw : t.deleteContent"
+                          type="button"
+                          @click="askRemoveComment(thread)"
                         >
                           <Trash2 :size="13" />
                         </button>
                       </div>
                     </div>
-                    <p>{{ comment.content }}</p>
-                    <p v-if="comment.reviewNote" class="comment-note">
-                      {{ t.reviewNoteLabel }}：{{ comment.reviewNote }}
+                    <p>
+                      <span v-for="name in thread.mentionNames || []" :key="name" class="mention-name">@{{ name }} </span>
+                      {{ thread.content }}
                     </p>
-                    <span class="comment-time">{{ formatTime(comment.createdAt) }}</span>
+                    <p v-if="thread.reviewNote" class="comment-note">
+                      {{ t.reviewNoteLabel }}：{{ thread.reviewNote }}
+                    </p>
+                    <span class="comment-time">{{ formatTime(thread.createdAt) }}</span>
+
+                    <div v-if="thread.replies && thread.replies.length" class="comment-replies">
+                      <div v-for="reply in thread.replies" :key="reply.id" class="comment-item comment-reply-item">
+                        <div class="comment-head">
+                          <button class="identity comment-identity" type="button" @click="openProfile(reply.author.id)">
+                            <span class="identity-name">{{ reply.author.displayName }}</span>
+                            <span v-if="reply.author.title" class="identity-title">{{ reply.author.title }}</span>
+                          </button>
+                          <div class="comment-tail">
+                            <span v-if="reply.replyTo" class="reply-target">回复 {{ reply.replyTo }}</span>
+                            <button
+                              v-if="!isOwnComment(reply)"
+                              class="comment-remove"
+                              :title="t.report || '举报'"
+                              type="button"
+                              @click="openReport('COMMENT', reply.id, reply.content)"
+                            >
+                              <Flag :size="13" />
+                            </button>
+                            <button
+                              v-if="canRemoveComment(reply)"
+                              class="comment-remove"
+                              :title="isOwnComment(reply) ? t.withdraw : t.deleteContent"
+                              type="button"
+                              @click="askRemoveComment(reply)"
+                            >
+                              <Trash2 :size="13" />
+                            </button>
+                          </div>
+                        </div>
+                        <p>
+                          <span v-for="name in reply.mentionNames || []" :key="name" class="mention-name">@{{ name }} </span>
+                          {{ reply.content }}
+                        </p>
+                        <span class="comment-time">{{ formatTime(reply.createdAt) }}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -620,10 +689,20 @@
 
             <footer class="comment-foot">
               <template v-if="selectedPost.status === 'APPROVED' && !ban.muted">
+                <div v-if="replyTo" class="reply-chip">
+                  <span>回复 {{ replyTo.author?.displayName || '' }}</span>
+                  <button type="button" @click="cancelReply">
+                    <X :size="12" />
+                  </button>
+                </div>
                 <input
                   v-model="commentContent"
                   :maxlength="settings.maxCommentLength"
-                  :placeholder="t.commentPlaceholder"
+                  :placeholder="
+                    replyTo
+                      ? String(t.replyPlaceholder || '回复 @{name}…').replace('{name}', replyTo.author?.displayName || '')
+                      : t.commentPlaceholder
+                  "
                   class="comment-input"
                   type="text"
                   @keyup.enter="sendComment"
@@ -641,6 +720,9 @@
               </template>
               <p v-else class="foot-hint">
                 {{ ban.muted ? t.muted : t.pendingHint }}
+              </p>
+              <p v-if="selectedPost.status === 'APPROVED' && !ban.muted" class="mention-hint">
+                {{ t.mentionHint || '输入 @用户名 可以提醒同学' }}
               </p>
             </footer>
           </div>
@@ -687,6 +769,16 @@
                     <span class="me-stat-label">{{ t.commentCount }}</span>
                   </div>
                 </div>
+
+                <div v-if="profile.user && !profile.isSelf" class="profile-actions">
+                  <BlockButton :user-id="profile.user.id" :display-name="profile.user.displayName" @done="onBlockDone" />
+                  <button class="ghost-button" type="button" @click="openReport('USER', profile.user.id, profile.user.displayName)">
+                    <Flag :size="14" />
+                    <span>{{ t.report || '举报' }}</span>
+                  </button>
+                </div>
+
+                <UserAchievement v-if="profile.user?.id" :user-id="profile.user.id" />
 
                 <section class="profile-section">
                   <h4>{{ t.favoriteSong }}</h4>
@@ -822,6 +914,14 @@
       </Transition>
     </Teleport>
 
+    <ReportDialog
+      v-model:show="reportState.show"
+      :target-type="reportState.targetType"
+      :target-id="reportState.targetId"
+      :target-label="reportState.targetLabel"
+      @done="onReportDone"
+    />
+
     <ConfirmDialog
       v-model:show="removeConfirm.show"
       :title="removeConfirm.title"
@@ -845,6 +945,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  Flag,
   Heart,
   ImagePlus,
   Info,
@@ -862,6 +963,11 @@ import {
   X
 } from '@lucide/vue'
 import ConfirmDialog from '~/components/UI/ConfirmDialog.vue'
+import ReportDialog from '~/components/Community/ReportDialog.vue'
+import BlockButton from '~/components/Community/BlockButton.vue'
+import NotificationCenter from '~/components/Notifications/NotificationCenter.vue'
+import NowPlayingCard from '~/components/Community/NowPlayingCard.vue'
+import UserAchievement from '~/components/Community/UserAchievement.vue'
 import { useLocale } from '~/utils/locale'
 import { useNewUi } from '~/composables/useNewUi'
 import { useToast } from '~/composables/useToast'
@@ -921,6 +1027,28 @@ function isOwnComment(comment: AnyRecord | null) {
   return !!comment && Number(comment.author?.id) === myUserId.value && myUserId.value > 0
 }
 
+const reportState = reactive<{
+  show: boolean
+  targetType: 'POST' | 'COMMENT' | 'USER'
+  targetId: number
+  targetLabel: string
+}>({ show: false, targetType: 'POST', targetId: 0, targetLabel: '' })
+
+function openReport(targetType: 'POST' | 'COMMENT' | 'USER', targetId: number, label?: string) {
+  reportState.targetType = targetType
+  reportState.targetId = Number(targetId)
+  reportState.targetLabel = String(label || '').slice(0, 40)
+  reportState.show = true
+}
+
+function onReportDone() {
+  showToast(t.value.reportSuccess || '举报已提交，等待管理员处理', 'success')
+}
+
+function onBlockDone() {
+  showToast(t.value.blockSuccess || '已更新拉黑状态', 'success')
+}
+
 function canRemovePost(post: AnyRecord | null) {
   if (!post) return false
   return isOwnPost(post) || canReview.value
@@ -957,9 +1085,12 @@ let songSearchSeq = 0
 const detailOpen = ref(false)
 const selectedPost = ref<AnyRecord | null>(null)
 const comments = ref<AnyRecord[]>([])
+const threads = ref<AnyRecord[]>([])
 const commentsLoading = ref(false)
 const commentContent = ref('')
 const sendingComment = ref(false)
+const replyTo = ref<AnyRecord | null>(null)
+const mentionHint = computed(() => Boolean(t.value.mentionHint))
 
 const voteRevealMode = ref('ASK')
 const pendingLikePost = ref<AnyRecord | null>(null)
@@ -1457,6 +1588,7 @@ async function openDetail(post: AnyRecord) {
     ])
     selectedPost.value = detailRes.post
     comments.value = commentRes.comments || []
+    threads.value = commentRes.threads || []
     const target = posts.value.find((item) => item.id === post.id)
     if (target && detailRes.post) {
       target.viewCount = detailRes.post.viewCount
@@ -1474,6 +1606,15 @@ async function openDetail(post: AnyRecord) {
 function closeDetail() {
   detailOpen.value = false
   selectedPost.value = null
+  replyTo.value = null
+}
+
+function startReply(comment: AnyRecord) {
+  replyTo.value = comment
+}
+
+function cancelReply() {
+  replyTo.value = null
 }
 
 async function sendComment() {
@@ -1483,9 +1624,13 @@ async function sendComment() {
   try {
     const result = await $fetch<AnyRecord>(`/api/community/posts/${selectedPost.value.id}/comments`, {
       method: 'POST',
-      body: { content }
+      body: {
+        content,
+        parentId: replyTo.value?.id ?? null
+      }
     })
     commentContent.value = ''
+    replyTo.value = null
     const approved = result?.status === 'APPROVED'
     if (approved) {
       selectedPost.value.commentCount = Number(selectedPost.value.commentCount || 0) + 1
@@ -1494,6 +1639,7 @@ async function sendComment() {
     }
     const res = await $fetch<AnyRecord>(`/api/community/posts/${selectedPost.value.id}/comments`)
     comments.value = res.comments || []
+    threads.value = res.threads || []
     showToast(approved ? t.value.commentSuccess : t.value.commentPendingSuccess, 'success')
   } catch (error: any) {
     showToast(apiMessage(error, t.value.loadFailed), 'error')
@@ -1870,6 +2016,14 @@ onUnmounted(() => {
   color: #f43f5e;
 }
 
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
 .detail-actions {
   display: flex;
   align-items: center;
@@ -1900,11 +2054,19 @@ onUnmounted(() => {
   transition: all 0.2s ease;
 }
 
-.mine-toggle:hover,
 .mine-toggle.active {
   color: var(--color-accent);
   border-color: var(--color-accent-alpha-40);
   background: var(--color-accent-alpha-10);
+}
+
+/* 移动端点击后 :hover 会“粘住”，只在真正支持 hover 的设备上给悬停反馈 */
+@media (hover: hover) {
+  .mine-toggle:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent-alpha-40);
+    background: var(--color-accent-alpha-10);
+  }
 }
 
 .feed-state {
@@ -2783,6 +2945,72 @@ onUnmounted(() => {
   color: var(--text-quaternary);
   padding: 0.8rem 0;
   text-align: center;
+}
+
+.comment-replies {
+  margin-top: 0.6rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--overlay-8);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.comment-reply-item {
+  background: var(--overlay-4);
+  border-radius: 0.6rem;
+  padding: 0.5rem 0.6rem;
+}
+
+.comment-reply-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.comment-reply-btn:hover {
+  color: var(--color-accent);
+}
+
+.reply-target {
+  font-size: 0.62rem;
+  color: var(--text-disabled);
+}
+
+.mention-name {
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.reply-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.6rem;
+  background: var(--color-accent-alpha-10);
+  color: var(--color-accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.reply-chip button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+}
+
+.mention-hint {
+  margin-top: 0.35rem;
+  font-size: 0.62rem;
+  color: var(--text-disabled);
 }
 
 .comment-list {

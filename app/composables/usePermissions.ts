@@ -25,7 +25,7 @@ export const usePermissions = () => {
 
     // 管理员可以访问的页面
     if (role === 'ADMIN') {
-      return ['overview', 'schedule', 'print', 'songs', 'users', 'grade-class', 'playtimes', 'request-times', 'semesters', 'data-analysis', 'card-codes', 'music-source', 'review-notes', 'review-users', 'announcement', 'attack-logs', 'community-review', 'community-comment-review', 'community-archive', 'community-boards', 'community-titles', 'community-users', 'community-settings'].includes(page)
+      return ['overview', 'schedule', 'print', 'songs', 'users', 'grade-class', 'playtimes', 'request-times', 'semesters', 'data-analysis', 'card-codes', 'music-source', 'review-notes', 'review-users', 'announcement', 'attack-logs', 'community-review', 'community-comment-review', 'community-archive', 'community-boards', 'community-titles', 'community-users', 'community-settings', 'community-reports', 'community-overview'].includes(page)
     }
 
     // 歌曲管理员可以访问的页面
@@ -40,7 +40,7 @@ export const usePermissions = () => {
 
     // 审帖员 = 普通用户 + 帖子/评论审核 + 归档查看
     if (role === 'REVIEWER') {
-      return ['community-review', 'community-comment-review', 'community-archive'].includes(page)
+      return ['community-review', 'community-comment-review', 'community-archive', 'community-reports'].includes(page)
     }
 
     return false
@@ -83,16 +83,18 @@ export const usePermissions = () => {
           'community-boards',
           'community-titles',
           'community-users',
-          'community-settings'
+          'community-settings',
+          'community-reports',
+          'community-overview'
         ]
       case 'ADMIN':
-        return ['overview', 'schedule', 'print', 'songs', 'users', 'grade-class', 'playtimes', 'request-times', 'semesters', 'data-analysis', 'card-codes', 'music-source', 'review-notes', 'review-users', 'announcement', 'attack-logs', 'community-review', 'community-comment-review', 'community-archive', 'community-boards', 'community-titles', 'community-users', 'community-settings']
+        return ['overview', 'schedule', 'print', 'songs', 'users', 'grade-class', 'playtimes', 'request-times', 'semesters', 'data-analysis', 'card-codes', 'music-source', 'review-notes', 'review-users', 'announcement', 'attack-logs', 'community-review', 'community-comment-review', 'community-archive', 'community-boards', 'community-titles', 'community-users', 'community-settings', 'community-reports', 'community-overview']
       case 'SONG_ADMIN':
         return ['overview', 'schedule', 'print', 'songs', 'playtimes', 'request-times', 'semesters', 'data-analysis', 'card-codes']
       case 'BROADCASTER':
         return ['overview', 'schedule', 'print']
       case 'REVIEWER':
-        return ['community-review', 'community-comment-review', 'community-archive']
+        return ['community-review', 'community-comment-review', 'community-archive', 'community-reports']
       default:
         return []
     }

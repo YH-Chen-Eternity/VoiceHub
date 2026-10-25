@@ -20,6 +20,7 @@ import { db } from '~/drizzle/db'
 import { mediaAssets } from '~/drizzle/schema'
 import { createApiError } from '~~/server/utils/apiError'
 import { normalizeUploadedImage } from '~~/server/utils/imageSecurity'
+import { findReusableMediaAsset, hashMediaData } from '~~/server/utils/mediaDedup'
 
 // 图片上传：校验后存库（base64）+ 通过 /api/media/[id] 转发。
 // 之所以不落 public 目录：Nitro 的资源清单在构建期烘焙，运行时新增文件一律 404。
@@ -57,6 +58,13 @@ export default defineEventHandler(async (event) => {
     fallbackName: 'announcement-image'
   })
 
+  // 同一上传者的相同图片直接复用已有记录（公告图片也走这套去重）
+  const sha256 = hashMediaData(normalized.data)
+  const existing = await findReusableMediaAsset({ sha256, uploadedBy: user.id })
+  if (existing) {
+    return { success: true, id: existing.id, url: `/api/media/${existing.id}`, reused: true }
+  }
+
   const [row] = await db
     .insert(mediaAssets)
     .values({
@@ -64,6 +72,7 @@ export default defineEventHandler(async (event) => {
       mimeType: normalized.mimeType,
       byteSize: normalized.data.length,
       data: normalized.data.toString('base64'),
+      sha256,
       uploadedBy: user.id
     })
     .returning({ id: mediaAssets.id })
@@ -72,5 +81,5 @@ export default defineEventHandler(async (event) => {
     throw createApiError(500, 'MEDIA_SAVE_FAILED', '图片保存失败，请稍后重试')
   }
 
-  return { success: true, id: row.id, url: `/api/media/${row.id}` }
+  return { success: true, id: row.id, url: `/api/media/${row.id}`, reused: false }
 })

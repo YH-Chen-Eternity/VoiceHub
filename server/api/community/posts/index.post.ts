@@ -1,6 +1,6 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { readBody } from 'h3'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNull } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import { communityPostImages, communityPosts, mediaAssets, songs } from '~/drizzle/schema'
 import {
@@ -13,6 +13,7 @@ import { createApiError } from '~~/server/utils/apiError'
 import { SERVER_ERROR_CODES } from '~~/server/config/constants'
 import { checkDistributedRateLimit } from '~~/server/utils/rateLimiter'
 import { signMediaToken } from '~~/server/utils/mediaToken'
+import { getServerTimestamp } from '~~/server/utils/serverTime'
 import { moderateCommunityImage, moderateCommunityText } from '~~/server/utils/communityModeration'
 import {
   isCommunityModerationServiceConfigured,
@@ -20,10 +21,23 @@ import {
 } from '~~/server/utils/communityModerationService'
 
 function cleanText(input: unknown): string {
-  return String(input ?? '')
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+  // 剔除不可见控制字符（保留 \t \n \r）
+  return Array.from(String(input ?? ''))
+    .filter((char) => {
+      const code = char.codePointAt(0) ?? 0
+      return !(code <= 8 || code === 11 || code === 12 || (code >= 14 && code <= 31))
+    })
+    .join('')
     .trim()
 }
+
+/** 正文规范化 hash：忽略大小写、空白与标点，用于重复/刷屏检测 */
+function hashCommunityContent(content: string): string {
+  const normalized = content.toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '')
+  return createHash('sha256').update(normalized).digest('hex')
+}
+
+const DUPLICATE_WINDOW_MS = 10 * 60 * 1000
 
 // 待审图片不在公开引用中，审核链路需要带短期签名才能读取
 function mediaUrl(origin: string, imageId: number): string {
@@ -77,6 +91,29 @@ export default defineEventHandler(async (event) => {
     throw createApiError(400, 'COMMUNITY_CONTENT_TOO_LONG', `内容不能超过 ${settings.maxContentLength} 字`, {
       params: [settings.maxContentLength]
     })
+  }
+
+  // 同作者 10 分钟内相同内容视为重复发帖；在调用付费审核接口前拦截
+  const contentHash = hashCommunityContent(content)
+  const duplicateSince = new Date(getServerTimestamp() - DUPLICATE_WINDOW_MS)
+  const [duplicatePost] = await db
+    .select({ id: communityPosts.id })
+    .from(communityPosts)
+    .where(
+      and(
+        eq(communityPosts.authorId, user.id),
+        eq(communityPosts.contentHash, contentHash),
+        gte(communityPosts.createdAt, duplicateSince),
+        isNull(communityPosts.deletedAt)
+      )
+    )
+    .limit(1)
+  if (duplicatePost) {
+    throw createApiError(
+      400,
+      'COMMUNITY_POST_DUPLICATE',
+      '内容与最近 10 分钟内发布的帖子重复，请勿重复发帖'
+    )
   }
 
   let songId: number | null = null
@@ -194,6 +231,7 @@ export default defineEventHandler(async (event) => {
         boardId,
         authorId: user.id,
         content,
+        contentHash,
         songId,
         status,
         moderationLabel,

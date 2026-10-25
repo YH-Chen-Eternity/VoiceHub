@@ -1,4 +1,4 @@
-import { asc, desc, eq, ilike, inArray, isNull, lt, and, or, sql } from 'drizzle-orm'
+import { asc, desc, eq, ilike, inArray, isNull, lt, and, notInArray, or, sql } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import {
   communityBoards,
@@ -26,6 +26,8 @@ type LoadOptions = {
   q?: string
   /** latest=最新（默认） / hot=最热（帖子点赞+评论数） */
   sort?: 'latest' | 'hot'
+  /** 查看者是否管理员：管理员可看到影子封禁作者的内容 */
+  viewerIsAdmin?: boolean
 }
 
 export function serializeSong(song: any, viewerId = 0, activeSemester: string | null = null) {
@@ -77,6 +79,28 @@ export async function loadCommunityPosts(options: LoadOptions) {
     conditions.push(or(ilike(communityPosts.content, pattern), ilike(users.name, pattern))!)
   }
   if (!options.includeDeleted) conditions.push(isNull(communityPosts.deletedAt))
+
+  // 拉黑关系（双向）：拉黑者与被拉黑者互相看不到对方的内容
+  if (viewerId) {
+    const blockedRes: any = await db.execute(sql`
+      select "blockedId" as id from "CommunityBlock" where "blockerId" = ${viewerId}
+      union
+      select "blockerId" as id from "CommunityBlock" where "blockedId" = ${viewerId}
+    `)
+    const blockedRows = (blockedRes?.rows ?? blockedRes ?? []) as Array<{ id: number }>
+    const blockedIds = blockedRows.map((row) => Number(row.id)).filter((id) => Number.isInteger(id))
+    if (blockedIds.length) conditions.push(notInArray(communityPosts.authorId, blockedIds))
+  }
+
+  // 影子封禁：作者本人与管理员照常可见，其他人看不到
+  if (!options.viewerIsAdmin) {
+    conditions.push(
+      or(
+        eq(communityPosts.authorId, viewerId || 0),
+        sql`not exists (select 1 from "CommunityProfile" cp where cp."userId" = ${communityPosts.authorId} and cp."shadowBanned" = true)`
+      )!
+    )
+  }
 
   const limit = Math.min(Math.max(Number(options.limit) || 20, 1), 50)
   const rows = await db

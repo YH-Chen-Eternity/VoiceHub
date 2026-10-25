@@ -1,10 +1,12 @@
 import { getRouterParam } from 'h3'
-import { and, count, desc, eq, isNull } from 'drizzle-orm'
+import { and, count, desc, eq, isNull, ne } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import {
+  communityBlocks,
   communityComments,
+  communityPostLikes,
   communityPosts,
-  communityProfiles,
+  communityResonance,
   communityTitles,
   communityUserTitles,
   songs,
@@ -19,6 +21,7 @@ import {
   requireCommunityUser
 } from '~~/server/utils/community'
 import { createApiError } from '~~/server/utils/apiError'
+import { resolveCommunityLevel } from '~~/server/utils/communityLevel'
 
 export default defineEventHandler(async (event) => {
   const viewer = requireCommunityUser(event)
@@ -117,6 +120,63 @@ export default defineEventHandler(async (event) => {
       )
     )
 
+  // 收到的帖子点赞：只统计仍公开且未撤回的帖子
+  const postLikesReceivedRows = await db
+    .select({ value: count() })
+    .from(communityPostLikes)
+    .innerJoin(communityPosts, eq(communityPosts.id, communityPostLikes.postId))
+    .where(
+      and(
+        eq(communityPosts.authorId, userId),
+        eq(communityPosts.status, 'APPROVED'),
+        isNull(communityPosts.deletedAt)
+      )
+    )
+
+  // 收到的歌曲点赞：自己投稿的歌曲被他人点赞（自赞已被规则禁止，兜底排除）
+  const songLikesReceivedRows = await db
+    .select({ value: count() })
+    .from(votes)
+    .innerJoin(songs, eq(songs.id, votes.songId))
+    .where(and(eq(songs.requesterId, userId), ne(votes.userId, userId)))
+
+  const resonanceCountRows = await db
+    .select({ value: count() })
+    .from(communityResonance)
+    .where(eq(communityResonance.userId, userId))
+
+  // 拉黑关系：用于前端隐藏「拉黑/已拉黑」入口
+  let blockedByMe = false
+  let blockedMe = false
+  if (!isSelf) {
+    const [blockedByMeRows, blockedMeRows] = await Promise.all([
+      db
+        .select({ blockedId: communityBlocks.blockedId })
+        .from(communityBlocks)
+        .where(
+          and(eq(communityBlocks.blockerId, viewer.id), eq(communityBlocks.blockedId, userId))
+        )
+        .limit(1),
+      db
+        .select({ blockerId: communityBlocks.blockerId })
+        .from(communityBlocks)
+        .where(
+          and(eq(communityBlocks.blockerId, userId), eq(communityBlocks.blockedId, viewer.id))
+        )
+        .limit(1)
+    ])
+    blockedByMe = blockedByMeRows.length > 0
+    blockedMe = blockedMeRows.length > 0
+  }
+
+  const stats = {
+    posts: Number(postCountRows[0]?.value || 0),
+    comments: Number(commentCountRows[0]?.value || 0),
+    postLikesReceived: Number(postLikesReceivedRows[0]?.value || 0),
+    songLikesReceived: Number(songLikesReceivedRows[0]?.value || 0)
+  }
+  const resonanceCount = Number(resonanceCountRows[0]?.value || 0)
+
   return {
     success: true,
     user: {
@@ -125,18 +185,27 @@ export default defineEventHandler(async (event) => {
       joinedAt: target.createdAt
     },
     isSelf,
+    joinedAt: target.createdAt,
     titles: titleRows,
+    // 称号即成就徽章，equipped 标记当前佩戴
+    badges: titleRows.map((title) => ({
+      id: title.id,
+      name: title.name,
+      description: title.description,
+      equipped: title.id === profile.equippedTitleId
+    })),
     equippedTitleId: profile.equippedTitleId,
+    resonanceCount,
+    level: resolveCommunityLevel(stats),
     favoriteSong,
     likedSongs,
+    blockedByMe,
+    blockedMe,
     privacy: {
       showFavorite: profile.showFavorite,
       showLikedSongs: profile.showLikedSongs,
       likesVisible: target.likesVisible
     },
-    stats: {
-      posts: Number(postCountRows[0]?.value || 0),
-      comments: Number(commentCountRows[0]?.value || 0)
-    }
+    stats
   }
 })

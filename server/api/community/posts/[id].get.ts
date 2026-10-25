@@ -1,8 +1,7 @@
 import { getRouterParam } from 'h3'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
-import { communityPosts } from '~/drizzle/schema'
-import { buildRedisKey, getRedisClient } from '~~/server/utils/redis'
+import { communityPostViews, communityPosts, communityProfiles } from '~/drizzle/schema'
 import {
   getReviewableBoardIds,
   isCommunityAdmin,
@@ -30,19 +29,33 @@ export default defineEventHandler(async (event) => {
     throw createApiError(404, 'COMMUNITY_POST_NOT_FOUND', '帖子不存在')
   }
 
-  // 浏览量：同一用户 1 小时内只计一次（Redis 不可用时退化为每次浏览都计，保证功能可用）
-  let counted = true
-  try {
-    const redis = await getRedisClient()
-    if (redis) {
-      const key = buildRedisKey('community:post:view', postId, user.id)
-      const ok = await redis.set(key, '1', { NX: true, EX: 3600 })
-      counted = ok === 'OK'
+  // 影子封禁：仅作者本人与管理员/审帖员可见
+  if (!privileged && post.author.id !== user.id) {
+    const [shadow] = await db
+      .select({ shadowBanned: communityProfiles.shadowBanned })
+      .from(communityProfiles)
+      .where(eq(communityProfiles.userId, post.author.id))
+      .limit(1)
+    if (shadow?.shadowBanned) {
+      throw createApiError(404, 'COMMUNITY_POST_NOT_FOUND', '帖子不存在')
     }
-  } catch {
-    counted = true
   }
-  if (counted && post.status === 'APPROVED') {
+
+  // 观看人数：同一用户对同一帖子只计一次（数据库唯一键去重，重启/多实例都不会重复计数）
+  let counted = false
+  if (post.status === 'APPROVED') {
+    try {
+      const inserted = await db
+        .insert(communityPostViews)
+        .values({ postId, userId: user.id })
+        .onConflictDoNothing()
+        .returning({ postId: communityPostViews.postId })
+      counted = inserted.length > 0
+    } catch {
+      counted = false
+    }
+  }
+  if (counted) {
     const [updated] = await db
       .update(communityPosts)
       .set({ viewCount: sql`${communityPosts.viewCount} + 1` })

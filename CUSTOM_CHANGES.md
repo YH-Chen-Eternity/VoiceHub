@@ -682,3 +682,44 @@ AST 普查器枚举危险调用点与请求源，按风险类别分诊，并与�
     系统称号禁止手动编辑/删除（接口层也做了拦截）；称号只在有人真正达成双向 50/100 时授予。
 - **迁移**：`20261025035301_cute_lionheart`（新增 CommunityPostLike 表、CommunityPost 的 viewCount/pinned/likeCount 字段）。
 - 生产已部署 `voicehub-voicehub:community-20261025h`（迁移数 73）；帖子点赞/浏览量/搜索·最热·置顶/共鸣进度/系统称号接口已做端到端验证，测试数据已清理。
+
+### 10.15 社区剩余功能全量落地：举报/拉黑/申诉、评论楼中楼+@、通知中心、审核看板、成就、广播联动、媒体去重（2026-10-25）
+
+**数据模型**（迁移 `20261025041356_good_lockjaw`、`20261025044521_luxuriant_prowler`）
+
+- 新表 `CommunityReport`（举报，唯一约束 reporter+target）、`CommunityBlock`（拉黑）、`CommunityAppeal`（申诉）。
+- `CommunityComment.parentId`（楼中楼一层）、`CommunityProfile.shadowBanned`（影子封禁）、
+  `CommunitySettings.reportAutoHideThreshold`（举报达阈值自动隐藏，默认 5，0=关闭）、
+  `MediaAsset.sha256`（图片去重）、`CommunityPost.contentHash`（重复内容检测）。
+- 索引：`CommunityPost_author_hash_idx`、`MediaAsset_sha256_uploader_idx`、`CommunityComment_parent_idx` 等。
+
+**举报 / 拉黑 / 申诉**
+
+- 用户端：帖子卡片、评论、个人主页均可举报（原因分类+补充说明）；举报达阈值自动把内容转待审并通知管理员；
+  个人主页可拉黑/取消拉黑，双向屏蔽对方内容（信息流与评论同时生效）；帖子/评论/禁言可提交申诉。
+- 管理端：新增「举报与申诉」页面（`/api/admin/community/reports|appeals`），支持隐藏/删除/驳回/影子封禁/
+  恢复内容/解除禁言，处理结果通知当事人并写管理审计；审帖员现在可访问社区管理子路径（接口内部仍校验角色/板块）。
+- 影子封禁：被处理用户内容仅本人与管理员可见，不影响其正常发帖。
+
+**评论楼中楼 / @ 提醒 / 通知中心**
+
+- 评论支持回复（一层楼中楼），评论列表返回 `threads` 树与 `parentId/replyTo/mentionNames`；支持 `@用户名`/`@姓名`（单条最多 5 人）。
+- 通知：`COMMUNITY_COMMENT_REPLY`、`COMMUNITY_MENTION`、`COMMUNITY_POST_LIKE`、举报/申诉处理结果等类型；
+  新增通知中心组件（铃铛红点、全部/社区/歌曲/系统分类、仅看未读、游标加载更多、全部已读、点击跳转）。
+  新增 `GET /api/notifications/unread-count`、`GET /api/notifications/list`、`POST /api/notifications/read-all`（分类可选）。
+
+**审核运营看板 / 用户成就 / 广播联动 / 反滥用**
+
+- 后台新增「社区数据看板」：待审帖子/评论/举报/申诉、今日已审、平均审核耗时、近 7 天趋势、审帖员工作量；
+  支持批量通过/驳回（帖子与评论，条件更新防并发、驳回按条累计违规、审计与通知）。
+- 个人主页新增成就卡片：活跃等级（1-10 级）、称号徽章、帖子/评论/收到的帖子点赞/歌曲点赞、共鸣达成数。
+- 社区侧栏新增「正在播放」卡片：优先播控端上报的实时状态（5 分钟 TTL），否则按已发布排期推断，无数据时展示下一首；
+  接口异常返回 `playing:false` 不报错。
+- 反滥用：媒体图片按 SHA-256 去重（同一上传者重复图片复用已有记录，不重复占库）；
+  发帖正文规范化 hash，同一作者 10 分钟内重复内容直接拒绝；配合已有的发帖/评论频率限制、举报阈值自动隐藏、影子封禁。
+
+**已知限制**
+
+- 「正在播放」的实时性依赖播控端上报 `/api/music/state`（目前仅鸿蒙播控端会上报）；普通浏览器播放不会出现在卡片中，
+  无实时状态时退回按排期推断（无法得知播到第几首）。内存态单实例有效，多实例需改 Redis/DB 持久化。
+- 媒体仍为数据库 base64 存储，本次只做内容去重；对象存储+CDN、缩略图生成属于基础设施改造，尚未实施。

@@ -326,10 +326,14 @@ export default defineEventHandler(async (event) => {
       )
     }
 
-    // 检查管理员专用路由；放歌员的具体只读范围由 zz-admin-guard 限制
+    // 检查管理员专用路由；放歌员的具体只读范围由 zz-admin-guard 限制。
+    // 审帖员只允许进入 /api/admin/community/*（具体接口内部再校验板块/角色）。
+    const isReviewerCommunityAdminPath =
+      user.role === 'REVIEWER' && pathname.startsWith('/api/admin/community/')
     if (
       pathname.startsWith('/api/admin') &&
-      !['ADMIN', 'SUPER_ADMIN', 'SONG_ADMIN', 'BROADCASTER'].includes(user.role)
+      !['ADMIN', 'SUPER_ADMIN', 'SONG_ADMIN', 'BROADCASTER'].includes(user.role) &&
+      !isReviewerCommunityAdminPath
     ) {
       return sendError(
         event,

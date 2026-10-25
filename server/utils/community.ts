@@ -8,11 +8,12 @@ import {
   communityBoardReviewers,
   communityBoards,
   communityProfiles,
+  communityViolations,
   communitySettings,
   communityTitles,
   users
 } from '~/drizzle/schema'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, gte, sql } from 'drizzle-orm'
 import { createApiError } from './apiError'
 
 export const COMMUNITY_REVIEWER_ROLE = 'REVIEWER'
@@ -231,12 +232,35 @@ const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
  * 审核驳回后的违规计数与自动禁言。
  * 帖子与评论共用，必须在事务内调用。
  */
-export async function applyCommunityViolation(tx: any, authorId: number) {
+export async function applyCommunityViolation(
+  tx: any,
+  authorId: number,
+  options: { sourceType?: 'POST' | 'COMMENT'; sourceId?: number; reason?: string } = {}
+) {
   await tx.insert(communityProfiles).values({ userId: authorId }).onConflictDoNothing()
+
+  // 违规按「近 30 天」滚动统计：先落一条违规记录，再回算窗口内数量，
+  // 历史违规超过 30 天后自动不再计入，不会永久累计。
+  await tx.insert(communityViolations).values({
+    userId: authorId,
+    sourceType: options.sourceType ?? null,
+    sourceId: options.sourceId ?? null,
+    reason: options.reason ?? null
+  })
+  const since = new Date(Date.now() - THIRTY_DAYS_MS)
+  const [{ value: rollingCount }] = await tx
+    .select({ value: sql<number>`count(*)::int` })
+    .from(communityViolations)
+    .where(
+      and(
+        eq(communityViolations.userId, authorId),
+        gte(communityViolations.createdAt, since)
+      )
+    )
   const [profile] = await tx
     .update(communityProfiles)
     .set({
-      violationCount: sql`${communityProfiles.violationCount} + 1`,
+      violationCount: Number(rollingCount || 0),
       updatedAt: new Date()
     })
     .where(eq(communityProfiles.userId, authorId))
@@ -251,11 +275,11 @@ export async function applyCommunityViolation(tx: any, authorId: number) {
   if (violationCount >= 6) {
     banned = true
     bannedUntil = null
-    banReason = `累计 ${violationCount} 次违规，永久禁言`
+    banReason = `近 30 天累计 ${violationCount} 次违规，永久禁言`
   } else if (violationCount >= 3 && !currentState.muted) {
     banned = true
     bannedUntil = new Date(Date.now() + THIRTY_DAYS_MS)
-    banReason = `累计 ${violationCount} 次违规，禁言 30 天`
+    banReason = `近 30 天累计 ${violationCount} 次违规，禁言 30 天`
   }
 
   if (banned !== profile?.banned || bannedUntil !== profile?.bannedUntil) {
@@ -269,8 +293,8 @@ export async function applyCommunityViolation(tx: any, authorId: number) {
 }
 
 export function formatCommunityMuteNotice(violationCount: number): string {
-  if (violationCount >= 6) return '你的账号已被永久禁言。'
-  if (violationCount >= 3) return '你已被禁言 30 天。'
+  if (violationCount >= 6) return '你的账号已被永久禁言（近 30 天违规次数达到上限）。'
+  if (violationCount >= 3) return '你已被禁言 30 天（近 30 天违规次数达到 3 次）。'
   return ''
 }
 

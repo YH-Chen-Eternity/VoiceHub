@@ -6,6 +6,7 @@ import { getClientIP } from '~~/server/utils/ip-utils'
 import { checkDistributedRateLimit } from '~~/server/utils/rateLimiter'
 import { getServerTimestamp } from '~~/server/utils/serverTime'
 import { broadcastMusicState, broadcastSongChange } from './websocket'
+import { recordMusicSongChange, recordMusicStateUpdate } from '~~/server/utils/nowPlayingLive'
 
 const clampNumber = (value: unknown, min: number, max: number, fallback = 0) => {
   // Number(null) === 0，必须先排除空值，否则音量会被广播成 0
@@ -61,6 +62,14 @@ export default defineEventHandler(async (event) => {
             timestamp: getServerTimestamp()
           }
 
+          // 记录最后一条播放状态，供社区「正在播放」卡片读取（内存态，见 nowPlayingLive）
+          recordMusicStateUpdate({
+            songId: musicState.songId,
+            isPlaying: musicState.isPlaying,
+            position: musicState.position,
+            duration: musicState.duration
+          })
+
           // 广播状态更新
           broadcastMusicState(musicState)
 
@@ -98,6 +107,14 @@ export default defineEventHandler(async (event) => {
         }
 
         const reportedDuration = Number(data.duration)
+        // 切歌：先更新内存播放态，再广播
+        recordMusicSongChange({
+          songId: song.id,
+          duration:
+            Number.isFinite(reportedDuration) && reportedDuration > 0
+              ? clampNumber(reportedDuration, 1, 86400)
+              : song.durationSeconds || 0
+        })
         broadcastSongChange({
           songId: song.id,
           title: song.title,
@@ -132,6 +149,14 @@ export default defineEventHandler(async (event) => {
             volume: clampNumber(data.volume, 0, 1, 1),
             timestamp: getServerTimestamp()
           }
+
+          // 位置更新同样刷新内存播放态
+          recordMusicStateUpdate({
+            songId: positionState.songId,
+            isPlaying: positionState.isPlaying,
+            position: positionState.position,
+            duration: positionState.duration
+          })
 
           // 广播位置更新
           broadcastMusicState(positionState)

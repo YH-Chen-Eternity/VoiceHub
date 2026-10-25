@@ -62,9 +62,12 @@ export default defineEventHandler(async (event) => {
     throw createApiError(401, 'AUTH_UNAUTHORIZED', '请先登录')
   }
   const role = String(user.role || '')
-  if (!['ADMIN', 'SUPER_ADMIN', 'SONG_ADMIN', 'BROADCASTER'].includes(role)) {
+  // 审帖员仅允许访问社区管理子路径（归档/举报/申诉等接口内部各自校验角色与板块）
+  const reviewerCommunityPath = role === 'REVIEWER' && lower.startsWith('/api/admin/community/')
+  if (!['ADMIN', 'SUPER_ADMIN', 'SONG_ADMIN', 'BROADCASTER'].includes(role) && !reviewerCommunityPath) {
     throw createApiError(403, 'AUTH_FORBIDDEN', '无权访问管理接口')
   }
+  if (reviewerCommunityPath) return
 
   const method = getMethod(event).toUpperCase()
   if (role === 'SONG_ADMIN' && !SONG_ADMIN_ALLOWED_PATTERNS.some((pattern) => pattern.test(lower))) {

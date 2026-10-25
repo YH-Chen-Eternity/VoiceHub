@@ -9,6 +9,7 @@ import {
   isCommunityAdmin,
   requireCommunityReviewer
 } from '~~/server/utils/community'
+import { dispatchCommunityCommentMentionNotifications } from '~~/server/utils/communityCommentMentions'
 import { createApiError } from '~~/server/utils/apiError'
 
 export default defineEventHandler(async (event) => {
@@ -85,6 +86,14 @@ export default defineEventHandler(async (event) => {
       })
     }
 
+    // 审核通过是评论真正可见的时机：补投递「回复父评论」与「@ 提醒」通知。
+    // 工具内部会校验评论/帖子状态并去重，失败不影响审核结果。
+    try {
+      await dispatchCommunityCommentMentionNotifications(commentId)
+    } catch (err: any) {
+      console.error('评论回复/@ 提醒通知写入失败:', err)
+    }
+
     return { success: true, status: 'APPROVED' }
   }
 
@@ -112,7 +121,7 @@ export default defineEventHandler(async (event) => {
     type: 'COMMUNITY_COMMENT_REJECTED',
     source: 'COMMUNITY',
     title: '回声社区：评论未通过审核',
-    message: `你的评论未通过审核，记违规 1 次（累计 ${result.violationCount} 次）。${
+    message: `你的评论未通过审核，记违规 1 次（近 30 天累计 ${result.violationCount} 次）。${
       note ? `审核说明：${note}。` : ''
     }${formatCommunityMuteNotice(result.violationCount)}`
   })

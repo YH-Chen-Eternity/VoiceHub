@@ -100,6 +100,22 @@ Modified by YH-Chen on 2026-10-17
               <LazyAdminCommunityCommentReview />
             </div>
 
+            <!-- 回声社区：举报与申诉 -->
+            <div
+              v-if="activeTab === 'community-reports' && permissions.canAccessPage('community-reports')"
+              class="animate-in fade-in slide-in-from-bottom-4 duration-500"
+            >
+              <LazyAdminCommunityReports />
+            </div>
+
+            <!-- 回声社区：数据看板 -->
+            <div
+              v-if="activeTab === 'community-overview' && permissions.canAccessPage('community-overview')"
+              class="animate-in fade-in slide-in-from-bottom-4 duration-500"
+            >
+              <LazyAdminCommunityOverview />
+            </div>
+
             <!-- 回声社区：归档记录 -->
             <div
               v-if="activeTab === 'community-archive' && permissions.canAccessPage('community-archive')"

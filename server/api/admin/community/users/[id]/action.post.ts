@@ -1,7 +1,7 @@
 import { getRouterParam, readBody } from 'h3'
 import { eq } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
-import { communityProfiles, notifications, users } from '~/drizzle/schema'
+import { communityProfiles, communityViolations, notifications, users } from '~/drizzle/schema'
 import {
   ensureCommunityProfile,
   requireCommunityAdmin,
@@ -19,6 +19,8 @@ export default defineEventHandler(async (event) => {
   if (!targetRows[0]) throw createApiError(404, 'USER_NOT_FOUND', '用户不存在')
 
   await ensureCommunityProfile(userId)
+  // 重置违规时同时清空违规记录，保证「近 30 天」窗口从零开始
+  await db.delete(communityViolations).where(eq(communityViolations.userId, userId))
   const body = await readBody(event)
   const action = String(body?.action || '').toLowerCase()
   const reason = String(body?.reason || '').trim().slice(0, 200) || null

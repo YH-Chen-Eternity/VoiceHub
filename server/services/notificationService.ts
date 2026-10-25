@@ -670,66 +670,94 @@ export async function createSongVotedNotification(songId: number, voterId: numbe
 /**
  * 创建歌曲驳回通知
  */
-export async function createSongRejectedNotification(
+export function buildSongRejectedMessage(
+  songInfo: { title: string; artist: string },
+  reason: string
+): string {
+  return `您投稿的歌曲《${songInfo.title} - ${songInfo.artist}》已被管理员驳回。驳回原因：${reason}`
+}
+
+/**
+ * 站内驳回通知落库（尊重用户全局通知开关）。传入事务句柄时，通知与驳回删除原子提交，
+ * 杜绝 fire-and-forget 在进程回收/异常时静默丢失。返回是否落库，供调用方决定是否再异步外发。
+ */
+export async function insertSongRejectedNotification(
+  dbOrTx: any,
   userId: number,
   songInfo: { title: string; artist: string },
   reason: string
-) {
-  try {
-    // 获取用户通知设置
-    const settingsResult = await db
-      .select()
-      .from(notificationSettings)
-      .where(eq(notificationSettings.userId, userId))
-      .limit(1)
-    const settings = settingsResult[0]
-
-    // 如果用户关闭了通知，则不发送
-    if (settings && !settings.enabled) {
-      return null
-    }
-
-    // 创建通知消息
-    const message = `您投稿的歌曲《${songInfo.title} - ${songInfo.artist}》已被管理员驳回。驳回原因：${reason}`
-
-    // 创建站内通知
-    const notificationResult = await db
-      .insert(notifications)
-      .values({ userId, type: 'SONG_REJECTED', message })
-      .returning()
-    const notification = notificationResult[0]
-
-    // 同步发送 MeoW 通知
-    try {
-      await sendMeowNotificationToUser(userId, '歌曲被驳回', message)
-    } catch (error: any) {
-      console.error('发送 MeoW 通知失败:', error)
-    }
-
-    // 同步发送邮件通知
-    try {
-      await sendEmailNotificationToUser(
-        userId,
-        '歌曲被驳回',
-        message,
-        undefined,
-        'notification.songRejected',
-        {
-          songTitle: `${songInfo.title} - ${songInfo.artist}`,
-          reason
-        }
-      )
-    } catch (error: any) {
-      console.error('发送邮件通知失败:', error)
-    }
-
-    await sendAstrbotToUserSafely(userId, '歌曲被驳回', message)
-
-    return notification
-  } catch (err: any) {
-    console.error('创建歌曲驳回通知失败:', err)
-    return null
+): Promise<{ created: boolean; message: string }> {
+  const message = buildSongRejectedMessage(songInfo, reason)
+  const settingsResult = await dbOrTx
+    .select({ enabled: notificationSettings.enabled })
+    .from(notificationSettings)
+    .where(eq(notificationSettings.userId, userId))
+    .limit(1)
+  const settings = settingsResult[0]
+  if (settings && settings.enabled === false) {
+    return { created: false, message }
   }
+  await dbOrTx.insert(notifications).values({ userId, type: 'SONG_REJECTED', message })
+  return { created: true, message }
+}
+
+/**
+ * 批量场景：在同一事务内为多首被驳回歌曲落库站内通知，一次性查出相关用户开关避免逐条查询拖长事务。
+ * 返回需要继续异步外发（邮件/MeoW/AstrBot）的条目。
+ */
+export async function insertSongRejectedNotificationsBulk(
+  dbOrTx: any,
+  songs: Array<{ requesterId: number | null; title: string; artist: string }>,
+  reason: string
+): Promise<Array<{ userId: number; title: string; artist: string; message: string }>> {
+  const targetIds = [
+    ...new Set(songs.map((s) => s.requesterId).filter((id): id is number => id != null))
+  ]
+  if (targetIds.length === 0) return []
+
+  const settingsRows = await dbOrTx
+    .select({ userId: notificationSettings.userId, enabled: notificationSettings.enabled })
+    .from(notificationSettings)
+    .where(inArray(notificationSettings.userId, targetIds))
+  const disabled = new Set(
+    settingsRows.filter((r: any) => r.enabled === false).map((r: any) => r.userId)
+  )
+
+  const created: Array<{ userId: number; title: string; artist: string; message: string }> = []
+  for (const song of songs) {
+    if (song.requesterId == null || disabled.has(song.requesterId)) continue
+    const message = buildSongRejectedMessage(song, reason)
+    await dbOrTx.insert(notifications).values({ userId: song.requesterId, type: 'SONG_REJECTED', message })
+    created.push({ userId: song.requesterId, title: song.title, artist: song.artist, message })
+  }
+  return created
+}
+
+/** 驳回通知的异步外发通道（MeoW / 邮件 / AstrBot），各自失败仅记日志、不抛出。 */
+export async function dispatchSongRejectedChannels(
+  userId: number,
+  songInfo: { title: string; artist: string },
+  reason: string,
+  message: string
+): Promise<void> {
+  try {
+    await sendMeowNotificationToUser(userId, '歌曲被驳回', message)
+  } catch (error: any) {
+    console.error('发送 MeoW 通知失败:', error)
+  }
+  try {
+    await sendEmailNotificationToUser(
+      userId,
+      '歌曲被驳回',
+      message,
+      undefined,
+      'notification.songRejected',
+      { songTitle: `${songInfo.title} - ${songInfo.artist}`, reason }
+    )
+  } catch (error: any) {
+    console.error('发送邮件通知失败:', error)
+  }
+  await sendAstrbotToUserSafely(userId, '歌曲被驳回', message)
 }
 
 export async function createSubmissionNoteClearedNotification(

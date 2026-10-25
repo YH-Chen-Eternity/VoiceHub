@@ -1,7 +1,10 @@
 import { db } from '~/drizzle/db'
 import { schedules, songBlacklists, songs, votes, requestTimes } from '~/drizzle/schema'
 import { and, eq, inArray, sql } from 'drizzle-orm'
-import { createSongRejectedNotification } from '../../../services/notificationService'
+import {
+  insertSongRejectedNotificationsBulk,
+  dispatchSongRejectedChannels
+} from '../../../services/notificationService'
 import { requireSongAdmin } from '~~/server/utils/requireSongAdmin'
 import { createApiError } from '~~/server/utils/apiError'
 import { SERVER_ERROR_CODES } from '~~/server/config/constants'
@@ -42,6 +45,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     let rejectedSongs = []
+    let notifyList: Array<{ userId: number; title: string; artist: string; message: string }> = []
 
     // 使用事务确保批量驳回操作的原子性
     await db.transaction(async (tx) => {
@@ -106,15 +110,18 @@ export default defineEventHandler(async (event) => {
       // 批量删除歌曲
       rejectedSongs = await tx.delete(songs).where(inArray(songs.id, existingIds)).returning()
       console.log(`歌曲批量删除完成`)
+
+      // 站内驳回通知与删除同事务落库，保证不丢
+      notifyList = await insertSongRejectedNotificationsBulk(tx, rejectedSongs, reason)
     })
 
-    // 事务提交后，逐首发送驳回通知（异步，不阻塞响应）
-    const songsToNotify = rejectedSongs.filter((song) => song.requesterId)
-    for (const song of songsToNotify) {
-      createSongRejectedNotification(
-        song.requesterId,
-        { title: song.title, artist: song.artist },
-        reason
+    // 事务提交后逐首异步外发邮件 / MeoW / AstrBot，失败不影响驳回结果
+    for (const n of notifyList) {
+      void dispatchSongRejectedChannels(
+        n.userId,
+        { title: n.title, artist: n.artist },
+        reason,
+        n.message
       ).catch((error) => {
         console.error(`发送驳回通知失败: ${error.message}`)
       })
@@ -128,7 +135,7 @@ export default defineEventHandler(async (event) => {
       data: {
         rejected: rejectedSongs.length,
         missing: songIds.length - rejectedSongs.length,
-        notificationSent: songsToNotify.length
+        notificationSent: notifyList.length
       }
     }
   } catch (error: any) {

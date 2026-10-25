@@ -1,7 +1,10 @@
 import { db } from '~/drizzle/db'
 import { schedules, songBlacklists, songs, votes, requestTimes } from '~/drizzle/schema'
 import { eq, sql } from 'drizzle-orm'
-import { createSongRejectedNotification } from '../../../services/notificationService'
+import {
+  insertSongRejectedNotification,
+  dispatchSongRejectedChannels
+} from '../../../services/notificationService'
 
 export default defineEventHandler(async (event) => {
   // 检查用户认证和权限
@@ -30,8 +33,6 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    let songForNotification = null
-
     // 使用事务确保驳回操作的原子性
     const result = await db.transaction(async (tx) => {
       // 在事务中重新检查歌曲是否存在
@@ -44,9 +45,6 @@ export default defineEventHandler(async (event) => {
           message: '歌曲不存在或已被删除'
         })
       }
-
-      // 保存歌曲信息用于后续发送通知
-      songForNotification = song
 
       console.log(`开始驳回歌曲: ${song.title} (ID: ${body.songId})`)
 
@@ -93,40 +91,62 @@ export default defineEventHandler(async (event) => {
       const deletedSong = await tx.delete(songs).where(eq(songs.id, body.songId)).returning()
       console.log(`歌曲删除完成`)
 
+      // 站内驳回通知与删除同事务落库，保证不丢；邮件/MeoW/AstrBot 在提交后再异步外发
+      let notification: {
+        userId: number
+        created: boolean
+        message: string
+        title: string
+        artist: string
+      } | null = null
+      if (song.requesterId) {
+        const ins = await insertSongRejectedNotification(
+          tx,
+          song.requesterId,
+          { title: song.title, artist: song.artist },
+          body.reason.trim()
+        )
+        notification = {
+          userId: song.requesterId,
+          created: ins.created,
+          message: ins.message,
+          title: song.title,
+          artist: song.artist
+        }
+      }
+
       return {
         success: true,
         deletedSong: deletedSong[0],
-        addedToBlacklist: body.addToBlacklist
+        addedToBlacklist: body.addToBlacklist,
+        notification
       }
     })
 
-    // 事务提交后，发送通知
-    // 这样避免邮件发送等耗时操作阻塞数据库事务连接
+    // 事务提交后异步外发邮件 / MeoW / AstrBot，失败不影响驳回结果
     let notificationSent = false
-    if (songForNotification && songForNotification.requesterId) {
-      // 异步发送通知，不阻塞响应
-      createSongRejectedNotification(
-        songForNotification.requesterId,
-        { title: songForNotification.title, artist: songForNotification.artist },
-        body.reason.trim()
-      )
-        .then(() => {
-          console.log(`已发送驳回通知给用户: ${songForNotification.requesterId}`)
-        })
-        .catch((error) => {
-          console.error(`发送通知失败: ${error.message}`)
-        })
+    if (result.notification && result.notification.created) {
+      const n = result.notification
+      void dispatchSongRejectedChannels(
+        n.userId,
+        { title: n.title, artist: n.artist },
+        body.reason.trim(),
+        n.message
+      ).catch((error) => {
+        console.error(`驳回通知外发失败: ${error.message}`)
+      })
 
       notificationSent = true
     }
 
     console.log(`歌曲驳回操作完成: ${body.songId}`)
 
+    const { notification: _notify, ...resultData } = result
     return {
       success: true,
       message: '歌曲驳回成功',
       data: {
-        ...result,
+        ...resultData,
         notificationSent
       }
     }

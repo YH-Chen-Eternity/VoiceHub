@@ -1,4 +1,4 @@
-import { and, asc, count, eq, isNull, sql } from 'drizzle-orm'
+import { and, asc, count, countDistinct, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import { communityBoards, communityBoardReviewers, communityPosts } from '~/drizzle/schema'
 import { requireCommunityAdmin } from '~~/server/utils/community'
@@ -23,7 +23,10 @@ export default defineEventHandler(async (event) => {
     .from(communityBoards)
     .orderBy(asc(communityBoards.sortOrder), asc(communityBoards.id))
 
-  const total = await db.select({ value: count() }).from(communityBoardReviewers)
+  // 审帖员总数按人去重：同一审帖员可负责多个板块，直接 count(*) 会把多板块重复计数
+  const total = await db
+    .select({ value: countDistinct(communityBoardReviewers.userId) })
+    .from(communityBoardReviewers)
   const totalPosts = await db
     .select({ value: count() })
     .from(communityPosts)

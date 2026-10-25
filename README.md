@@ -17,7 +17,29 @@ VoiceHub 是一个面向校园的广播站点歌系统（Nuxt 4 全栈应用）�
 
 ## 主要修改内容（Changelog）
 
-> 修改日期：**2026-10-24**（本轮内容）。更早的社区版功能见下方详细章节。
+> 修改日期：**2026-10-25**（本轮内容）。更早的社区版功能见下方详细章节。
+
+### 2026-10-25 安全加固、社区运营修复与部署更新
+
+**安全加固**
+
+- 完成一轮全量安全审计与加固，覆盖认证与二次验证、权限边界、上传与媒体访问、备份脱敏、边缘层防护与部署默认配置。
+- 修复项已通过生产构建、类型检查与现有测试回归，未新增测试失败；不在此展开具体技术细节。
+
+**社区与后台**
+
+- 联合投稿人界面不再展示 `@用户名`；姓名展示、匿名投稿与隐藏学生信息策略保持不变。
+- 审帖员分配提示语与新权限模型一致：至少分配一个板块后才能审核对应板块，未分配 = 无审核权限。
+- 社区板块统计的审帖员总数按人去重（同一审帖员负责多个板块不再重复计数）。
+- 为 `CommunityPostImage.mediaId` 增加索引（迁移 72），优化媒体可见性校验。
+
+**部署与运维**
+
+- 生产镜像更新至 `community-20261025e` / `community-20261025f`；数据库迁移数 71 → 72。
+- compose 变体需显式提供 `JWT_SECRET`、`DB_PASSWORD`；密码请使用 URL 安全字符。
+- 建议配置 `NUXT_PUBLIC_HOST`（密码重置链接与部分安全校验依赖；未配置时回退到后台 OAuth 回调地址）。
+- 可选：`MEDIA_TOKEN_SECRET`（默认复用 `JWT_SECRET`）；独立审核服务的共享令牌在服务侧用 `MODERATION_SERVICE_TOKEN`、VoiceHub 侧用 `COMMUNITY_MODERATION_SERVICE_TOKEN`，两者需保持一致。
+- 行为变化：审帖员需分配板块；非超管不能修改统计代码或管理同级管理员；点歌券随机长度至少 8 位；社区发帖/评论新增频率限制；媒体图片按可见性鉴权。
 
 ### 2026-10-24 回声社区归档、评论审核与共鸣称号
 
@@ -123,8 +145,11 @@ VoiceHub 是一个面向校园的广播站点歌系统（Nuxt 4 全栈应用）�
 | `deploy/` 参考部署配置 | 新增 `deploy/` 目录：生产实践的 `docker-compose.yml`、`nginx/` 配置与边缘安全层 `rewriter/`（含中国 IP 段数据），可作参考或直接使用 |
 | 边缘安全层（可选） | `deploy/rewriter/app-rewriter.js` 是独立的 Node 反向代理（防暴力破解 / 脚本检测 / 攻击日志上报 / 地域闸），需要 `ATTACK_LOG_TOKEN` 等环境变量；不需要时应用可单独运行 |
 | 新增环境变量 | `ATTACK_LOG_TOKEN`（应用 ↔ 边缘层内部令牌）、`GEO_GATE`（地域闸默认状态，默认关闭）等，见 `deploy/.env.example` |
+| 站点外部地址 | 建议配置 `NUXT_PUBLIC_HOST`：密码重置链接与部分来源校验依赖；未配置时回退到后台 OAuth 回调地址，两者都没有时会拒绝发送重置邮件 |
+| compose 凭据 | compose 变体必须显式提供 `JWT_SECRET` 与 `DB_PASSWORD`，缺失会拒绝启动；密码请使用 URL 安全字符 |
+| 媒体/审核令牌（可选） | `MEDIA_TOKEN_SECRET`（默认复用 `JWT_SECRET`）；独立审核服务使用 `MODERATION_SERVICE_TOKEN` / `COMMUNITY_MODERATION_SERVICE_TOKEN`，两侧需一致 |
 | 非 root 运行 | Dockerfile 内置 `voicehub` 非 root 用户，容器不以 root 运行 |
-| 数据库迁移 | 新增多张审计/攻击日志/账号策略表，迁移文件位于 `app/drizzle/migrations/`，升级时正常执行 `drizzle-kit migrate` 即可 |
+| 数据库迁移 | 新增多张审计/攻击日志/账号策略表，当前迁移数 72；迁移文件位于 `app/drizzle/migrations/`，升级时正常执行 `drizzle-kit migrate` 即可 |
 
 ### 回声社区内容审核服务（可选）
 

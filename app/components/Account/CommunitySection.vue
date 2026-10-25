@@ -205,6 +205,38 @@
         </div>
       </div>
 
+      <!-- 共鸣进度（仅本人可见） -->
+      <div class="space-y-3">
+        <h3 class="text-[10px] font-black text-text-disabled uppercase tracking-[0.18em]">
+          {{ t.resonanceProgressTitle }}
+        </h3>
+        <p class="text-[10px] text-text-disabled">{{ t.resonanceProgressDesc }}</p>
+        <div v-if="progress.partners?.length" class="space-y-2">
+          <p class="text-[10px] font-bold text-text-disabled">{{ t.resonanceTopPartners }}</p>
+          <div
+            v-for="item in progress.partners"
+            :key="`progress-${item.partner.id}`"
+            class="rounded-2xl border border-border-secondary-70 bg-bg-primary-45 px-4 py-3 space-y-1"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs font-black text-text-primary">{{ item.partner.displayName }}</span>
+              <span class="text-[10px] text-text-disabled">{{ t.resonanceGap(item.gapToNext) }}</span>
+            </div>
+            <p class="text-[10px] text-text-secondary">
+              {{ t.resonanceProgressLine(item.sentCount, item.receivedCount) }}
+            </p>
+            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-bg-tertiary">
+              <div class="h-full rounded-full bg-primary" :style="{ width: progressPercent(item) + '%' }" />
+            </div>
+            <p v-if="item.nextThreshold" class="text-[10px] text-text-disabled">
+              {{ t.resonanceNext(levelName(item.nextThreshold), item.nextThreshold) }}
+            </p>
+            <p v-else class="text-[10px] text-success">{{ t.resonanceAchievedHint }}</p>
+          </div>
+        </div>
+        <p v-else class="text-[10px] text-text-tertiary">{{ t.resonanceEmptyProgress }}</p>
+      </div>
+
       <!-- 违规与禁言 -->
       <div class="space-y-2">
         <h3 class="text-[10px] font-black text-text-disabled uppercase tracking-[0.18em]">
@@ -288,6 +320,19 @@ const equippedTitleId = ref<string>('')
 const initial = ref({ favoriteSongId: null as number | null, showFavorite: true, showLikedSongs: true, equippedTitleId: '' })
 const saving = ref(false)
 
+const progress = ref<AnyRecord>({ levels: [], partners: [], achievements: [] })
+
+const levelName = (threshold: number) => {
+  const level = (progress.value.levels || []).find((item: AnyRecord) => item.threshold === threshold)
+  return level?.name || ''
+}
+
+const progressPercent = (item: AnyRecord) => {
+  const threshold = Number(item.nextThreshold || 0)
+  if (!threshold) return 100
+  return Math.min(100, Math.round((Number(item.minCount || 0) / threshold) * 100))
+}
+
 const resonanceList = computed<AnyRecord[]>(() => {
   const list = data.value?.resonance
   return Array.isArray(list) ? list : []
@@ -347,6 +392,12 @@ async function load() {
   try {
     const res = await $fetch<AnyRecord>('/api/community/me')
     applyData(res)
+    try {
+      progress.value = await $fetch<AnyRecord>('/api/community/resonance/progress')
+    } catch {
+      // 进度接口失败不阻断账号页其它信息
+      progress.value = { levels: [], partners: [], achievements: [] }
+    }
   } catch (err: any) {
     error.value = apiMessage(err, t.value.loadFailed)
   } finally {

@@ -620,49 +620,83 @@ GET  /api/admin/replay-requests
 - 已重启 rewriter 清空内存评分，并将站长当前出口 IP（IPv4/IPv6）加入 trusted 白名单（可在后台解除）；
   误锁的 IP 已全部解封。
 
-### 10.13 全量安全审计与加固（2026-10-25）
+### 10.13 全量安全审计与修复（2026-10-25）
 
-**审计方法**：对 `app/`、`server/`、`moderation-service/`、`deploy/` 做三轮语义审查；自建 JS/TS/Vue/Python
-AST 普查器枚举危险调用点与请求源，按风险类别分诊，并与文本检索结果对账；随后由独立复核代理检查回归，
-并做第二轮未覆盖高危面审查。
+**审计方法**：对 `app/`、`server/`、`moderation-service/`、`deploy/` 做三轮语义审查。
+自建 JS/TS/Vue/Python AST 普查器，枚举 1,536 个危险调用点、389 个请求源，按 RCE/SQL/SSRF/文件/认证/加密等 13 类分诊；
+用 grep 与 AST 对账，5 条残余均确认为函数声明/参数名/局部变量/动态导入别名，**0 条未解释的危险调用**。
+随后由独立复核代理逐项检查修复是否引入回归，并做第二轮"未覆盖高危面"审查。
 
-**加固范围（不展开技术细节）**
+#### 严重（Critical / High）
 
-- 认证与会话：统一二次验证口径，补会话撤销校验、验证码阈值一致性与一次性凭据消费。
-- 权限边界：角色等级比较、审帖员板块范围、只读角色放行、开放接口权限映射默认拒绝。
-- 输入与上传：公开链接协议白名单、图片代理仅接受栅格图并加安全响应头、媒体资源可见性校验与短期签名、
-  上传体积预检。
-- 数据与备份：备份/导出统一脱敏，恢复角色白名单，邮箱绑定在验证通过后落库。
-- 可用性与边缘层：社区发帖/评论与状态上报限流、SSE 连接上限、边缘端点限流与容量上限、路径归一化。
-- 部署默认值：nginx 补齐 zone/变量、compose 移除默认口令、环境变量说明。
-- 其他：点歌券使用加密安全随机数、请求 ID 字符集限制、邮件预览 iframe sandbox、边缘层 HTML 转义补齐。
+| 级别 | 原漏洞 | 修复 |
+| --- | --- | --- |
+| Critical | `/api/proxy/image` 原样回显 `image/svg+xml`，直接访问即同源执行脚本，可借 HttpOnly 会话接管账号 | 按魔数只放行 PNG/JPEG/WebP/GIF，补 `nosniff`、CSP sandbox、Content-Disposition |
+| High | OAuth 登录命中已有第三方身份后直接签发会话，完全跳过 TOTP 第二因子 | 检出 TOTP 时签发 5 分钟 pre-auth，跳登录页完成 2FA 后才建会话 |
+| High | 找回密码用请求 `Host` 拼重置链接，可把 15 分钟令牌劫持到攻击者域名 | 可信来源优先级：`NUXT_PUBLIC_HOST` > 后台 OAuth 回调地址 > 本地/平台 Host；公开域名下均缺失则拒绝发信，并提前解析以消除枚举 oracle |
+| High | 边缘层用原始 `req.url` 判定，`/api/%61uth/login` 绕过登录限流、30 分钟锁定与永久封禁 | 安全判定统一使用多重解码后的路径，转发仍用原始 URL |
 
-**行为与运维影响**
+#### 中危（Medium）
 
-- 审帖员至少分配一个板块后才能审核对应板块（未分配 = 无审核权限）。
-- 非超级管理员不能修改统计代码或管理同级管理员。
-- 点歌券随机长度至少 8 位。
-- 社区发帖/评论新增频率限制；媒体图片按可见性鉴权；音乐状态上报与图片代理新增限流。
-- compose 变体必须提供 `JWT_SECRET` / `DB_PASSWORD`；建议配置 `NUXT_PUBLIC_HOST`。
-- 未配置站点外部地址时，密码重置会拒绝发信，避免使用不可信来源生成链接。
+- **存储型 XSS**：公告 `linkUrl` 允许 `javascript:`；统计代码仅 UI 限超管、API 仍允许普通 ADMIN 注入任意 `<script>`。
+  修复：公告链接/图片地址写入与渲染双侧白名单；统计代码字段仅 SUPER_ADMIN 可写。
+- **越权/权限提升**：ADMIN 可重置或降级同级 ADMIN；审帖员"未分配板块 = 全部板块"；放歌员被 `auth.ts` 提前 403。
+  修复：引入角色等级比较（只能管理严格更低等级）；审帖员未分配板块返回空集并同步 `canReview`；放行放歌员并补齐统计/排期/备选池/重播申请的只读端点。
+- **认证绕过**：`/api/auth/bind` 不校验登录验证码阈值；TOTP 码可重放；WebAuthn 登录缺风控；OAuth 绑定只验 JWT 签名不查会话撤销。
+  修复：bind 复用同一验证码阈值（Turnstile/ESA/图形全覆盖）并补登录审计；TOTP ±1 窗口内一次性消费；WebAuthn 补封禁检查/限流/登录审计；绑定改用中间件确认过的 `context.user`。
+- **数据泄露**：媒体自增 ID 可匿名枚举待审/被驳回图片；自动备份与导出未脱敏系统设置（SMTP、OAuth、AstrBot、WebDAV 口令）；邮箱在验证码通过前就落库，可抢占他人地址。
+  修复：媒体按"管理员/上传者/签名令牌/已启用公告/已公开帖子"鉴权，审核链路用 10 分钟签名 URL；备份统一掩码并移除备份渠道配置；邮箱验证通过后才写入。
+- **可用性/完整性**：社区驳回无状态守卫，并发可把违规计数放大到永久禁言；社区发帖/评论无限流；音乐播放状态可匿名伪造；SSE 连接无上限；`/__fp` 无鉴权同步全量写盘；`/__bh` 无限签发；审核微服务无鉴权且 3xx 不校验。
+  修复：驳回改条件更新且仅 PENDING 可驳回；发帖 10/分钟、50/天，评论 20/分钟、200/天；播放元数据以数据库为准并限流；SSE 全局 500 连接上限；边缘端点限流/容量上限/1 秒合并落盘；审核服务可选共享 token + 逐跳 URL 校验。
+- **其他**：卡密生成用 `Math.random()`（改 `crypto.randomInt`，最短 8 位）；开放 API 权限映射缺失时默认放行（改 fail-closed）；注册会话创建失败留下半成品账号（失败回滚）；网易云代理用可伪造 XFF（改 `getClientIP`）；`x-request-id` 原样回写（限字符集）；邮件预览 iframe 无 sandbox（补 `sandbox=""`）；边缘层 HTML 转义漏引号（已补）。
 
-**验证结果**
+#### 部署配置
 
-- 生产构建成功；服务端类型检查无新增错误；测试套件相对基线无新增失败。
-- Python `py_compile`、边缘层 `node --check`、compose YAML 解析通过。
-- 未执行：本机无 Docker/Nginx 与数据库/Redis/浏览器环境，未做端到端运行测试。
+- `deploy/nginx/voicehub.conf` 引用未定义的 `vh_aproxy` zone 与 `$vh_auth_token`，`nginx -t` 不通过；已补 `limit_req_zone`/`limit_conn_zone` 并改用 `$cookie_auth_token`。
+- 根目录与 `docker-compose/` 的 7 个 compose 变体使用默认 `JWT_SECRET=your-jwt-secret-here`、`postgresql://user:password`、`POSTGRES_PASSWORD=password`；改为 `${JWT_SECRET:?}` / `${DB_PASSWORD:?}`，缺失即拒绝启动。
+- `.env.example` 补充 `NUXT_PUBLIC_HOST`、`DB_PASSWORD`、`COMMUNITY_MODERATION_SERVICE_TOKEN` 说明；密码要求 URL 安全字符。
 
-**已知限制**
+#### 界面调整
 
-- 多实例下限流与一次性状态依赖 Redis；内存回退仅单实例生效。
-- 自动备份包含恢复所需的密码哈希，建议对备份存储启用加密与访问控制。
-- 媒体可见性校验新增少量查询；当前已为 `CommunityPostImage.mediaId` 补充索引。
+- 联合投稿人界面不再展示 `@用户名`：投稿表单的已选标签、用户选择弹窗、后台歌曲编辑弹窗与搜索结果均移除；姓名与主投稿人用户名不受影响。
+
+#### 验证结果
+
+- 生产构建 `node scripts/build.js` 成功（约 1 分 13 秒）。
+- 服务端类型检查：基线 229 个错误 → 216 个，**新增 0**。
+- 测试套件：与 HEAD 基线对比 **新增失败 0**；6 项既有失败（autoSchedule 扩展名解析、heat-weight、AstrBot 路由 esbuild 别名、system-board 等）在基线上同样失败。
+- Python `py_compile`、边缘层 `node --check`、9 个 compose YAML 解析全部通过。
+- 未执行：本机无 Docker/Nginx，未实际跑 `compose config` / `nginx -t`；无 PostgreSQL/Redis 与浏览器环境，未做端到端运行测试。
+
+#### 已知残留风险
+
+- 自动备份仍含 bcrypt 密码哈希（恢复需要），建议备份存储启用加密或独立密钥。
+- WebDAV 连接测试可被 SUPER_ADMIN 用作 SSRF；自建内网 WebDAV 是合法场景，建议增加显式开关。
+- 审核服务图片预检仍有 DNS TOCTOU 理论窗口（已逐跳校验、内网绑定、可选 token）。
+- WebAuthn 登录不额外要求 TOTP（passkey 视为强因子）。
+- 多实例下限流/2FA 一次性状态依赖 Redis，内存回退仅单实例生效。
+- 媒体可见性检查新增每图 1–2 次查询，访问量大时建议给 `CommunityPostImage.mediaId` 加索引。
 
 #### 10.13.1 生产部署记录（2026-10-25）
 
-- 生产镜像升级为 `voicehub-voicehub:community-20261025e`（commit `d787519d`）与 `community-20261025f`；
-  数据库迁移 71 → 72。
-- 部署前后备份与安全快照已更新；无新增业务表。
-- 生产补录：审帖员 `LANand68`、`eee` 原先未分配板块，新规则下会失去审核权限，已补录到全部 4 个板块。
-- 上线后验证：首页/登录/后台页面 200；后台 API 未登录 401；边缘层新版本已上线重启；
-  图片代理与媒体访问策略生效。
+- 生产镜像升级为 `voicehub-voicehub:community-20261025e`（代码对应 `community/voicehub-plus` 分支 commit `467d0048`，含本次全量安全审计修复与联合投稿人 `@用户名` 移除）。
+- 部署前备份 `vh-20261025-0815-pre-e.dump`，部署后备份 `vh-20261025-post-e.dump`（按运维要求只保留最新一份）；安全快照与 COS 同步更新。
+- 无新增数据库迁移（迁移数 71）。
+- 生产补录：审帖员 `LANand68`、`eee` 原先未分配板块，新规则下会失去审核权限，已补录到全部 4 个板块，权限与旧行为一致。
+- 上线后验证：首页/登录/后台页面 200；后台 API 未登录 401；`/api/proxy/image` 对 SVG 返回 415（修复生效）；边缘层新版本已上线重启。
+- 已知行为变化：非超管不能修改统计代码/同级管理员；卡密最短 8 位；社区发帖/评论新增频率限制；媒体图片按可见性鉴权（公告/已公开帖子/上传者/管理员/签名令牌可读）。
+
+### 10.14 社区互动增强：帖子点赞、浏览量、搜索/最热/置顶、共鸣进度与系统称号展示（2026-10-25）
+
+- **帖子点赞**：新增 `CommunityPostLike` 表与 `POST /api/community/posts/:id/like`（切换点赞），帖子增加 `likeCount` 冗余计数；
+  与「歌曲点赞」`Vote` 完全独立；作者会收到 `COMMUNITY_POST_LIKE` 站内通知（已补通知类型图标/文案）。
+- **帖子浏览量**：`CommunityPost.viewCount`，详情接口按「同一用户 1 小时只计一次」（Redis 去重，不可用时退化）累加；
+  信息流/详情显示浏览数。
+- **信息流搜索/排序/置顶**：`GET /api/community/posts` 支持 `q`（正文/作者姓名）、`sort=latest|hot`；
+  `CommunityPost.pinned` 置顶帖优先，管理员可在信息流直接置顶/取消置顶（`POST /api/admin/community/posts/:id/pin`，写管理审计）。
+- **共鸣进度与系统称号**：
+  - 新增 `GET /api/community/resonance/progress`：按「我点赞 TA 投稿数 / TA 点赞我投稿数」双向统计，给出最接近达成的伙伴、
+    下一档门槛与还差数量；账号页「回声社区」新增共鸣进度卡片（进度条 + 两个方向数量）。
+  - 后台「社区称号」页会预先展示系统称号「共鸣」「70亿个灵魂都在找同个永恒」（含双向门槛与系统徽标），
+    系统称号禁止手动编辑/删除（接口层也做了拦截）；称号只在有人真正达成双向 50/100 时授予。
+- **迁移**：`20261025035301_cute_lionheart`（新增 CommunityPostLike 表、CommunityPost 的 viewCount/pinned/likeCount 字段）。

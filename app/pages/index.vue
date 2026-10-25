@@ -509,6 +509,12 @@ Modified by YH-Chen on 2026-10-17
                               name="message-circle"
                             />
                             <Icon
+                              v-else-if="notification.type === 'COMMUNITY_POST_LIKE'"
+                              :size="20"
+                              color="var(--color-error)"
+                              name="heart"
+                            />
+                            <Icon
                               v-else-if="
                                 notification.type === 'COMMUNITY_POST_REJECTED' ||
                                 notification.type === 'COMMUNITY_POST_REMOVED'

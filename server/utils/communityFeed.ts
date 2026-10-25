@@ -1,4 +1,4 @@
-import { asc, desc, eq, inArray, isNull, lt, and, sql } from 'drizzle-orm'
+import { asc, desc, eq, ilike, inArray, isNull, lt, and, or, sql } from 'drizzle-orm'
 import { db } from '~/drizzle/db'
 import {
   communityBoards,
@@ -22,6 +22,10 @@ type LoadOptions = {
   beforeId?: number
   limit?: number
   includeDeleted?: boolean
+  /** 关键词搜索（帖子正文/作者姓名） */
+  q?: string
+  /** latest=最新（默认） / hot=最热（帖子点赞+评论数） */
+  sort?: 'latest' | 'hot'
 }
 
 export function serializeSong(song: any, viewerId = 0, activeSemester: string | null = null) {
@@ -68,6 +72,10 @@ export async function loadCommunityPosts(options: LoadOptions) {
   }
   if (options.authorId) conditions.push(eq(communityPosts.authorId, options.authorId))
   if (options.beforeId) conditions.push(lt(communityPosts.id, options.beforeId))
+  if (options.q) {
+    const pattern = `%${String(options.q).replace(/[\\%_]/g, (char) => `\\${char}`)}%`
+    conditions.push(or(ilike(communityPosts.content, pattern), ilike(users.name, pattern))!)
+  }
   if (!options.includeDeleted) conditions.push(isNull(communityPosts.deletedAt))
 
   const limit = Math.min(Math.max(Number(options.limit) || 20, 1), 50)
@@ -83,6 +91,10 @@ export async function loadCommunityPosts(options: LoadOptions) {
       moderationLabel: communityPosts.moderationLabel,
       moderationDetail: communityPosts.moderationDetail,
       reviewNote: communityPosts.reviewNote,
+      viewCount: communityPosts.viewCount,
+      pinned: communityPosts.pinned,
+      likeCount: communityPosts.likeCount,
+      postLikedByMe: sql<boolean>`exists(select 1 from "CommunityPostLike" pl where pl."postId" = ${communityPosts.id} and pl."userId" = ${viewerId})`,
       reviewedAt: communityPosts.reviewedAt,
       authorId: communityPosts.authorId,
       authorName: users.name,
@@ -108,7 +120,12 @@ export async function loadCommunityPosts(options: LoadOptions) {
     .leftJoin(songs, eq(songs.id, communityPosts.songId))
     .leftJoin(communityBoards, eq(communityBoards.id, communityPosts.boardId))
     .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(desc(communityPosts.id))
+    // 置顶帖优先；最热排序按帖子点赞数（同分按 id 倒序）
+    .orderBy(
+      ...(options.sort === 'hot'
+        ? [desc(communityPosts.likeCount), desc(communityPosts.id)]
+        : [desc(communityPosts.pinned), desc(communityPosts.id)])
+    )
     .limit(limit)
 
   const ids = rows.map((row) => row.id)
@@ -164,6 +181,10 @@ export async function loadCommunityPosts(options: LoadOptions) {
       song: serializeSong(song, viewerId, activeSemester),
       images: imagesByPost.get(row.id) || [],
       commentCount: Number(row.commentCount || 0),
+      viewCount: Number(row.viewCount || 0),
+      pinned: !!row.pinned,
+      likeCount: Number(row.likeCount || 0),
+      likedByMe: !!row.postLikedByMe,
       moderationLabel: row.moderationLabel || null,
       moderationDetail: row.moderationDetail || null,
       reviewNote: row.reviewNote || null,

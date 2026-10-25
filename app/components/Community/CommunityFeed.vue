@@ -83,6 +83,34 @@
 
       <div class="community-grid">
         <main class="community-main">
+          <div class="feed-controls">
+            <label class="feed-search">
+              <Search :size="14" />
+              <input
+                v-model="searchQuery"
+                :placeholder="t.searchPlaceholder"
+                type="search"
+                @input="onSearchInput"
+              >
+            </label>
+            <div class="feed-sort">
+              <button
+                :class="{ active: sortMode === 'latest' }"
+                type="button"
+                @click="setSort('latest')"
+              >
+                {{ t.sortLatest }}
+              </button>
+              <button
+                :class="{ active: sortMode === 'hot' }"
+                type="button"
+                @click="setSort('hot')"
+              >
+                {{ t.sortHot }}
+              </button>
+            </div>
+          </div>
+
           <div class="feed-toolbar">
             <span v-if="filterMine" class="feed-hint">{{ t.myPosts }}</span>
             <span v-else-if="activeBoardId" class="feed-hint">
@@ -118,7 +146,10 @@
                     <span class="identity-board">{{ post.board.name }}</span>
                   </span>
                 </button>
-                <span class="post-time">{{ formatTime(post.createdAt) }}</span>
+                <span class="post-time">
+                  <span v-if="post.pinned" class="pinned-badge"><Pin :size="11" />{{ t.pinnedBadge }}</span>
+                  {{ formatTime(post.createdAt) }}
+                </span>
               </header>
 
               <div v-if="post.status !== 'APPROVED'" class="status-row">
@@ -173,8 +204,28 @@
                   <MessageCircle :size="16" />
                   <span>{{ post.commentCount }}</span>
                 </button>
-                <button class="footer-action" type="button" @click="openDetail(post)">
-                  <span>{{ t.comments }}</span>
+                <span class="footer-action footer-static" :title="t.viewCount">
+                  <Eye :size="16" />
+                  <span>{{ post.viewCount || 0 }}</span>
+                </span>
+                <button
+                  :class="{ liked: post.likedByMe }"
+                  class="footer-action footer-like"
+                  :title="post.likedByMe ? t.postLikeCancel : t.postLike"
+                  type="button"
+                  @click="togglePostLike(post)"
+                >
+                  <Heart :fill="post.likedByMe ? 'currentColor' : 'none'" :size="16" />
+                  <span>{{ post.likeCount || 0 }}</span>
+                </button>
+                <button
+                  v-if="feedPermissions.canPin && post.status === 'APPROVED'"
+                  class="footer-action"
+                  type="button"
+                  @click="togglePin(post)"
+                >
+                  <Pin :size="16" />
+                  <span>{{ post.pinned ? t.unpin : t.pin }}</span>
                 </button>
                 <button
                   v-if="canRemovePost(post)"
@@ -188,7 +239,7 @@
               </footer>
             </article>
 
-            <div v-if="nextCursor" class="load-more-row">
+            <div v-if="nextCursor && sortMode === 'latest'" class="load-more-row">
               <button :disabled="feedLoading" class="ghost-button" type="button" @click="loadFeed()">
                 <Loader2 v-if="feedLoading" class="animate-spin" :size="16" />
                 <span>{{ t.loadMore }}</span>
@@ -496,6 +547,31 @@
                 </button>
               </div>
 
+              <div class="detail-actions">
+                <span class="footer-action footer-static">
+                  <Eye :size="16" />
+                  <span>{{ selectedPost.viewCount || 0 }}</span>
+                </span>
+                <button
+                  :class="{ liked: selectedPost.likedByMe }"
+                  class="footer-action footer-like"
+                  type="button"
+                  @click="togglePostLike(selectedPost)"
+                >
+                  <Heart :fill="selectedPost.likedByMe ? 'currentColor' : 'none'" :size="16" />
+                  <span>{{ selectedPost.likeCount || 0 }}</span>
+                </button>
+                <button
+                  v-if="feedPermissions.canPin && selectedPost.status === 'APPROVED'"
+                  class="footer-action"
+                  type="button"
+                  @click="togglePin(selectedPost)"
+                >
+                  <Pin :size="16" />
+                  <span>{{ selectedPost.pinned ? t.unpin : t.pin }}</span>
+                </button>
+              </div>
+
               <div v-if="selectedPost.reviewNote" class="detail-note">
                 <span>{{ t.reviewNoteLabel }}</span>
                 <p>{{ selectedPost.reviewNote }}</p>
@@ -768,6 +844,7 @@ import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
+  Eye,
   Heart,
   ImagePlus,
   Info,
@@ -775,6 +852,7 @@ import {
   Lock,
   MessageCircle,
   Music,
+  Pin,
   Plus,
   Search,
   Send,
@@ -810,6 +888,10 @@ const activeBoardId = ref(0)
 const filterMine = ref(false)
 const feedLoading = ref(false)
 const nextCursor = ref<number | null>(null)
+const feedPermissions = reactive({ canPin: false })
+const searchQuery = ref('')
+const sortMode = ref<'latest' | 'hot'>('latest')
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 const settings = computed<AnyRecord>(
   () =>
@@ -981,14 +1063,16 @@ async function loadFeed(reset = false) {
   }
   feedLoading.value = true
   try {
-    const query: AnyRecord = { limit: 20 }
+    const query: AnyRecord = { limit: 20, sort: sortMode.value }
     if (activeBoardId.value) query.boardId = activeBoardId.value
     if (filterMine.value) query.mine = '1'
-    if (!reset && nextCursor.value) query.beforeId = nextCursor.value
+    if (searchQuery.value.trim()) query.q = searchQuery.value.trim()
+    if (!reset && nextCursor.value && sortMode.value === 'latest') query.beforeId = nextCursor.value
     const res = await $fetch<AnyRecord>('/api/community/posts', { query })
     const list = (res.posts || []) as AnyRecord[]
     posts.value = reset ? list : [...posts.value, ...list]
     nextCursor.value = res.nextCursor ?? null
+    feedPermissions.canPin = Boolean(res.permissions?.canPin)
   } catch (error: any) {
     showToast(apiMessage(error, t.value.loadFailed), 'error')
   } finally {
@@ -1005,6 +1089,53 @@ function selectBoard(boardId: number) {
 function toggleMine() {
   filterMine.value = !filterMine.value
   loadFeed(true)
+}
+
+function onSearchInput() {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => loadFeed(true), 350)
+}
+
+function setSort(mode: 'latest' | 'hot') {
+  if (sortMode.value === mode) return
+  sortMode.value = mode
+  loadFeed(true)
+}
+
+/** 帖子点赞（与歌曲点赞独立） */
+async function togglePostLike(post: AnyRecord) {
+  if (!post?.id || post.liking) return
+  post.liking = true
+  try {
+    const res = await $fetch<AnyRecord>(`/api/community/posts/${post.id}/like`, { method: 'POST' })
+    post.likedByMe = Boolean(res.liked)
+    post.likeCount = Number(res.likeCount || 0)
+    if (selectedPost.value?.id === post.id) {
+      selectedPost.value.likedByMe = post.likedByMe
+      selectedPost.value.likeCount = post.likeCount
+    }
+  } catch (error: any) {
+    showToast(apiMessage(error, t.value.likeFailed), 'error')
+  } finally {
+    post.liking = false
+  }
+}
+
+/** 管理员置顶/取消置顶 */
+async function togglePin(post: AnyRecord) {
+  if (!post?.id) return
+  try {
+    const res = await $fetch<AnyRecord>(`/api/admin/community/posts/${post.id}/pin`, {
+      method: 'POST',
+      body: { pinned: !post.pinned }
+    })
+    post.pinned = Boolean(res.pinned)
+    if (selectedPost.value?.id === post.id) selectedPost.value.pinned = post.pinned
+    showToast(post.pinned ? t.value.pinSuccess : t.value.unpinSuccess, 'success')
+    await loadFeed(true)
+  } catch (error: any) {
+    showToast(apiMessage(error, t.value.likeFailed), 'error')
+  }
 }
 
 const LIKE_BLOCK_KEYS: Record<string, string> = {
@@ -1326,6 +1457,13 @@ async function openDetail(post: AnyRecord) {
     ])
     selectedPost.value = detailRes.post
     comments.value = commentRes.comments || []
+    const target = posts.value.find((item) => item.id === post.id)
+    if (target && detailRes.post) {
+      target.viewCount = detailRes.post.viewCount
+      target.likeCount = detailRes.post.likeCount
+      target.likedByMe = detailRes.post.likedByMe
+      target.pinned = detailRes.post.pinned
+    }
   } catch (error: any) {
     showToast(apiMessage(error, t.value.loadFailed), 'error')
   } finally {
@@ -1651,6 +1789,93 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: 0.75rem;
   min-height: 1.8rem;
+}
+
+.feed-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.feed-search {
+  flex: 1;
+  min-width: 10rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--overlay-10);
+  color: var(--text-tertiary);
+}
+
+.feed-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.72rem;
+}
+
+.feed-sort {
+  display: inline-flex;
+  border: 1px solid var(--overlay-10);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.feed-sort button {
+  padding: 0.35rem 0.7rem;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.feed-sort button.active {
+  background: var(--color-accent-alpha-10);
+  color: var(--color-accent);
+}
+
+.pinned-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-right: 0.35rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: var(--color-accent-alpha-10);
+  color: var(--color-accent);
+  font-size: 0.6rem;
+  font-weight: 800;
+  vertical-align: middle;
+}
+
+.footer-static {
+  cursor: default;
+}
+
+.footer-static:hover {
+  color: var(--text-tertiary);
+}
+
+.footer-like.liked,
+.footer-like.liked:hover {
+  color: #f43f5e;
+}
+
+.detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  color: var(--text-tertiary);
 }
 
 .feed-hint {

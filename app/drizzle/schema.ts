@@ -1130,6 +1130,12 @@ export const communityPosts = pgTable('CommunityPost', {
   deleteType: text('deleteType'),
   deleteReason: text('deleteReason'),
   purgeAt: timestamp('purgeAt'),
+  // 浏览量（同一用户 1 小时内只计一次，见 /api/community/posts/[id]）
+  viewCount: integer('viewCount').default(0).notNull(),
+  // 管理员置顶（置顶帖在信息流最前）
+  pinned: boolean('pinned').default(false).notNull(),
+  // 帖子收到的「帖子点赞」数（与歌曲点赞 Vote 无关）
+  likeCount: integer('likeCount').default(0).notNull(),
 }, (table) => [
   index('CommunityPost_feed_idx').on(table.status, table.createdAt),
   index('CommunityPost_board_feed_idx').on(table.boardId, table.status, table.createdAt),
@@ -1176,6 +1182,16 @@ export const communityPostImages = pgTable('CommunityPostImage', {
 ]);
 
 // 社区全局配置（单例，id 固定为 1）：开关、图片开关与阿里云内容安全参数
+// 帖子点赞：与「歌曲点赞」Vote 完全独立，仅影响帖子热度/互动氛围
+export const communityPostLikes = pgTable('CommunityPostLike', {
+  postId: integer('postId').notNull().references(() => communityPosts.id, { onDelete: 'cascade' }),
+  userId: integer('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.postId, table.userId] }),
+  index('CommunityPostLike_user_idx').on(table.userId, table.createdAt)
+]);
+
 export const communitySettings = pgTable('CommunitySettings', {
   id: integer('id').primaryKey().default(1),
   updatedAt: timestamp('updatedAt').defaultNow().notNull(),

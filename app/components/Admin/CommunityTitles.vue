@@ -52,29 +52,43 @@
               <Award :size="17" />
             </span>
             <div class="min-w-0">
-              <h3 class="truncate text-sm font-black text-text-primary">{{ title.name }}</h3>
-              <p class="text-[10px] text-text-tertiary">{{ t.holderCount }} {{ title.holderCount }}</p>
+              <h3 class="flex items-center gap-2 truncate text-sm font-black text-text-primary">
+                {{ title.name }}
+                <span
+                  v-if="title.system"
+                  class="shrink-0 rounded-full bg-primary-hover-10 px-2 py-0.5 text-[10px] font-black text-primary"
+                >
+                  {{ t.systemBadge }}
+                </span>
+              </h3>
+              <p class="text-[10px] text-text-tertiary">
+                {{ t.holderCount }} {{ title.holderCount }}
+                <span v-if="title.threshold"> · {{ t.thresholdLabel }} {{ title.threshold }}</span>
+              </p>
             </div>
           </div>
         </div>
         <p class="mt-3 flex-1 whitespace-pre-wrap break-words text-xs text-text-tertiary">
           {{ title.description || '-' }}
         </p>
-        <div class="mt-4 flex gap-2">
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-border-secondary px-3 py-1.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary"
-            @click="openEditor(title)"
-          >
-            <Pencil :size="13" /> {{ t.edit }}
-          </button>
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-border-secondary px-3 py-1.5 text-xs font-bold text-text-tertiary hover:border-error-30 hover:text-error"
-            @click="askDelete(title)"
-          >
-            <Trash2 :size="13" /> {{ t.delete }}
-          </button>
+        <div class="mt-4 flex flex-wrap items-center gap-2">
+          <template v-if="!title.system">
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-border-secondary px-3 py-1.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary"
+              @click="openEditor(title)"
+            >
+              <Pencil :size="13" /> {{ t.edit }}
+            </button>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-border-secondary px-3 py-1.5 text-xs font-bold text-text-tertiary hover:border-error-30 hover:text-error"
+              @click="askDelete(title)"
+            >
+              <Trash2 :size="13" /> {{ t.delete }}
+            </button>
+          </template>
+          <p v-else class="text-[10px] text-text-disabled">{{ t.systemTitleHint }}</p>
         </div>
       </article>
     </section>

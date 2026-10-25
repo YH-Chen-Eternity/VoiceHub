@@ -505,6 +505,13 @@
       "when": 1792887882653,
       "tag": "20261025002442_petite_kingpin",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1792900381536,
+      "tag": "20261025035301_cute_lionheart",
+      "breakpoints": true
     }
   ]
 }

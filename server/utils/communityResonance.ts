@@ -47,7 +47,7 @@ type PartnerRow = {
   firstAt: Date | string
 }
 
-async function ensureCommunityTitle(name: string, description: string): Promise<number> {
+export async function ensureCommunityTitle(name: string, description: string): Promise<number> {
   await db.insert(communityTitles).values({ name, description }).onConflictDoNothing()
   const [row] = await db
     .select({ id: communityTitles.id })

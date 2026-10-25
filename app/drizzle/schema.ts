@@ -1170,7 +1170,9 @@ export const communityPostImages = pgTable('CommunityPostImage', {
   sortOrder: integer('sortOrder').default(0).notNull(),
 }, (table) => [
   primaryKey({ columns: [table.postId, table.mediaId] }),
-  index('CommunityPostImage_post_idx').on(table.postId, table.sortOrder)
+  index('CommunityPostImage_post_idx').on(table.postId, table.sortOrder),
+  // 媒体可见性校验按 mediaId 反查帖子，补索引避免大帖量时回表变慢
+  index('CommunityPostImage_mediaId_idx').on(table.mediaId)
 ]);
 
 // 社区全局配置（单例，id 固定为 1）：开关、图片开关与阿里云内容安全参数

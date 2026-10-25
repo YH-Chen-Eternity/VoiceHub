@@ -1143,7 +1143,7 @@ export const pages = {
       deleteBoardTitle: '删除板块',
       deleteBoardMsg: '只有没有帖子的板块可以删除，删除后不可恢复。确定删除吗？',
       assignReviewers: '分配审帖员',
-      assignHint: '只有“审帖员”角色可以被分配；未分配时该审帖员可审核全部板块',
+      assignHint: '只有“审帖员”角色可以被分配；至少分配一个板块后，该审帖员才能审核对应板块（未分配 = 无审核权限）',
       noReviewers: '暂无审帖员，请先在用户管理中把角色设为审帖员',
       reviewerSaved: '审帖员已更新',
       reviewersLabel: '审帖员',

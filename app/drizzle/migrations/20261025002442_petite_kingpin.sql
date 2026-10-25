@@ -1,0 +1,1 @@
+CREATE INDEX "CommunityPostImage_mediaId_idx" ON "CommunityPostImage" USING btree ("mediaId");

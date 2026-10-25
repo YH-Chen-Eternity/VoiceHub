@@ -1164,7 +1164,7 @@ export const pages = {
       deleteBoardTitle: 'Delete board',
       deleteBoardMsg: 'Only boards without posts can be deleted. This cannot be undone. Continue?',
       assignReviewers: 'Assign reviewers',
-      assignHint: 'Only users with the Reviewer role can be assigned. With none assigned, every reviewer can review all boards.',
+      assignHint: 'Only users with the Reviewer role can be assigned. A reviewer can only review the boards assigned to them (no assignment = no review permission).',
       noReviewers: 'No reviewers yet. Set a user role to Reviewer in User Management first.',
       reviewerSaved: 'Reviewers updated',
       reviewersLabel: 'Reviewers',
